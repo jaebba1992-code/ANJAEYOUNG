@@ -433,7 +433,8 @@ document.querySelectorAll('#intensitySeg .seg-btn').forEach(btn => {
 });
 
 document.getElementById('copyBtn').addEventListener('click', () => {
-  const text = document.getElementById('resultBody').innerText;
+  const scriptEl = document.querySelector('#resultBody .script-body');
+  const text = scriptEl ? scriptEl.innerText : document.getElementById('resultBody').innerText;
   navigator.clipboard.writeText(text);
   const btn = document.getElementById('copyBtn');
   const old = btn.textContent;
@@ -687,6 +688,8 @@ ${citeOn ? '- 통계·수치·사실관계를 언급할 때는 문장 뒤에 (�
 - 결과는 대본 본문만 출력하고 다른 설명은 붙이지 않는다.` + salesSystemBlock();
 }
 
+let lfState = null;
+
 async function generateScript() {
   const topic = document.getElementById('topic').value.trim();
   const category = document.getElementById('category').value;
@@ -704,8 +707,6 @@ async function generateScript() {
   const resultLabel = document.getElementById('resultLabel');
   const charcount = document.getElementById('charcount');
   const progressWrap = document.getElementById('progressWrap');
-  const progressBar = document.getElementById('progressBar');
-  const progressText = document.getElementById('progressText');
 
   if (!topic) { alert('영상 주제를 입력해주세요.'); return; }
 
@@ -746,75 +747,21 @@ async function generateScript() {
       resultLabel.textContent = '롱폼 상세 대본';
       progressWrap.style.display = 'block';
 
-      const TARGET_CHARS = 10500;
-      const MAX_CHUNKS = 10;
-      let fullScript = '';
-      let chunkIndex = 0;
-      let coveredTopics = [];
-
       const longSystem = baseSystem(citeOn) + `\n- 최종 대본 본문이 1만자 이상이어야 한다. 요약하지 말고 상세히 설명한다.
 - 지금은 전체 대본 중 한 부분만 이어서 쓴다. 이미 다룬 소제목/항목은 절대 반복하지 않는다.
 - 이번 청크는 문장이 중간에 끊기지 않게 완결된 단락으로 마무리한다.` + sourceBlock;
 
-      while (fullScript.length < TARGET_CHARS && chunkIndex < MAX_CHUNKS) {
-        chunkIndex++;
-        progressText.textContent = `작성 중 (${fullScript.length.toLocaleString()} / ${TARGET_CHARS.toLocaleString()}자) · ${chunkIndex}번째 구간`;
-        progressBar.style.width = Math.min(100, Math.round((fullScript.length / TARGET_CHARS) * 100)) + '%';
+      lfState = {
+        fullScript: '',
+        chunkIndex: 0,
+        coveredTopics: [],
+        contextLine, longSystem, citeOn, category,
+        TARGET_CHARS: 10500,
+        MAX_CHUNKS: 10,
+        scriptDiv
+      };
 
-        const topicsNote = coveredTopics.length
-          ? `\n\n[이미 다룬 소제목 — 절대 반복 금지]\n${coveredTopics.map((t,i)=>`${i+1}. ${t}`).join('\n')}`
-          : '';
-
-        let stagePrompt;
-        if (chunkIndex === 1) {
-          stagePrompt = `${contextLine}\n\n상세 롱폼 대본의 도입부(강한 훅 + 문제 제기)를 써줘. 본론은 아직 시작하지 마.`;
-        } else if (fullScript.length < TARGET_CHARS * 0.85) {
-          stagePrompt = `${contextLine}\n\n지금까지 작성된 대본의 마지막 부분:\n"""\n${fullScript.slice(-1200)}\n"""${topicsNote}\n\n위에 자연스럽게 이어서, 아직 다루지 않은 새로운 소제목(항목)으로 본론을 계속 써줘. 새 소제목을 시작할 땐 굵게(**소제목**) 표시해줘. 아직 마무리하지 말고.`;
-        } else {
-          stagePrompt = `${contextLine}\n\n지금까지 작성된 대본의 마지막 부분:\n"""\n${fullScript.slice(-1200)}\n"""${topicsNote}\n\n위에 자연스럽게 이어서, 전체 내용을 요약 정리하고 CTA로 대본을 완결해줘. 문장을 반드시 끝맺어줘.`;
-        }
-
-        let chunk;
-        try {
-          chunk = await callClaude(longSystem, [{ role: 'user', content: stagePrompt }]);
-        } catch (chunkErr) {
-          progressText.textContent = `${chunkIndex}번째 구간 오류 — ${fullScript.length.toLocaleString()}자는 남아있어요.`;
-          const errDiv = document.createElement('div');
-          errDiv.className = 'error-box';
-          errDiv.style.marginTop = '14px';
-          errDiv.textContent = '오류: ' + chunkErr.message;
-          resultBody.appendChild(errDiv);
-          break;
-        }
-        if (!chunk) break;
-        fullScript += (fullScript ? '\n\n' : '') + chunk.trim();
-        scriptDiv.textContent = fullScript;
-        charcount.innerHTML = `대본 <b>${fullScript.length.toLocaleString()}</b>자`;
-
-        const headerMatches = chunk.match(/\*\*([^*]{2,40})\*\*/g) || [];
-        headerMatches.forEach(h => {
-          const clean = h.replace(/\*\*/g, '').trim();
-          if (clean && !coveredTopics.includes(clean)) coveredTopics.push(clean);
-        });
-
-        if (chunkIndex > 2 && fullScript.length >= TARGET_CHARS * 0.85 &&
-            /(문의|상담|신청|연락|가입).{0,15}(주세요|드립니다|바랍니다)?[.!]?\s*$/.test(chunk.trim().slice(-60))) {
-          break;
-        }
-        await new Promise(r => setTimeout(r, 300));
-      }
-
-      progressText.textContent = `완료 — 대본 ${fullScript.length.toLocaleString()}자`;
-      progressBar.style.width = '100%';
-
-      if (citeOn) {
-        const stamp = document.createElement('div');
-        stamp.style.cssText = 'display:flex; align-items:center; gap:10px; margin-top:16px; padding-top:14px; border-top:1px solid var(--line);';
-        stamp.innerHTML = `<div class="stamp">출처<br>확인</div><span style="font-size:12px; color:var(--paper-mute);">통계·수치 문장에 출처 표시가 반영되었어요. 실제 배포 전 원문과 다시 한번 대조해주세요.</span>`;
-        resultBody.appendChild(stamp);
-      }
-
-      await generateBundle(fullScript, contextLine, category);
+      await runLongFormChunks(lfState);
     }
   } catch (err) {
     resultBody.innerHTML = '<div class="error-box">오류가 발생했어요: ' + err.message + '</div>';
@@ -822,6 +769,97 @@ async function generateScript() {
     genBtn.disabled = false;
     genBtn.textContent = '대본 생성하기';
   }
+}
+
+async function runLongFormChunks(state) {
+  const resultBody = document.getElementById('resultBody');
+  const charcount = document.getElementById('charcount');
+  const progressBar = document.getElementById('progressBar');
+  const progressText = document.getElementById('progressText');
+
+  const existingContinueBtn = document.getElementById('continueBtn');
+  if (existingContinueBtn) existingContinueBtn.remove();
+  const existingErr = resultBody.querySelector('.error-box');
+  if (existingErr) existingErr.remove();
+
+  while (state.fullScript.length < state.TARGET_CHARS && state.chunkIndex < state.MAX_CHUNKS) {
+    state.chunkIndex++;
+    progressText.textContent = `작성 중 (${state.fullScript.length.toLocaleString()} / ${state.TARGET_CHARS.toLocaleString()}자) · ${state.chunkIndex}번째 구간`;
+    progressBar.style.width = Math.min(100, Math.round((state.fullScript.length / state.TARGET_CHARS) * 100)) + '%';
+
+    const topicsNote = state.coveredTopics.length
+      ? `\n\n[이미 다룬 소제목 — 절대 반복 금지]\n${state.coveredTopics.map((t,i)=>`${i+1}. ${t}`).join('\n')}`
+      : '';
+
+    let stagePrompt;
+    if (state.chunkIndex === 1) {
+      stagePrompt = `${state.contextLine}\n\n상세 롱폼 대본의 도입부(강한 훅 + 문제 제기)를 써줘. 본론은 아직 시작하지 마.`;
+    } else if (state.fullScript.length < state.TARGET_CHARS * 0.85) {
+      stagePrompt = `${state.contextLine}\n\n지금까지 작성된 대본의 마지막 부분:\n"""\n${state.fullScript.slice(-1200)}\n"""${topicsNote}\n\n위에 자연스럽게 이어서, 아직 다루지 않은 새로운 소제목(항목)으로 본론을 계속 써줘. 새 소제목을 시작할 땐 굵게(**소제목**) 표시해줘. 아직 마무리하지 말고.`;
+    } else {
+      stagePrompt = `${state.contextLine}\n\n지금까지 작성된 대본의 마지막 부분:\n"""\n${state.fullScript.slice(-1200)}\n"""${topicsNote}\n\n위에 자연스럽게 이어서, 전체 내용을 요약 정리하고 CTA로 대본을 완결해줘. 문장을 반드시 끝맺어줘.`;
+    }
+
+    let chunk;
+    try {
+      chunk = await callClaude(state.longSystem, [{ role: 'user', content: stagePrompt }]);
+    } catch (chunkErr) {
+      state.chunkIndex--; // this attempt failed, don't count it as done — retry will redo this same stage
+      progressText.textContent = `${state.chunkIndex + 1}번째 구간에서 오류 — 지금까지 ${state.fullScript.length.toLocaleString()}자는 남아있어요. 이어서 쓰기를 누르면 여기서부터 계속돼요.`;
+      const errDiv = document.createElement('div');
+      errDiv.className = 'error-box';
+      errDiv.style.marginTop = '14px';
+      errDiv.textContent = '오류: ' + chunkErr.message;
+      resultBody.appendChild(errDiv);
+      addContinueButton(state, '이어서 쓰기');
+      return;
+    }
+    if (!chunk) break;
+    state.fullScript += (state.fullScript ? '\n\n' : '') + chunk.trim();
+    state.scriptDiv.textContent = state.fullScript;
+    charcount.innerHTML = `대본 <b>${state.fullScript.length.toLocaleString()}</b>자`;
+
+    const headerMatches = chunk.match(/\*\*([^*]{2,40})\*\*/g) || [];
+    headerMatches.forEach(h => {
+      const clean = h.replace(/\*\*/g, '').trim();
+      if (clean && !state.coveredTopics.includes(clean)) state.coveredTopics.push(clean);
+    });
+
+    if (state.chunkIndex > 2 && state.fullScript.length >= state.TARGET_CHARS * 0.85 &&
+        /(문의|상담|신청|연락|가입).{0,15}(주세요|드립니다|바랍니다)?[.!]?\s*$/.test(chunk.trim().slice(-60))) {
+      break;
+    }
+    await new Promise(r => setTimeout(r, 300));
+  }
+
+  progressText.textContent = `완료 — 대본 ${state.fullScript.length.toLocaleString()}자`;
+  progressBar.style.width = '100%';
+
+  if (state.citeOn) {
+    const stamp = document.createElement('div');
+    stamp.style.cssText = 'display:flex; align-items:center; gap:10px; margin-top:16px; padding-top:14px; border-top:1px solid var(--line);';
+    stamp.innerHTML = `<div class="stamp">출처<br>확인</div><span style="font-size:12px; color:var(--paper-mute);">통계·수치 문장에 출처 표시가 반영되었어요. 실제 배포 전 원문과 다시 한번 대조해주세요.</span>`;
+    resultBody.appendChild(stamp);
+  }
+
+  addContinueButton(state, '더 길게 이어쓰기');
+  await generateBundle(state.fullScript, state.contextLine, state.category);
+}
+
+function addContinueButton(state, label) {
+  const resultBody = document.getElementById('resultBody');
+  const btn = document.createElement('button');
+  btn.id = 'continueBtn';
+  btn.className = 'copy-btn';
+  btn.style.cssText = 'margin-top:14px; width:100%; padding:11px;';
+  btn.textContent = label;
+  btn.onclick = async () => {
+    btn.disabled = true;
+    btn.textContent = '이어서 생성 중...';
+    if (state.chunkIndex >= state.MAX_CHUNKS) state.MAX_CHUNKS += 4;
+    await runLongFormChunks(state);
+  };
+  resultBody.appendChild(btn);
 }
 
 async function generateBundle(script, contextLine, category) {
