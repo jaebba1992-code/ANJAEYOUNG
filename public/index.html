@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;600;700&family=Pretendard:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
   :root {
     --ink: #12141a;
@@ -367,11 +368,11 @@
     <div class="row" id="sourceRow" style="display:none;">
       <div class="field">
         <label>출처자료 <span class="opt">(근거로 삼을 자료 원문 — 약관, 통계, 기사, 자막 등)</span></label>
-        <textarea id="source" rows="6" placeholder="여기에 근거 자료를 붙여넣거나, 아래에서 PPT 파일을 첨부하면 텍스트가 자동으로 채워져요."></textarea>
-        <div style="display:flex; align-items:center; gap:10px; margin-top:8px;">
-          <label for="pptxInput" class="copy-btn" style="cursor:pointer; display:inline-block;">+ PPT 파일 첨부</label>
-          <input type="file" id="pptxInput" accept=".pptx" style="display:none;">
-          <span id="pptxStatus" style="font-size:12px; color:var(--paper-mute);"></span>
+        <textarea id="source" rows="6" placeholder="여기에 근거 자료를 붙여넣거나, 아래에서 PPT/PDF 파일을 첨부하면 텍스트(이미지 속 글자 포함)가 자동으로 채워져요."></textarea>
+        <div style="display:flex; align-items:center; gap:10px; margin-top:8px; flex-wrap:wrap;">
+          <label for="fileInput" class="copy-btn" style="cursor:pointer; display:inline-block;">+ PPT / PDF 파일 첨부</label>
+          <input type="file" id="fileInput" accept=".pptx,.pdf" style="display:none;">
+          <span id="fileStatus" style="font-size:12px; color:var(--paper-mute);"></span>
         </div>
       </div>
     </div>
@@ -439,31 +440,65 @@ document.getElementById('copyBtn').addEventListener('click', () => {
   setTimeout(() => btn.textContent = old, 1200);
 });
 
-document.getElementById('pptxInput').addEventListener('change', handlePptxUpload);
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-async function handlePptxUpload(e) {
+document.getElementById('fileInput').addEventListener('change', handleFileUpload);
+
+async function resizeImageToBase64(rawBase64, mediaType, maxWidth = 1000, quality = 0.82) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      let w = img.width, h = img.height;
+      if (w > maxWidth) { h = Math.round(h * maxWidth / w); w = maxWidth; }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, w, h);
+      const dataUrl = canvas.toDataURL('image/jpeg', quality);
+      resolve(dataUrl.split(',')[1]);
+    };
+    img.onerror = () => reject(new Error('이미지 디코딩 실패'));
+    img.src = `data:${mediaType};base64,${rawBase64}`;
+  });
+}
+
+async function extractTextFromImageBase64(base64, mediaType) {
+  const messages = [{
+    role: 'user',
+    content: [
+      { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
+      { type: 'text', text: '이 이미지에 있는 텍스트를 빠짐없이 그대로 추출해줘. 표 형태라면 줄바꿈과 항목 구분을 살려서 옮겨줘. 이미지 안에 텍스트가 전혀 없으면 "텍스트 없음" 이라고만 답하고, 다른 설명은 절대 하지 마.' }
+    ]
+  }];
+  const text = await callClaude(undefined, messages);
+  return (text || '').trim();
+}
+
+async function handleFileUpload(e) {
   const file = e.target.files[0];
-  const statusEl = document.getElementById('pptxStatus');
-  const sourceEl = document.getElementById('source');
   if (!file) return;
+  const ext = file.name.toLowerCase().split('.').pop();
+  if (ext === 'pptx') {
+    await handlePptxUpload(file);
+  } else if (ext === 'pdf') {
+    await handlePdfUpload(file);
+  } else {
+    document.getElementById('fileStatus').textContent = 'pptx 또는 pdf 파일만 지원해요.';
+  }
+}
 
-  statusEl.textContent = '읽는 중...';
+async function handlePptxUpload(file) {
+  const statusEl = document.getElementById('fileStatus');
+  const sourceEl = document.getElementById('source');
+
+  statusEl.textContent = '슬라이드 텍스트 읽는 중...';
   try {
     const buffer = await file.arrayBuffer();
     const zip = await JSZip.loadAsync(buffer);
 
     const slideFiles = Object.keys(zip.files)
       .filter(name => /^ppt\/slides\/slide\d+\.xml$/.test(name))
-      .sort((a, b) => {
-        const na = parseInt(a.match(/slide(\d+)\.xml/)[1], 10);
-        const nb = parseInt(b.match(/slide(\d+)\.xml/)[1], 10);
-        return na - nb;
-      });
-
-    if (slideFiles.length === 0) {
-      statusEl.textContent = '슬라이드 텍스트를 찾지 못했어요.';
-      return;
-    }
+      .sort((a, b) => parseInt(a.match(/slide(\d+)/)[1], 10) - parseInt(b.match(/slide(\d+)/)[1], 10));
 
     const parser = new DOMParser();
     let extracted = '';
@@ -477,21 +512,103 @@ async function handlePptxUpload(e) {
         const t = textNodes[j].textContent.trim();
         if (t) lines.push(t);
       }
-      if (lines.length) {
-        extracted += `[슬라이드 ${i + 1}]\n${lines.join(' ')}\n\n`;
+      if (lines.length) extracted += `[슬라이드 ${i + 1} 텍스트]\n${lines.join(' ')}\n\n`;
+    }
+
+    const mediaFiles = Object.keys(zip.files)
+      .filter(name => /^ppt\/media\/image\d+\.(png|jpe?g)$/i.test(name));
+
+    const MAX_IMAGES = 20;
+    const toProcess = mediaFiles.slice(0, MAX_IMAGES);
+
+    for (let i = 0; i < toProcess.length; i++) {
+      statusEl.textContent = `이미지에서 텍스트 읽는 중... (${i + 1}/${toProcess.length})`;
+      const name = toProcess[i];
+      const rawBase64 = await zip.files[name].async('base64');
+      const mediaType = /\.png$/i.test(name) ? 'image/png' : 'image/jpeg';
+      try {
+        const resized = await resizeImageToBase64(rawBase64, mediaType);
+        const ocrText = await extractTextFromImageBase64(resized, 'image/jpeg');
+        if (ocrText && !/^텍스트\s*없음/.test(ocrText)) {
+          extracted += `[이미지 ${i + 1} 인식 텍스트]\n${ocrText}\n\n`;
+        }
+      } catch (imgErr) {
+        extracted += `[이미지 ${i + 1} 처리 실패: ${imgErr.message}]\n\n`;
       }
     }
 
+    if (mediaFiles.length > MAX_IMAGES) {
+      extracted += `(※ 이미지가 ${mediaFiles.length}장이라 앞의 ${MAX_IMAGES}장만 처리했어요.)\n\n`;
+    }
+
     if (!extracted.trim()) {
-      statusEl.textContent = '슬라이드에서 텍스트를 추출하지 못했어요 (이미지 위주 PPT일 수 있어요).';
+      statusEl.textContent = '텍스트/이미지를 찾지 못했어요.';
       return;
     }
 
     const prefix = sourceEl.value.trim() ? sourceEl.value.trim() + '\n\n' : '';
     sourceEl.value = prefix + `--- ${file.name} 추출 내용 ---\n` + extracted.trim();
-    statusEl.textContent = `"${file.name}"에서 슬라이드 ${slideFiles.length}장 텍스트를 불러왔어요.`;
+    statusEl.textContent = `"${file.name}" 처리 완료 (슬라이드 텍스트 + 이미지 ${toProcess.length}장 인식)`;
   } catch (err) {
-    statusEl.textContent = 'PPT를 읽는 중 오류가 발생했어요: ' + err.message;
+    statusEl.textContent = 'PPT 처리 중 오류: ' + err.message;
+  }
+}
+
+async function handlePdfUpload(file) {
+  const statusEl = document.getElementById('fileStatus');
+  const sourceEl = document.getElementById('source');
+  const MAX_PAGES = 30;
+
+  statusEl.textContent = 'PDF 여는 중...';
+  try {
+    const buffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
+    const totalPages = pdf.numPages;
+    const pagesToRead = Math.min(totalPages, MAX_PAGES);
+    let extracted = '';
+
+    for (let p = 1; p <= pagesToRead; p++) {
+      statusEl.textContent = `PDF 페이지 처리 중... (${p}/${pagesToRead})`;
+      const page = await pdf.getPage(p);
+      const textContent = await page.getTextContent();
+      const pageText = textContent.items.map(it => it.str).join(' ').trim();
+
+      if (pageText.length > 20) {
+        extracted += `[p.${p}]\n${pageText}\n\n`;
+      } else {
+        try {
+          const viewport = page.getViewport({ scale: 1.4 });
+          const canvas = document.createElement('canvas');
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
+          const ctx = canvas.getContext('2d');
+          await page.render({ canvasContext: ctx, viewport }).promise;
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+          const base64 = dataUrl.split(',')[1];
+          const ocrText = await extractTextFromImageBase64(base64, 'image/jpeg');
+          if (ocrText && !/^텍스트\s*없음/.test(ocrText)) {
+            extracted += `[p.${p} - 이미지 인식]\n${ocrText}\n\n`;
+          }
+        } catch (pageErr) {
+          extracted += `[p.${p} 처리 실패: ${pageErr.message}]\n\n`;
+        }
+      }
+    }
+
+    if (totalPages > MAX_PAGES) {
+      extracted += `(※ 전체 ${totalPages}페이지 중 앞의 ${MAX_PAGES}페이지만 처리했어요. 필요한 부분만 발췌해서 올리시는 걸 추천드려요.)\n\n`;
+    }
+
+    if (!extracted.trim()) {
+      statusEl.textContent = 'PDF에서 텍스트를 찾지 못했어요.';
+      return;
+    }
+
+    const prefix = sourceEl.value.trim() ? sourceEl.value.trim() + '\n\n' : '';
+    sourceEl.value = prefix + `--- ${file.name} 추출 내용 (${pagesToRead}페이지) ---\n` + extracted.trim();
+    statusEl.textContent = `"${file.name}" 처리 완료 (${pagesToRead}/${totalPages}페이지)`;
+  } catch (err) {
+    statusEl.textContent = 'PDF 처리 중 오류: ' + err.message;
   }
 }
 
