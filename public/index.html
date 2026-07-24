@@ -380,7 +380,7 @@
 
     <div class="checkline" id="citeRow" style="display:none;">
       <input type="checkbox" id="citeToggle" checked>
-      <div class="txt"><b>출처 표시 켜기</b> — 통계·수치가 들어가는 문장 뒤에 어떤 자료를 근거로 했는지 표시해줘요. 근거가 불확실한 수치는 대본에 넣지 않고 안전하게 우회합니다.</div>
+      <div class="txt"><b>출처 표시 켜기</b> — 첨부자료 안에 있으면 그 위치를, 없으면 실제 웹 검색으로 찾은 출처(사이트명+링크)를 문장마다 표시해줘요. 근거를 못 찾은 수치는 대본에 넣지 않고 안전하게 우회합니다. (심의 제출용 증빙 대비용)</div>
     </div>
 
     <button class="generate" id="genBtn">대본 생성하기</button>
@@ -632,7 +632,7 @@ async function handlePdfUpload(file) {
 
 document.getElementById('genBtn').addEventListener('click', generateScript);
 
-async function callClaude(system, messages, retries = 3) {
+async function callClaude(system, messages, retries = 3, tools = null) {
   let lastErr;
   for (let attempt = 0; attempt <= retries; attempt++) {
     const controller = new AbortController();
@@ -641,7 +641,7 @@ async function callClaude(system, messages, retries = 3) {
       const response = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ system, messages }),
+        body: JSON.stringify({ system, messages, tools: tools || undefined }),
         signal: controller.signal
       });
       clearTimeout(timeoutId);
@@ -684,9 +684,14 @@ function baseSystem(citeOn) {
 - 전문 용어는 쉬운 비유로 풀어서 설명한다.
 - 실제 사람이 카메라 앞에서 말하듯 자연스러운 구어체로 작성한다.
 - 후킹(강한 도입)과 기승전결이 명확한 구조로 작성한다.
-${citeOn ? '- 통계·수치·사실관계를 언급할 때는 문장 뒤에 (출처: 제공된 자료 기준) 형태로 간단히 표시한다. 제공된 출처자료에 없는 수치는 지어내지 않고, "정확한 수치는 약관/공시자료로 확인해달라"는 식으로 안전하게 표현한다.' : '- 확인되지 않은 통계·수치는 단정적으로 말하지 않는다.'}
+${citeOn ? `- 통계·수치·사실관계를 언급할 때는 반드시 문장 뒤에 출처를 표시한다. 두 가지 경우로 나눈다:
+  1) 제공된 출처자료 안에 있는 내용이면: "(출처: 첨부자료 - 해당 위치)" 형식으로 표시한다. 자료 원문에 [p.12]나 [슬라이드 4] 같은 위치 표시가 있으면 그걸 그대로 활용해서 "(출처: 첨부자료 p.12)" 식으로 정확히 표시한다.
+  2) 제공된 출처자료에 없는 내용이면: 절대로 "정확한 수치는 통계청/공시자료로 확인해달라" 같은 회피성 문구로 넘어가지 않는다. 그 대신 반드시 web_search 도구를 실제로 실행해서 진짜 수치와 출처를 찾아낸 뒤, 찾아낸 실제 수치를 문장에 쓰고 "(출처: 기관/사이트명, URL)" 형식으로 실제 링크를 표시한다. 이건 생략 불가한 필수 절차다 — 통계나 수치를 언급하려는 순간, 먼저 검색부터 한다.
+  3) 여러 번 검색해도 정말 신뢰할 만한 근거를 못 찾은 경우에만, 그 구체적 수치 자체를 문장에서 빼고 수치 없이 서술한다 (예: "많은 가정에서 예상보다 큰 지출 부담을 느낀다" 처럼). 이때도 "확인해주세요" 같은 회피 문구는 쓰지 않는다 — 그냥 자연스럽게 수치 없는 문장으로 바꿔 쓴다.` : '- 확인되지 않은 통계·수치는 단정적으로 말하지 않는다.'}
 - 결과는 대본 본문만 출력하고 다른 설명은 붙이지 않는다.` + salesSystemBlock();
 }
+
+const WEB_SEARCH_TOOL = [{ type: 'web_search_20250305', name: 'web_search' }];
 
 let lfState = null;
 
@@ -733,7 +738,7 @@ async function generateScript() {
   try {
     if (format === 'short') {
       resultLabel.textContent = '숏폼 대본 (30~60초)';
-      const system = baseSystem(false) + `\n- 30~60초 숏폼 대본. 3초 안에 시선을 잡는 강한 훅으로 시작, 핵심 정보 1~2개, 명확한 CTA로 마무리. 분량 200~350자.`;
+      const system = baseSystem(false) + `\n- 30~60초 숏폼 대본. 3초 안에 시선을 잡는 강한 훅으로 시작, 핵심 정보 1~2개, 마지막은 "왜 지금 댓글/DM/문의를 해야 하는지" 이유가 담긴 힘있는 CTA로 마무리 (단순 "궁금하면 문의하세요"가 아니라 지금 행동해야 하는 이유 포함). 분량 200~350자.`;
       const userPrompt = `${contextLine}\n\n위 조건에 맞는 숏폼 대본을 작성해줘.`;
       const script = await callClaude(system, [{ role: 'user', content: userPrompt }]);
       resultBody.innerHTML = '';
@@ -755,7 +760,7 @@ async function generateScript() {
         fullScript: '',
         chunkIndex: 0,
         coveredTopics: [],
-        contextLine, longSystem, citeOn, category,
+        contextLine, longSystem, citeOn, category, host,
         TARGET_CHARS: 10500,
         MAX_CHUNKS: 10,
         scriptDiv
@@ -797,12 +802,12 @@ async function runLongFormChunks(state) {
     } else if (state.fullScript.length < state.TARGET_CHARS * 0.85) {
       stagePrompt = `${state.contextLine}\n\n지금까지 작성된 대본의 마지막 부분:\n"""\n${state.fullScript.slice(-1200)}\n"""${topicsNote}\n\n위에 자연스럽게 이어서, 아직 다루지 않은 새로운 소제목(항목)으로 본론을 계속 써줘. 새 소제목을 시작할 땐 굵게(**소제목**) 표시해줘. 아직 마무리하지 말고.`;
     } else {
-      stagePrompt = `${state.contextLine}\n\n지금까지 작성된 대본의 마지막 부분:\n"""\n${state.fullScript.slice(-1200)}\n"""${topicsNote}\n\n위에 자연스럽게 이어서, 전체 내용을 요약 정리하고 CTA로 대본을 완결해줘. 문장을 반드시 끝맺어줘.`;
+      stagePrompt = `${state.contextLine}\n\n지금까지 작성된 대본의 마지막 부분:\n"""\n${state.fullScript.slice(-1200)}\n"""${topicsNote}\n\n위에 자연스럽게 이어서, 대본을 마무리해줘. 마무리에는 반드시 아래 3가지가 순서대로 다 들어가야 한다 (하나라도 빠지면 안 됨):\n1) 내용 요약 정리\n2) 왜 "지금" 문의/상담해야 하는지 구체적인 이유 (예: 시간이 지나면 조건이 바뀔 수 있다, 지금 확인 안 하면 놓치는 게 있다 등 — 단순히 "궁금하면 문의하세요"가 아니라 지금 행동해야 하는 이유를 설득력 있게)\n3) 진행자 소개(PR) 한두 문장 — ${state.host ? `진행자 호칭 "${state.host}"을 활용해서 신뢰를 주는 짧은 자기소개` : '실명 없이 전문성을 어필하는 짧은 소개'}\n4) 힘있는 클로징 문장 (절대 "오늘 영상 어떠셨나요", "도움이 되셨길 바라요" 같은 밋밋한 소감형으로 끝내지 말 것)\n문장을 반드시 끝맺어줘.`;
     }
 
     let chunk;
     try {
-      chunk = await callClaude(state.longSystem, [{ role: 'user', content: stagePrompt }]);
+      chunk = await callClaude(state.longSystem, [{ role: 'user', content: stagePrompt }], 3, state.citeOn ? WEB_SEARCH_TOOL : null);
     } catch (chunkErr) {
       state.chunkIndex--; // this attempt failed, don't count it as done — retry will redo this same stage
       progressText.textContent = `${state.chunkIndex + 1}번째 구간에서 오류 — 지금까지 ${state.fullScript.length.toLocaleString()}자는 남아있어요. 이어서 쓰기를 누르면 여기서부터 계속돼요.`;
@@ -838,7 +843,7 @@ async function runLongFormChunks(state) {
   if (state.citeOn) {
     const stamp = document.createElement('div');
     stamp.style.cssText = 'display:flex; align-items:center; gap:10px; margin-top:16px; padding-top:14px; border-top:1px solid var(--line);';
-    stamp.innerHTML = `<div class="stamp">출처<br>확인</div><span style="font-size:12px; color:var(--paper-mute);">통계·수치 문장에 출처 표시가 반영되었어요. 실제 배포 전 원문과 다시 한번 대조해주세요.</span>`;
+    stamp.innerHTML = `<div class="stamp">출처<br>확인</div><span style="font-size:12px; color:var(--paper-mute);">통계·수치 문장마다 출처(첨부자료 위치 또는 실제 검색된 링크)가 표시되었어요. 심의 제출 전 원문과 다시 한번 대조해주세요.</span>`;
     resultBody.appendChild(stamp);
   }
 

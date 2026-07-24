@@ -8,7 +8,7 @@ module.exports = async function handler(req, res) {
     return res.status(500).json({ error: 'ANTHROPIC_API_KEY가 서버에 설정되지 않았어요. /api/health 에서 확인해주세요.' });
   }
 
-  const { system, messages } = req.body || {};
+  const { system, messages, tools } = req.body || {};
   if (!messages) {
     return res.status(400).json({ error: 'messages가 필요합니다.' });
   }
@@ -25,7 +25,8 @@ module.exports = async function handler(req, res) {
         model: 'claude-sonnet-4-6',
         max_tokens: 2048,
         system: system || undefined,
-        messages
+        messages,
+        tools: tools || undefined
       })
     });
 
@@ -35,8 +36,8 @@ module.exports = async function handler(req, res) {
       return res.status(response.status).json({ error: data?.error?.message || '알 수 없는 오류', raw: data });
     }
 
-    const block = (data.content || []).find(b => b.type === 'text');
-    return res.status(200).json({ text: block ? block.text : '' });
+    const textBlocks = (data.content || []).filter(b => b.type === 'text').map(b => b.text);
+    return res.status(200).json({ text: textBlocks.join('\n') });
   } catch (err) {
     return res.status(500).json({ error: String(err) });
   }
