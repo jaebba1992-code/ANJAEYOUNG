@@ -684,10 +684,10 @@ function baseSystem(citeOn) {
 - 전문 용어는 쉬운 비유로 풀어서 설명한다.
 - 실제 사람이 카메라 앞에서 말하듯 자연스러운 구어체로 작성한다.
 - 후킹(강한 도입)과 기승전결이 명확한 구조로 작성한다.
-${citeOn ? `- 통계·수치·사실관계를 언급할 때는 반드시 문장 뒤에 출처를 표시한다. 두 가지 경우로 나눈다:
-  1) 제공된 출처자료 안에 있는 내용이면: "(출처: 첨부자료 - 해당 위치)" 형식으로 표시한다. 자료 원문에 [p.12]나 [슬라이드 4] 같은 위치 표시가 있으면 그걸 그대로 활용해서 "(출처: 첨부자료 p.12)" 식으로 정확히 표시한다.
-  2) 제공된 출처자료에 없는 내용이면: 절대로 "정확한 수치는 통계청/공시자료로 확인해달라" 같은 회피성 문구로 넘어가지 않는다. 그 대신 반드시 web_search 도구를 실제로 실행해서 진짜 수치와 출처를 찾아낸 뒤, 찾아낸 실제 수치를 문장에 쓰고 "(출처: 기관/사이트명, URL)" 형식으로 실제 링크를 표시한다. 이건 생략 불가한 필수 절차다 — 통계나 수치를 언급하려는 순간, 먼저 검색부터 한다.
-  3) 여러 번 검색해도 정말 신뢰할 만한 근거를 못 찾은 경우에만, 그 구체적 수치 자체를 문장에서 빼고 수치 없이 서술한다 (예: "많은 가정에서 예상보다 큰 지출 부담을 느낀다" 처럼). 이때도 "확인해주세요" 같은 회피 문구는 쓰지 않는다 — 그냥 자연스럽게 수치 없는 문장으로 바꿔 쓴다.` : '- 확인되지 않은 통계·수치는 단정적으로 말하지 않는다.'}
+${citeOn ? `- 통계·수치·사실관계를 언급할 때는 반드시 문장 뒤에 출처를 표시한다. 아래 순서로 확인한다:
+  1) 제공된 [출처자료] 안에 있는 내용이면: "(출처: 첨부자료 - 해당 위치)" 형식으로 표시한다. 원문에 [p.12]나 [슬라이드 4] 같은 위치 표시가 있으면 그대로 활용한다.
+  2) [출처자료]에 없지만 [웹 검색으로 찾은 관련 자료]에 있는 내용이면: 그 안의 수치를 그대로 쓰고 "(출처: 기관/사이트명, URL)" 형식으로 표시한다. 절대 새로운 수치를 지어내지 않는다.
+  3) 두 자료 어디에도 없는 통계는 절대 언급하지 않는다. "정확한 수치는 확인해주세요" 같은 회피 문구도 쓰지 않는다 — 그냥 수치 없이 자연스럽게 서술한다 (예: "많은 가정에서 예상보다 큰 지출 부담을 느낀다").` : '- 확인되지 않은 통계·수치는 단정적으로 말하지 않는다.'}
 - 결과는 대본 본문만 출력하고 다른 설명은 붙이지 않는다.` + salesSystemBlock();
 }
 
@@ -752,9 +752,26 @@ async function generateScript() {
       resultLabel.textContent = '롱폼 상세 대본';
       progressWrap.style.display = 'block';
 
+      let researchBlock = '';
+      if (citeOn) {
+        progressText.textContent = '관련 통계·근거자료 검색 중... (최대 1분 정도 걸려요)';
+        try {
+          const researchSystem = `당신은 리서치 보조원입니다. 주어진 주제와 관련된 보험/금융 관련 실제 통계나 사실을 web_search 도구로 찾아서, 아래 형식으로만 정리해 출력하세요. 다른 설명 없이 목록만 출력합니다.
+형식: - [찾은 사실/수치 한 문장] (출처: 기관/사이트명, URL)
+신뢰할 수 있는 출처(정부기관, 공공데이터, 주요 언론사 등)만 사용하고, 3~6개 정도만 찾아서 정리하세요.`;
+          const researchPrompt = `${contextLine}\n\n위 주제로 대본을 쓸 때 근거로 쓸 수 있는 실제 통계나 사실을 검색해서 찾아줘.`;
+          const researchResult = await callClaude(researchSystem, [{ role: 'user', content: researchPrompt }], 1, WEB_SEARCH_TOOL, 1200);
+          if (researchResult && researchResult.trim()) {
+            researchBlock = `\n\n[웹 검색으로 찾은 관련 자료 — 필요할 때 이 안의 수치와 출처를 인용하세요]\n${researchResult.trim()}`;
+          }
+        } catch (researchErr) {
+          progressText.textContent = '검색 자료를 못 가져왔어요 (첨부자료만으로 계속 진행할게요)';
+        }
+      }
+
       const longSystem = baseSystem(citeOn) + `\n- 최종 대본 본문이 1만자 이상이어야 한다. 요약하지 말고 상세히 설명한다.
 - 지금은 전체 대본 중 한 부분만 이어서 쓴다. 이미 다룬 소제목/항목은 절대 반복하지 않는다.
-- 이번 청크는 문장이 중간에 끊기지 않게 완결된 단락으로 마무리한다.` + sourceBlock;
+- 이번 청크는 문장이 중간에 끊기지 않게 완결된 단락으로 마무리한다.` + sourceBlock + researchBlock;
 
       lfState = {
         fullScript: '',
@@ -807,8 +824,8 @@ async function runLongFormChunks(state) {
 
     let chunk;
     try {
-      const maxTok = state.citeOn ? 3200 : 2048;
-      chunk = await callClaude(state.longSystem, [{ role: 'user', content: stagePrompt }], 3, state.citeOn ? WEB_SEARCH_TOOL : null, maxTok);
+      const maxTok = state.citeOn ? 2560 : 2048;
+      chunk = await callClaude(state.longSystem, [{ role: 'user', content: stagePrompt }], 3, null, maxTok);
     } catch (chunkErr) {
       state.chunkIndex--; // this attempt failed, don't count it as done — retry will redo this same stage
       progressText.textContent = `${state.chunkIndex + 1}번째 구간에서 오류 — 지금까지 ${state.fullScript.length.toLocaleString()}자는 남아있어요. 이어서 쓰기를 누르면 여기서부터 계속돼요.`;
