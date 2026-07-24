@@ -391,6 +391,16 @@
       </div>
       <button class="copy-btn" id="libAddBtn" style="width:100%; padding:10px;">라이브러리에 저장</button>
       <div id="libraryList" style="margin-top:14px;"></div>
+
+      <div style="margin-top:22px; padding-top:18px; border-top:1px solid var(--line);">
+        <p style="font-size:12.5px; color:var(--brass); font-weight:600; margin:0 0 8px;">8,000페이지 대용량 출처자료 업로드 (관리자용, 최초 1회)</p>
+        <p style="font-size:12px; color:var(--paper-mute); line-height:1.7; margin:0 0 10px;">
+          미리 뽑아드린 .txt 원문 파일을 선택하면, 페이지 단위로 쪼개서 데이터베이스에 저장해요. 파일이 커서 시간이 좀 걸려요.
+        </p>
+        <input type="file" id="corpusFileInput" accept=".txt" multiple style="font-size:12px; color:var(--paper-dim);">
+        <button class="mini-btn" id="corpusUploadBtn" style="margin-left:8px;">업로드 시작</button>
+        <p id="corpusUploadStatus" style="font-size:11.5px; color:var(--paper-mute); margin-top:8px;"></p>
+      </div>
     </div>
   </div>
 
@@ -515,24 +525,43 @@
 let format = 'short';
 let intensity = 'normal';
 
-/* ===================== 심의 안전 표현 관리 ===================== */
+/* ===================== 심의 안전 표현 관리 (Supabase, 팀 공유) ===================== */
 const DEFAULT_BAN_WORDS = ['골든타임', '무조건', '100%', '반드시', '확정적으로', '지금 안 하면', '큰일'];
+let cachedBanWords = []; // [{id, word}]
 
-function loadBanWords() {
-  try {
-    const saved = JSON.parse(localStorage.getItem('ins_ban_words') || '[]');
-    return saved;
-  } catch (e) { return []; }
+async function apiGet(path) {
+  const res = await fetch(path);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || '요청 실패');
+  return data;
 }
-function saveBanWords(list) {
-  localStorage.setItem('ins_ban_words', JSON.stringify(list));
+async function apiPost(path, body) {
+  const res = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || '요청 실패');
+  return data;
+}
+async function apiDelete(path, body) {
+  const res = await fetch(path, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || '요청 실패');
+  return data;
+}
+
+async function refreshBanWords() {
+  try {
+    const { items } = await apiGet('/api/banned-words');
+    cachedBanWords = items || [];
+  } catch (e) {
+    cachedBanWords = [];
+  }
+  renderBanWordList();
 }
 function getAllBanWords() {
-  return [...DEFAULT_BAN_WORDS, ...loadBanWords()];
+  return [...DEFAULT_BAN_WORDS, ...cachedBanWords.map(w => w.word)];
 }
 function renderBanWordList() {
   const el = document.getElementById('banWordList');
-  const custom = loadBanWords();
   el.innerHTML = '';
   DEFAULT_BAN_WORDS.forEach(w => {
     const chip = document.createElement('span');
@@ -540,28 +569,26 @@ function renderBanWordList() {
     chip.innerHTML = `${escapeHtml(w)} <span style="font-size:10px;">(기본)</span>`;
     el.appendChild(chip);
   });
-  custom.forEach((w, i) => {
+  cachedBanWords.forEach(item => {
     const chip = document.createElement('span');
     chip.className = 'chip';
-    chip.innerHTML = `${escapeHtml(w)} <span class="x" data-i="${i}">×</span>`;
-    chip.querySelector('.x').addEventListener('click', () => {
-      const list = loadBanWords();
-      list.splice(i, 1);
-      saveBanWords(list);
-      renderBanWordList();
+    chip.innerHTML = `${escapeHtml(item.word)} <span class="x" data-id="${item.id}">×</span>`;
+    chip.querySelector('.x').addEventListener('click', async () => {
+      try { await apiDelete('/api/banned-words', { id: item.id }); await refreshBanWords(); }
+      catch (e) { alert('삭제 실패: ' + e.message); }
     });
     el.appendChild(chip);
   });
 }
-document.getElementById('banWordAddBtn').addEventListener('click', () => {
+document.getElementById('banWordAddBtn').addEventListener('click', async () => {
   const input = document.getElementById('banWordInput');
   const val = input.value.trim();
   if (!val) return;
-  const list = loadBanWords();
-  if (!list.includes(val)) list.push(val);
-  saveBanWords(list);
-  input.value = '';
-  renderBanWordList();
+  try {
+    await apiPost('/api/banned-words', { word: val });
+    input.value = '';
+    await refreshBanWords();
+  } catch (e) { alert('추가 실패: ' + e.message); }
 });
 document.getElementById('banWordInput').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') document.getElementById('banWordAddBtn').click();
@@ -573,7 +600,7 @@ document.getElementById('complianceToggle').addEventListener('click', () => {
   body.style.display = show ? 'block' : 'none';
   btn.textContent = show ? '접기' : '펼치기';
 });
-renderBanWordList();
+refreshBanWords();
 
 function complianceSystemBlock() {
   const words = getAllBanWords();
@@ -586,40 +613,30 @@ function complianceSystemBlock() {
 - 같은 의미를 전달해야 한다면, 사실 위주로 순화해서 표현한다.`;
 }
 
-function scanForBanWords(text) {
-  const words = getAllBanWords();
-  return words.filter(w => text.includes(w));
-}
-
-/* ===================== 이전 작업 기록 (localStorage) ===================== */
-function loadHistory() {
-  try { return JSON.parse(localStorage.getItem('ins_script_history') || '[]'); } catch (e) { return []; }
-}
-function saveHistory(list) {
-  // keep last 30 to avoid localStorage bloat
-  localStorage.setItem('ins_script_history', JSON.stringify(list.slice(0, 30)));
-}
-function addToHistory(entry) {
-  const list = loadHistory();
-  if (entry.id) {
-    const idx = list.findIndex(h => h.id === entry.id);
-    if (idx !== -1) {
-      list[idx] = { ...list[idx], ...entry };
-      saveHistory(list);
-      renderHistory();
-      return;
-    }
+/* ===================== 이전 작업 기록 (Supabase, 팀 공유) ===================== */
+async function addToHistory(entry) {
+  try {
+    await apiPost('/api/history', entry);
+    await renderHistory();
+  } catch (e) {
+    console.error('history save failed', e);
   }
-  list.unshift({ id: entry.id || Date.now(), ...entry });
-  saveHistory(list);
-  renderHistory();
 }
-function deleteFromHistory(id) {
-  saveHistory(loadHistory().filter(h => h.id !== id));
-  renderHistory();
+async function deleteFromHistory(id) {
+  try {
+    await apiDelete('/api/history', { id });
+    await renderHistory();
+  } catch (e) {
+    alert('삭제 실패: ' + e.message);
+  }
 }
-function renderHistory() {
-  const list = loadHistory();
+async function renderHistory() {
+  let list = [];
+  try {
+    const { items } = await apiGet('/api/history');
+    list = items || [];
+  } catch (e) { /* ignore, e.g. not configured yet */ }
+
   document.getElementById('historyPanel').style.display = list.length ? 'block' : 'none';
   document.getElementById('historyCount').textContent = `(${list.length}개)`;
   const el = document.getElementById('historyList');
@@ -628,7 +645,7 @@ function renderHistory() {
       <div class="hist-item-head">
         <div>
           <div class="hist-item-title">${escapeHtml(h.topic || '(제목 없음)')}</div>
-          <div class="hist-item-meta">${h.format === 'long' ? '롱폼' : '숏폼'} · ${h.category || ''} · ${new Date(h.id).toLocaleString('ko-KR')} · ${(h.script||'').length.toLocaleString()}자</div>
+          <div class="hist-item-meta">${h.format === 'long' ? '롱폼' : '숏폼'} · ${h.category || ''} · ${new Date(h.created_at || h.id).toLocaleString('ko-KR')} · ${(h.script||'').length.toLocaleString()}자</div>
         </div>
         <div class="hist-item-actions">
           <button class="mini-btn" data-action="view" data-id="${h.id}">보기</button>
@@ -639,7 +656,7 @@ function renderHistory() {
   `).join('');
   el.querySelectorAll('[data-action="view"]').forEach(btn => {
     btn.addEventListener('click', () => {
-      const h = loadHistory().find(x => x.id == btn.dataset.id);
+      const h = list.find(x => String(x.id) === btn.dataset.id);
       if (!h) return;
       document.getElementById('resultPanel').style.display = 'block';
       document.getElementById('resultLabel').textContent = (h.format === 'long' ? '롱폼 상세 대본' : '숏폼 대본') + ' (기록 불러옴)';
@@ -750,28 +767,32 @@ async function resumeFromDraft() {
   await runLongFormChunks(lfState);
 }
 
-/* ===================== 출처자료 라이브러리 ===================== */
-function loadLibrary() {
-  try { return JSON.parse(localStorage.getItem('ins_source_library') || '[]'); } catch (e) { return []; }
+/* ===================== 출처자료 라이브러리 (Supabase, 팀 공유) ===================== */
+let cachedLibrary = [];
+
+async function refreshLibrary() {
+  try {
+    const { items } = await apiGet('/api/library');
+    cachedLibrary = items || [];
+  } catch (e) {
+    cachedLibrary = [];
+  }
+  renderLibrary();
 }
-function saveLibrary(list) {
-  localStorage.setItem('ins_source_library', JSON.stringify(list));
-}
-document.getElementById('libAddBtn').addEventListener('click', () => {
+document.getElementById('libAddBtn').addEventListener('click', async () => {
   const title = document.getElementById('libTitleInput').value.trim();
   const content = document.getElementById('libContentInput').value.trim();
   if (!title || !content) { alert('제목과 내용을 둘 다 입력해주세요.'); return; }
-  const list = loadLibrary();
-  list.unshift({ id: Date.now(), title, content });
-  saveLibrary(list);
-  document.getElementById('libTitleInput').value = '';
-  document.getElementById('libContentInput').value = '';
-  renderLibrary();
+  try {
+    await apiPost('/api/library', { title, content });
+    document.getElementById('libTitleInput').value = '';
+    document.getElementById('libContentInput').value = '';
+    await refreshLibrary();
+  } catch (e) { alert('저장 실패: ' + e.message); }
 });
 function renderLibrary() {
-  const list = loadLibrary();
   const el = document.getElementById('libraryList');
-  el.innerHTML = list.map(item => `
+  el.innerHTML = cachedLibrary.map(item => `
     <div class="lib-item">
       <div class="lib-item-head">
         <div>
@@ -785,9 +806,9 @@ function renderLibrary() {
     </div>
   `).join('') || '<p style="font-size:12.5px; color:var(--paper-mute);">아직 저장된 자료가 없어요.</p>';
   el.querySelectorAll('.mini-btn.danger').forEach(btn => {
-    btn.addEventListener('click', () => {
-      saveLibrary(loadLibrary().filter(x => x.id != btn.dataset.id));
-      renderLibrary();
+    btn.addEventListener('click', async () => {
+      try { await apiDelete('/api/library', { id: Number(btn.dataset.id) }); await refreshLibrary(); }
+      catch (e) { alert('삭제 실패: ' + e.message); }
     });
   });
 }
@@ -798,19 +819,74 @@ document.getElementById('libraryToggle').addEventListener('click', () => {
   body.style.display = show ? 'block' : 'none';
   btn.textContent = show ? '접기' : '펼치기';
 });
-renderLibrary();
+refreshLibrary();
 
-// simple keyword-overlap search: pulls in saved library items relevant to the topic
+// simple keyword-overlap search over the (already-fetched) shared library
 function searchLibrary(topic, extra) {
   const query = (topic + ' ' + (extra || '')).toLowerCase();
   const keywords = query.split(/[\s,·・/]+/).filter(w => w.length >= 2);
-  const list = loadLibrary();
-  const matches = list.filter(item => {
+  return cachedLibrary.filter(item => {
     const hay = (item.title + ' ' + item.content).toLowerCase();
     return keywords.some(k => hay.includes(k));
   });
-  return matches;
 }
+
+// searches the 8,000-page corpus stored in Supabase (server-side full-text search)
+async function searchCorpus(topic, extra) {
+  const q = encodeURIComponent((topic + ' ' + (extra || '')).trim());
+  if (!q) return [];
+  try {
+    const { items } = await apiGet('/api/corpus?q=' + q);
+    return items || [];
+  } catch (e) {
+    return [];
+  }
+}
+
+document.getElementById('corpusUploadBtn').addEventListener('click', async () => {
+  const files = document.getElementById('corpusFileInput').files;
+  const statusEl = document.getElementById('corpusUploadStatus');
+  if (!files || files.length === 0) { alert('.txt 파일을 먼저 선택해주세요.'); return; }
+
+  const BATCH_SIZE = 40; // rows per request, keeps each request well under Vercel's body limit
+  let totalRows = 0, totalBatches = 0, doneBatches = 0;
+  const allBatches = [];
+
+  for (const file of files) {
+    statusEl.textContent = `"${file.name}" 읽는 중...`;
+    const text = await file.text();
+    // pdftotext inserts \f (form feed) between pages
+    const pages = text.split('\f');
+    const rows = pages
+      .map((content, i) => ({ source_file: file.name, page_number: i + 1, content: content.trim() }))
+      .filter(r => r.content.length > 10);
+
+    for (let i = 0; i < rows.length; i += BATCH_SIZE) {
+      allBatches.push(rows.slice(i, i + BATCH_SIZE));
+    }
+    totalRows += rows.length;
+  }
+  totalBatches = allBatches.length;
+
+  if (totalBatches === 0) {
+    statusEl.textContent = '업로드할 내용이 없어요 (빈 파일이거나 페이지 구분을 찾지 못했어요).';
+    return;
+  }
+
+  for (const batch of allBatches) {
+    doneBatches++;
+    statusEl.textContent = `업로드 중... (${doneBatches}/${totalBatches} 구간, 총 ${totalRows.toLocaleString()}페이지 중)`;
+    try {
+      await apiPost('/api/corpus', { rows: batch });
+    } catch (e) {
+      statusEl.textContent = `${doneBatches}번째 구간에서 오류: ${e.message} — 잠시 후 다시 시도해주세요.`;
+      await new Promise(r => setTimeout(r, 2000));
+    }
+    await new Promise(r => setTimeout(r, 150));
+  }
+
+  statusEl.textContent = `완료 — 총 ${totalRows.toLocaleString()}페이지 업로드됐어요.`;
+});
 
 
 document.querySelectorAll('#formatSeg .seg-btn').forEach(btn => {
@@ -1115,9 +1191,9 @@ function baseSystem(citeOn) {
 - 실제 사람이 카메라 앞에서 말하듯 자연스러운 구어체로 작성한다.
 - 후킹(강한 도입)과 기승전결이 명확한 구조로 작성한다.
 ${citeOn ? `- 통계·수치·사실관계를 언급할 때는 반드시 문장 뒤에 출처를 표시한다. 아래 순서로 확인한다:
-  1) [내 라이브러리에 저장된 관련 자료]나 [출처자료] 안에 있는 내용이면: "(출처: 첨부자료 - 해당 위치)" 형식으로 표시한다. 원문에 [p.12]나 [슬라이드 4] 같은 위치 표시가 있으면 그대로 활용한다. 이 두 자료가 최우선이다.
+  1) [내 라이브러리에 저장된 관련 자료], [내 출처자료 8천페이지 안에서 찾은 관련 내용], [출처자료] 중 어디든 있는 내용이면: "(출처: 첨부자료 - 해당 위치, 예: p.12)" 형식으로 표시한다. 이 세 가지가 최우선이다.
   2) 위 자료에 없지만 [웹 검색으로 찾은 관련 자료]에 있는 내용이면: 그 안의 수치를 그대로 쓰고 "(출처: 기관/사이트명, URL)" 형식으로 표시한다. 절대 새로운 수치를 지어내지 않는다.
-  3) 세 자료 어디에도 없는 통계는 절대 언급하지 않는다. "정확한 수치는 확인해주세요" 같은 회피 문구도 쓰지 않는다 — 그냥 수치 없이 자연스럽게 서술한다 (예: "많은 가정에서 예상보다 큰 지출 부담을 느낀다").` : '- 확인되지 않은 통계·수치는 단정적으로 말하지 않는다.'}
+  3) 어디에도 없는 통계는 절대 언급하지 않는다. "정확한 수치는 확인해주세요" 같은 회피 문구도 쓰지 않는다 — 그냥 수치 없이 자연스럽게 서술한다 (예: "많은 가정에서 예상보다 큰 지출 부담을 느낀다").` : '- 확인되지 않은 통계·수치는 단정적으로 말하지 않는다.'}
 - 결과는 대본 본문만 출력하고 다른 설명은 붙이지 않는다.` + complianceSystemBlock() + salesSystemBlock();
 }
 
@@ -1160,6 +1236,16 @@ async function generateScript() {
     ? `\n\n[내 라이브러리에 저장된 관련 자료 — 이 안에 있는 내용이면 최우선으로 이걸 근거로 쓰고, 여기 없을 때만 다른 출처를 찾으세요]\n${libMatches.map(m => `■ ${m.title}\n${m.content}`).join('\n\n')}`
     : '';
 
+  let corpusBlock = '';
+  if (citeOn) {
+    progressWrap.style.display = 'block';
+    progressText.textContent = '내 출처자료(8천 페이지) 안에서 관련 내용 찾는 중...';
+    const corpusMatches = await searchCorpus(topic, extra);
+    if (corpusMatches.length) {
+      corpusBlock = `\n\n[내 출처자료 8천페이지 안에서 찾은 관련 내용 — 페이지 번호와 함께 정확히 인용하세요]\n${corpusMatches.map(m => `■ [${m.source_file || '자료'} p.${m.page_number || '?'}]\n${m.content}`).join('\n\n')}`;
+    }
+  }
+
   const MAX_SOURCE_CHARS = 6000;
   let sourceForPrompt = source;
   let sourceTruncated = false;
@@ -1167,7 +1253,7 @@ async function generateScript() {
     sourceForPrompt = source.slice(0, MAX_SOURCE_CHARS);
     sourceTruncated = true;
   }
-  const sourceBlock = (source ? `\n\n[출처자료 — 이 내용을 근거로 구체적으로 설명하세요]\n${sourceForPrompt}${sourceTruncated ? '\n\n(※ 출처자료가 길어 앞부분만 반영됩니다. 특정 부분을 꼭 반영해야 하면 그 부분만 따로 붙여넣어주세요.)' : ''}` : '') + libBlock;
+  const sourceBlock = (source ? `\n\n[출처자료 — 이 내용을 근거로 구체적으로 설명하세요]\n${sourceForPrompt}${sourceTruncated ? '\n\n(※ 출처자료가 길어 앞부분만 반영됩니다. 특정 부분을 꼭 반영해야 하면 그 부분만 따로 붙여넣어주세요.)' : ''}` : '') + libBlock + corpusBlock;
   const contextLine = `보험 분야: ${category}\n주제: ${topic}\n${host ? '진행자 호칭: ' + host : ''}\n${target ? '타겟 고객: ' + target : ''}\n톤앤매너: ${tone}\n${extra ? '추가 반영 사항: ' + extra : ''}`;
 
   try {
@@ -1372,8 +1458,8 @@ function scanCompliance(text) {
       [...new Set(matches)].forEach(m => hits.push({ label, phrase: m }));
     }
   });
-  loadBanWords().forEach(w => {
-    if (w && text.includes(w)) hits.push({ label: '사용자 지정 금지어', phrase: w });
+  cachedBanWords.forEach(({ word }) => {
+    if (word && text.includes(word)) hits.push({ label: '사용자 지정 금지어', phrase: word });
   });
   return hits;
 }

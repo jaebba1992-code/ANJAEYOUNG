@@ -1,5 +1,8 @@
 {
   "name": "insurance-script-generator",
   "version": "1.0.0",
-  "private": true
+  "private": true,
+  "dependencies": {
+    "@supabase/supabase-js": "^2.110.8"
+  }
 }
