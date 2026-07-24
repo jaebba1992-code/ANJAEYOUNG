@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;600;700&family=Pretendard:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <style>
   :root {
     --ink: #12141a;
@@ -366,7 +367,12 @@
     <div class="row" id="sourceRow" style="display:none;">
       <div class="field">
         <label>출처자료 <span class="opt">(근거로 삼을 자료 원문 — 약관, 통계, 기사, 자막 등)</span></label>
-        <textarea id="source" rows="6" placeholder="여기에 근거 자료를 붙여넣으면, 이 내용을 바탕으로 대본을 작성하고 통계·수치가 나오는 문장에 출처 표시를 남깁니다."></textarea>
+        <textarea id="source" rows="6" placeholder="여기에 근거 자료를 붙여넣거나, 아래에서 PPT 파일을 첨부하면 텍스트가 자동으로 채워져요."></textarea>
+        <div style="display:flex; align-items:center; gap:10px; margin-top:8px;">
+          <label for="pptxInput" class="copy-btn" style="cursor:pointer; display:inline-block;">+ PPT 파일 첨부</label>
+          <input type="file" id="pptxInput" accept=".pptx" style="display:none;">
+          <span id="pptxStatus" style="font-size:12px; color:var(--paper-mute);"></span>
+        </div>
       </div>
     </div>
 
@@ -432,6 +438,62 @@ document.getElementById('copyBtn').addEventListener('click', () => {
   btn.textContent = '복사됨';
   setTimeout(() => btn.textContent = old, 1200);
 });
+
+document.getElementById('pptxInput').addEventListener('change', handlePptxUpload);
+
+async function handlePptxUpload(e) {
+  const file = e.target.files[0];
+  const statusEl = document.getElementById('pptxStatus');
+  const sourceEl = document.getElementById('source');
+  if (!file) return;
+
+  statusEl.textContent = '읽는 중...';
+  try {
+    const buffer = await file.arrayBuffer();
+    const zip = await JSZip.loadAsync(buffer);
+
+    const slideFiles = Object.keys(zip.files)
+      .filter(name => /^ppt\/slides\/slide\d+\.xml$/.test(name))
+      .sort((a, b) => {
+        const na = parseInt(a.match(/slide(\d+)\.xml/)[1], 10);
+        const nb = parseInt(b.match(/slide(\d+)\.xml/)[1], 10);
+        return na - nb;
+      });
+
+    if (slideFiles.length === 0) {
+      statusEl.textContent = '슬라이드 텍스트를 찾지 못했어요.';
+      return;
+    }
+
+    const parser = new DOMParser();
+    let extracted = '';
+
+    for (let i = 0; i < slideFiles.length; i++) {
+      const xmlText = await zip.files[slideFiles[i]].async('text');
+      const xmlDoc = parser.parseFromString(xmlText, 'application/xml');
+      const textNodes = xmlDoc.getElementsByTagName('a:t');
+      const lines = [];
+      for (let j = 0; j < textNodes.length; j++) {
+        const t = textNodes[j].textContent.trim();
+        if (t) lines.push(t);
+      }
+      if (lines.length) {
+        extracted += `[슬라이드 ${i + 1}]\n${lines.join(' ')}\n\n`;
+      }
+    }
+
+    if (!extracted.trim()) {
+      statusEl.textContent = '슬라이드에서 텍스트를 추출하지 못했어요 (이미지 위주 PPT일 수 있어요).';
+      return;
+    }
+
+    const prefix = sourceEl.value.trim() ? sourceEl.value.trim() + '\n\n' : '';
+    sourceEl.value = prefix + `--- ${file.name} 추출 내용 ---\n` + extracted.trim();
+    statusEl.textContent = `"${file.name}"에서 슬라이드 ${slideFiles.length}장 텍스트를 불러왔어요.`;
+  } catch (err) {
+    statusEl.textContent = 'PPT를 읽는 중 오류가 발생했어요: ' + err.message;
+  }
+}
 
 document.getElementById('genBtn').addEventListener('click', generateScript);
 
