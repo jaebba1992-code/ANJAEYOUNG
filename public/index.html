@@ -369,6 +369,7 @@
       <div class="field">
         <label>출처자료 <span class="opt">(근거로 삼을 자료 원문 — 약관, 통계, 기사, 자막 등)</span></label>
         <textarea id="source" rows="6" placeholder="여기에 근거 자료를 붙여넣거나, 아래에서 PPT/PDF 파일을 첨부하면 텍스트(이미지 속 글자 포함)가 자동으로 채워져요."></textarea>
+        <p id="sourceCounter" style="font-size:11.5px; color:var(--paper-mute); margin:6px 0 0;"></p>
         <div style="display:flex; align-items:center; gap:10px; margin-top:8px; flex-wrap:wrap;">
           <label for="fileInput" class="copy-btn" style="cursor:pointer; display:inline-block;">+ PPT / PDF 파일 첨부</label>
           <input type="file" id="fileInput" accept=".pptx,.pdf" style="display:none;">
@@ -443,6 +444,20 @@ document.getElementById('copyBtn').addEventListener('click', () => {
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
 document.getElementById('fileInput').addEventListener('change', handleFileUpload);
+
+document.getElementById('source').addEventListener('input', updateSourceCounter);
+function updateSourceCounter() {
+  const val = document.getElementById('source').value;
+  const el = document.getElementById('sourceCounter');
+  const len = val.length;
+  if (len > 6000) {
+    el.innerHTML = `출처자료 ${len.toLocaleString()}자 — <span style="color:var(--seal);">6,000자를 넘으면 생성 시 앞부분만 반영돼요. 꼭 필요한 부분만 남겨주세요.</span>`;
+  } else if (len > 0) {
+    el.textContent = `출처자료 ${len.toLocaleString()}자`;
+  } else {
+    el.textContent = '';
+  }
+}
 
 async function resizeImageToBase64(rawBase64, mediaType, maxWidth = 1000, quality = 0.82) {
   return new Promise((resolve, reject) => {
@@ -549,6 +564,7 @@ async function handlePptxUpload(file) {
     const prefix = sourceEl.value.trim() ? sourceEl.value.trim() + '\n\n' : '';
     sourceEl.value = prefix + `--- ${file.name} 추출 내용 ---\n` + extracted.trim();
     statusEl.textContent = `"${file.name}" 처리 완료 (슬라이드 텍스트 + 이미지 ${toProcess.length}장 인식)`;
+    updateSourceCounter();
   } catch (err) {
     statusEl.textContent = 'PPT 처리 중 오류: ' + err.message;
   }
@@ -607,6 +623,7 @@ async function handlePdfUpload(file) {
     const prefix = sourceEl.value.trim() ? sourceEl.value.trim() + '\n\n' : '';
     sourceEl.value = prefix + `--- ${file.name} 추출 내용 (${pagesToRead}페이지) ---\n` + extracted.trim();
     statusEl.textContent = `"${file.name}" 처리 완료 (${pagesToRead}/${totalPages}페이지)`;
+    updateSourceCounter();
   } catch (err) {
     statusEl.textContent = 'PDF 처리 중 오류: ' + err.message;
   }
@@ -617,17 +634,22 @@ document.getElementById('genBtn').addEventListener('click', generateScript);
 async function callClaude(system, messages, retries = 3) {
   let lastErr;
   for (let attempt = 0; attempt <= retries; attempt++) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 50000);
     try {
       const response = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ system, messages })
+        body: JSON.stringify({ system, messages }),
+        signal: controller.signal
       });
+      clearTimeout(timeoutId);
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || ('오류 ' + response.status));
       return data.text || '';
     } catch (err) {
-      lastErr = err;
+      clearTimeout(timeoutId);
+      lastErr = err.name === 'AbortError' ? new Error('응답이 50초 넘게 없어 시간 초과됐어요.') : err;
       if (attempt < retries) {
         await new Promise(r => setTimeout(r, 1200 * (attempt + 1)));
         continue;
@@ -697,7 +719,14 @@ async function generateScript() {
   scriptDiv.className = 'script-body';
   resultBody.appendChild(scriptDiv);
 
-  const sourceBlock = source ? `\n\n[출처자료 — 이 내용을 근거로 구체적으로 설명하세요]\n${source}` : '';
+  const MAX_SOURCE_CHARS = 6000;
+  let sourceForPrompt = source;
+  let sourceTruncated = false;
+  if (source.length > MAX_SOURCE_CHARS) {
+    sourceForPrompt = source.slice(0, MAX_SOURCE_CHARS);
+    sourceTruncated = true;
+  }
+  const sourceBlock = source ? `\n\n[출처자료 — 이 내용을 근거로 구체적으로 설명하세요]\n${sourceForPrompt}${sourceTruncated ? '\n\n(※ 출처자료가 길어 앞부분만 반영됩니다. 특정 부분을 꼭 반영해야 하면 그 부분만 따로 붙여넣어주세요.)' : ''}` : '';
   const contextLine = `보험 분야: ${category}\n주제: ${topic}\n${host ? '진행자 호칭: ' + host : ''}\n${target ? '타겟 고객: ' + target : ''}\n톤앤매너: ${tone}\n${extra ? '추가 반영 사항: ' + extra : ''}`;
 
   try {
