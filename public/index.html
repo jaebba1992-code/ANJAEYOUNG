@@ -3,88 +3,336 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>보험 대본 생성기</title>
+<title>보험 콘텐츠 제작실</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;600;700&family=Pretendard:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #14171c;
-    --panel: #1b1f26;
-    --panel-2: #21262e;
-    --border: #2c323b;
-    --border-strong: #3a4149;
-    --text: #edeef0;
-    --text-2: #a3aab3;
-    --text-muted: #6b7278;
-    --accent: #e8a33d;
-    --accent-dim: #6b5427;
-    font-family: -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+    --ink: #12141a;
+    --panel: #1a1d26;
+    --panel-2: #21252f;
+    --line: #2c303c;
+    --line-soft: #23262f;
+    --paper: #ece7d8;
+    --paper-dim: #9a978c;
+    --paper-mute: #6b6a63;
+    --brass: #b3925a;
+    --brass-dim: #4a3f2c;
+    --seal: #a8402f;
+    --seal-dim: #3a201b;
   }
   * { box-sizing: border-box; }
   body {
     margin: 0;
-    background: var(--bg);
-    color: var(--text);
+    background: var(--ink);
+    background-image: radial-gradient(circle at 15% 0%, rgba(179,146,90,0.07), transparent 45%);
+    color: var(--paper);
     min-height: 100vh;
-    padding: 40px 20px;
+    padding: 56px 20px 80px;
+    font-family: 'Pretendard', -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
   }
-  .wrap { max-width: 760px; margin: 0 auto; }
-  .eyebrow { font-size: 13px; color: var(--accent); letter-spacing: 0.08em; margin: 0 0 6px; font-weight: 500; }
-  h1 { font-size: 26px; font-weight: 500; margin: 0 0 6px; letter-spacing: -0.01em; }
-  .sub { color: var(--text-2); font-size: 14px; margin: 0 0 32px; line-height: 1.6; }
-  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 24px; margin-bottom: 20px; }
-  .row { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+  .wrap { max-width: 820px; margin: 0 auto; }
+
+  /* Header */
+  .eyebrow {
+    font-family: 'Pretendard', sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    color: var(--brass);
+    font-weight: 600;
+    margin: 0 0 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .eyebrow::before {
+    content: '';
+    width: 20px; height: 1px;
+    background: var(--brass);
+    display: inline-block;
+  }
+  h1 {
+    font-family: 'Noto Serif KR', serif;
+    font-weight: 700;
+    font-size: 34px;
+    letter-spacing: -0.01em;
+    margin: 0 0 10px;
+    color: var(--paper);
+  }
+  .sub {
+    color: var(--paper-dim);
+    font-size: 14.5px;
+    line-height: 1.75;
+    margin: 0 0 40px;
+    max-width: 560px;
+  }
+
+  /* Panel */
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 30px 30px 28px;
+    margin-bottom: 24px;
+    position: relative;
+  }
+  .panel-title {
+    font-family: 'Noto Serif KR', serif;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--paper);
+    margin: 0 0 22px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .row { display: flex; gap: 14px; margin-bottom: 18px; flex-wrap: wrap; }
   .field { flex: 1; min-width: 200px; }
-  label { display: block; font-size: 12px; color: var(--text-2); margin-bottom: 6px; font-weight: 500; }
+  label {
+    display: block;
+    font-size: 11.5px;
+    color: var(--paper-mute);
+    margin-bottom: 8px;
+    font-weight: 500;
+    letter-spacing: 0.03em;
+  }
+  label .opt { color: var(--paper-mute); font-weight: 400; opacity: 0.7; }
+
   input[type=text], textarea, select {
-    width: 100%; background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px;
-    color: var(--text); padding: 10px 12px; font-size: 14px; font-family: inherit;
+    width: 100%;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    color: var(--paper);
+    padding: 11px 13px;
+    font-size: 14px;
+    font-family: 'Pretendard', sans-serif;
   }
-  input[type=text]:focus, textarea:focus, select:focus { outline: none; border-color: var(--accent-dim); }
-  .segmented { display: flex; background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 3px; gap: 3px; }
-  .seg-btn { flex: 1; background: transparent; border: none; color: var(--text-2); padding: 8px 10px; border-radius: 6px; font-size: 13px; cursor: pointer; font-family: inherit; }
-  .seg-btn.active { background: var(--accent-dim); color: var(--accent); font-weight: 500; }
+  input[type=text]::placeholder, textarea::placeholder { color: var(--paper-mute); opacity: 0.55; }
+  input[type=text]:focus, textarea:focus, select:focus {
+    outline: none;
+    border-color: var(--brass-dim);
+    box-shadow: 0 0 0 1px var(--brass-dim);
+  }
+  select { appearance: none; background-image: linear-gradient(45deg, transparent 50%, var(--paper-mute) 50%), linear-gradient(135deg, var(--paper-mute) 50%, transparent 50%); background-position: calc(100% - 18px) 50%, calc(100% - 13px) 50%; background-size: 5px 5px, 5px 5px; background-repeat: no-repeat; }
+
+  .segmented {
+    display: flex;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    padding: 3px;
+    gap: 3px;
+  }
+  .seg-btn {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: var(--paper-mute);
+    padding: 10px 10px;
+    border-radius: 2px;
+    font-size: 12.5px;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: 'Pretendard', sans-serif;
+    white-space: nowrap;
+  }
+  .seg-btn.active {
+    background: var(--brass-dim);
+    color: var(--brass);
+  }
+
+  .checkline {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px 14px;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    margin-bottom: 18px;
+  }
+  .checkline input { margin-top: 2px; accent-color: var(--brass); }
+  .checkline .txt { font-size: 12.5px; color: var(--paper-dim); line-height: 1.6; }
+  .checkline .txt b { color: var(--paper); }
+
   button.generate {
-    width: 100%; background: var(--accent); color: #1a1204; border: none; border-radius: 8px;
-    padding: 13px; font-size: 14px; font-weight: 500; cursor: pointer; font-family: inherit; margin-top: 4px;
+    width: 100%;
+    background: var(--brass);
+    color: #1a1204;
+    border: none;
+    border-radius: 3px;
+    padding: 14px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: 'Pretendard', sans-serif;
+    letter-spacing: 0.01em;
+    margin-top: 6px;
   }
-  button.generate:disabled { opacity: 0.5; cursor: default; }
-  button.generate:not(:disabled):hover { filter: brightness(1.06); }
-  .result-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
-  .result-head span { font-size: 13px; color: var(--text-2); }
-  .copy-btn { background: transparent; border: 1px solid var(--border-strong); color: var(--text-2); border-radius: 6px; padding: 6px 12px; font-size: 12px; cursor: pointer; font-family: inherit; }
-  .copy-btn:hover { border-color: var(--accent-dim); color: var(--accent); }
-  .script-body { white-space: pre-wrap; line-height: 1.85; font-size: 15px; color: var(--text); min-height: 60px; }
-  .error-box { background: #2a1a1a; border: 1px solid #4a2a2a; color: #e0a3a3; border-radius: 8px; padding: 12px 14px; font-size: 13px; line-height: 1.6; }
-  .footnote { color: var(--text-muted); font-size: 12px; text-align: center; margin-top: 24px; line-height: 1.6; }
-  .footnote a { color: var(--text-2); }
+  button.generate:disabled { opacity: 0.45; cursor: default; }
+  button.generate:not(:disabled):hover { filter: brightness(1.08); }
+
+  #progressWrap { margin-top: 14px; }
+  #progressWrap .track { height: 3px; background: var(--panel-2); border-radius: 2px; overflow: hidden; }
+  #progressWrap .bar { height: 100%; width: 0%; background: var(--brass); transition: width .3s; }
+  #progressWrap .txt { font-size: 11.5px; color: var(--paper-mute); margin: 9px 0 0; text-align: center; font-family: monospace; letter-spacing: 0.02em; }
+
+  /* Result */
+  .result-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 18px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--line);
+  }
+  .result-head-left { display: flex; align-items: center; gap: 10px; }
+  .result-head-left .panel-title { border: none; padding: 0; margin: 0; }
+  .charcount { font-family: monospace; font-size: 11.5px; color: var(--paper-mute); }
+  .charcount b { color: var(--brass); }
+  .copy-btn {
+    background: transparent;
+    border: 1px solid var(--line);
+    color: var(--paper-dim);
+    border-radius: 3px;
+    padding: 7px 14px;
+    font-size: 12px;
+    cursor: pointer;
+    font-family: 'Pretendard', sans-serif;
+  }
+  .copy-btn:hover { border-color: var(--brass-dim); color: var(--brass); }
+
+  .stamp {
+    width: 46px; height: 46px;
+    border: 2px solid var(--seal);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--seal);
+    font-family: 'Noto Serif KR', serif;
+    font-size: 9.5px;
+    font-weight: 700;
+    text-align: center;
+    line-height: 1.2;
+    transform: rotate(-8deg);
+    opacity: 0.9;
+    flex-shrink: 0;
+    background: var(--seal-dim);
+  }
+
+  .script-body {
+    white-space: pre-wrap;
+    line-height: 1.9;
+    font-size: 15px;
+    color: var(--paper);
+    min-height: 60px;
+  }
+  .cite-tag {
+    color: var(--seal);
+    font-size: 12px;
+    font-weight: 500;
+  }
+
+  .error-box {
+    background: #2a1a1a;
+    border: 1px solid #4a2a2a;
+    color: #e0a3a3;
+    border-radius: 3px;
+    padding: 12px 14px;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+
+  /* Bundle cards */
+  .bundle-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+  @media (max-width: 640px) { .bundle-grid { grid-template-columns: 1fr; } }
+  .bcard {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    padding: 16px 18px;
+  }
+  .bcard.full { grid-column: 1 / -1; }
+  .bcard h4 {
+    font-family: 'Pretendard', sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    color: var(--brass);
+    text-transform: uppercase;
+    margin: 0 0 10px;
+    font-weight: 600;
+  }
+  .bcard .content { font-size: 13.5px; line-height: 1.7; color: var(--paper); white-space: pre-wrap; }
+  .bcard ul { margin: 0; padding-left: 18px; }
+  .bcard li { margin-bottom: 6px; }
+  .tag-pill {
+    display: inline-block;
+    background: var(--brass-dim);
+    color: var(--brass);
+    border-radius: 12px;
+    padding: 3px 10px;
+    font-size: 11.5px;
+    margin: 0 5px 5px 0;
+  }
+
+  .footnote { color: var(--paper-mute); font-size: 11.5px; text-align: center; margin-top: 28px; line-height: 1.7; }
+  .footnote a { color: var(--paper-dim); }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <p class="eyebrow">INSURANCE SCRIPT LAB</p>
-  <h1>보험 콘텐츠 대본 생성기</h1>
-  <p class="sub">주제와 출처자료를 입력하면 롱폼(유튜브) 또는 숏폼(릴스/쇼츠) 대본을 자동으로 만들어드려요.</p>
+  <p class="eyebrow">INSURANCE CONTENT STUDIO</p>
+  <h1>보험 콘텐츠 제작실</h1>
+  <p class="sub">주제 하나로 근거 있는 롱폼·숏폼 대본과, 업로드에 필요한 부가 콘텐츠(제목·썸네일·캡션·해시태그)까지 한 번에 준비합니다.</p>
 
   <div class="panel">
+    <p class="panel-title">제작 설정</p>
+
     <div class="row">
       <div class="field">
         <label>형식</label>
         <div class="segmented" id="formatSeg">
           <button type="button" class="seg-btn active" data-val="short">숏폼 (30~60초)</button>
-          <button type="button" class="seg-btn" data-val="long">롱폼 상세 (1만자↑)</button>
+          <button type="button" class="seg-btn" data-val="long">롱폼 상세 (대본 1만자↑)</button>
         </div>
       </div>
     </div>
 
     <div class="row">
       <div class="field">
-        <label>주제 / 상품</label>
-        <input type="text" id="topic" placeholder="예: 어린이보험 갱신형 vs 비갱신형 차이">
+        <label>보험 분야</label>
+        <select id="category">
+          <option>암·3대질병보험</option>
+          <option>실손의료보험</option>
+          <option>자동차보험</option>
+          <option>연금·저축성보험</option>
+          <option>종신·정기보험</option>
+          <option>어린이보험</option>
+          <option>운전자보험</option>
+          <option>기타</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>진행자 호칭 <span class="opt">(선택, 실명 대신 역할명 권장)</span></label>
+        <input type="text" id="host" placeholder="예: 보험 전문가, OO지점장">
       </div>
     </div>
 
     <div class="row">
       <div class="field">
-        <label>타겟 고객 (선택)</label>
+        <label>영상 주제 / 키워드</label>
+        <input type="text" id="topic" placeholder="예: 죽어도 해지하면 안 되는 보험 4가지">
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label>타겟 고객 <span class="opt">(선택)</span></label>
         <input type="text" id="target" placeholder="예: 30대 초보 부모">
       </div>
       <div class="field">
@@ -97,42 +345,82 @@
       </div>
     </div>
 
-    <div class="row" id="sourceRow" style="display:none;">
+    <div class="row">
       <div class="field">
-        <label>출처자료 (근거로 삼을 자료를 붙여넣으세요)</label>
-        <textarea id="source" rows="6" placeholder="약관, 통계, 기사, 유튜브 자막 등 근거 자료 원문을 붙여넣으면 이 내용을 인용해서 작성합니다."></textarea>
+        <label>영업 강도 <span class="opt">(세일즈 화법은 항상 반영되고, 강도만 조절돼요)</span></label>
+        <div class="segmented" id="intensitySeg">
+          <button type="button" class="seg-btn" data-val="soft">부드럽게 · 정보 위주</button>
+          <button type="button" class="seg-btn active" data-val="normal">보통 · 정보+상담유도</button>
+          <button type="button" class="seg-btn" data-val="strong">강하게 · 문의전환 집중</button>
+        </div>
       </div>
     </div>
 
-    <button class="generate" id="genBtn">대본 생성하기</button>
-    <div id="progressWrap" style="display:none; margin-top:12px;">
-      <div style="height:6px; background:var(--panel-2); border-radius:3px; overflow:hidden;">
-        <div id="progressBar" style="height:100%; width:0%; background:var(--accent); transition:width .3s;"></div>
+    <div class="row">
+      <div class="field">
+        <label>추가로 꼭 넣고 싶은 내용 <span class="opt">(선택)</span></label>
+        <textarea id="extra" rows="2" placeholder="예: 최근 개정된 자동차부상치료비 내용 강조하고 싶어요 / 특정 사례 넣어줘"></textarea>
       </div>
-      <p id="progressText" style="font-size:12px; color:var(--text-2); margin:8px 0 0; text-align:center;"></p>
+    </div>
+
+    <div class="row" id="sourceRow" style="display:none;">
+      <div class="field">
+        <label>출처자료 <span class="opt">(근거로 삼을 자료 원문 — 약관, 통계, 기사, 자막 등)</span></label>
+        <textarea id="source" rows="6" placeholder="여기에 근거 자료를 붙여넣으면, 이 내용을 바탕으로 대본을 작성하고 통계·수치가 나오는 문장에 출처 표시를 남깁니다."></textarea>
+      </div>
+    </div>
+
+    <div class="checkline" id="citeRow" style="display:none;">
+      <input type="checkbox" id="citeToggle" checked>
+      <div class="txt"><b>출처 표시 켜기</b> — 통계·수치가 들어가는 문장 뒤에 어떤 자료를 근거로 했는지 표시해줘요. 근거가 불확실한 수치는 대본에 넣지 않고 안전하게 우회합니다.</div>
+    </div>
+
+    <button class="generate" id="genBtn">대본 생성하기</button>
+    <div id="progressWrap" style="display:none;">
+      <div class="track"><div class="bar" id="progressBar"></div></div>
+      <p class="txt" id="progressText"></p>
     </div>
   </div>
 
   <div class="panel" id="resultPanel" style="display:none;">
     <div class="result-head">
-      <span id="resultLabel">생성된 대본</span>
-      <button class="copy-btn" id="copyBtn">복사</button>
+      <div class="result-head-left">
+        <p class="panel-title" id="resultLabel">생성된 대본</p>
+        <span class="charcount" id="charcount"></span>
+      </div>
+      <button class="copy-btn" id="copyBtn">대본 복사</button>
     </div>
     <div id="resultBody"></div>
   </div>
 
-  <p class="footnote">서버 상태가 궁금하면 <a href="/api/health" target="_blank">/api/health</a> 를 확인해보세요.</p>
+  <div class="panel" id="bundlePanel" style="display:none;">
+    <p class="panel-title">부가 콘텐츠 <span style="color:var(--paper-mute); font-weight:400; font-size:12px;">— 업로드용 제목·캡션·해시태그 자동 생성</span></p>
+    <div id="bundleBody"><p class="footnote">대본을 기반으로 자동 생성 중입니다...</p></div>
+  </div>
+
+  <p class="footnote">서버 상태: <a href="/api/health" target="_blank">/api/health</a> · 글자 수는 대본 본문만 집계하며, 출처자료·부가 콘텐츠는 포함되지 않습니다.</p>
 </div>
 
 <script>
 let format = 'short';
+let intensity = 'normal';
 
 document.querySelectorAll('#formatSeg .seg-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('#formatSeg .seg-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     format = btn.dataset.val;
-    document.getElementById('sourceRow').style.display = format === 'long' ? 'flex' : 'none';
+    const showSource = format === 'long';
+    document.getElementById('sourceRow').style.display = showSource ? 'flex' : 'none';
+    document.getElementById('citeRow').style.display = showSource ? 'flex' : 'none';
+  });
+});
+
+document.querySelectorAll('#intensitySeg .seg-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#intensitySeg .seg-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    intensity = btn.dataset.val;
   });
 });
 
@@ -170,80 +458,112 @@ async function callClaude(system, messages, retries = 3) {
   throw lastErr;
 }
 
+function intensityGuide() {
+  if (intensity === 'soft') {
+    return '정보 전달이 중심이고, 세일즈는 은은하게 녹여서 넣는다. CTA는 영상 끝에 1회, 부드러운 제안 형태로.';
+  }
+  if (intensity === 'strong') {
+    return '정보 전달과 함께 상담·문의 전환을 적극적으로 유도한다. 중간중간 예고 화법("이거 아셔야 하는 이유가 있어요")을 여러 번 배치하고, CTA를 최소 2회 이상, 마지막엔 강하게 마무리한다.';
+  }
+  return '정보 전달 위주로 가되, 중간에 한 번, 마지막에 한 번 자연스럽게 상담 유도를 넣는다.';
+}
+
+function salesSystemBlock() {
+  return `\n[세일즈 화법 — 항상 반드시 지켜야 하는 핵심 규칙, 생략 불가]
+- 직접적인 지시("전화하세요") 대신, 문장 안에 자연스럽게 행동 명령을 심는다. 예: "이런 상황이면, 지금 증권부터 한번 확인해보세요" 처럼 구체적 행동을 문장 속에 스리슬쩍 넣는다.
+- 민감한 질문(자산, 병력 등)을 하기 전에는 반드시 "왜 이걸 여쭤보는지" 이유부터 설명해서 신뢰를 먼저 쌓는다.
+- 제안이나 추천 전에는 짧은 예고를 던져서 궁금증을 유발한다 (예: "이거 하나만 아시면 상황이 달라져요").
+- 영업 강도: ${intensityGuide()}
+- 과장이나 확인되지 않은 사실은 절대 포함하지 않는다. 세일즈 화법은 신뢰를 기반으로 해야 하며, 없는 사실을 지어내 설득하지 않는다.`;
+}
+
+function baseSystem(citeOn) {
+  return `당신은 한국 보험 영업/마케팅 콘텐츠 전문 대본 작가입니다.
+- 전문 용어는 쉬운 비유로 풀어서 설명한다.
+- 실제 사람이 카메라 앞에서 말하듯 자연스러운 구어체로 작성한다.
+- 후킹(강한 도입)과 기승전결이 명확한 구조로 작성한다.
+${citeOn ? '- 통계·수치·사실관계를 언급할 때는 문장 뒤에 (출처: 제공된 자료 기준) 형태로 간단히 표시한다. 제공된 출처자료에 없는 수치는 지어내지 않고, "정확한 수치는 약관/공시자료로 확인해달라"는 식으로 안전하게 표현한다.' : '- 확인되지 않은 통계·수치는 단정적으로 말하지 않는다.'}
+- 결과는 대본 본문만 출력하고 다른 설명은 붙이지 않는다.` + salesSystemBlock();
+}
+
 async function generateScript() {
   const topic = document.getElementById('topic').value.trim();
+  const category = document.getElementById('category').value;
+  const host = document.getElementById('host').value.trim();
   const target = document.getElementById('target').value.trim();
   const tone = document.getElementById('tone').value;
+  const extra = document.getElementById('extra').value.trim();
   const source = document.getElementById('source').value.trim();
+  const citeOn = document.getElementById('citeToggle').checked && format === 'long';
+
   const genBtn = document.getElementById('genBtn');
   const resultPanel = document.getElementById('resultPanel');
+  const bundlePanel = document.getElementById('bundlePanel');
   const resultBody = document.getElementById('resultBody');
   const resultLabel = document.getElementById('resultLabel');
+  const charcount = document.getElementById('charcount');
   const progressWrap = document.getElementById('progressWrap');
   const progressBar = document.getElementById('progressBar');
   const progressText = document.getElementById('progressText');
 
-  if (!topic) { alert('주제를 입력해주세요.'); return; }
+  if (!topic) { alert('영상 주제를 입력해주세요.'); return; }
 
   genBtn.disabled = true;
   genBtn.textContent = '생성 중...';
   resultPanel.style.display = 'block';
+  bundlePanel.style.display = 'none';
   resultBody.innerHTML = '';
+  charcount.textContent = '';
   const scriptDiv = document.createElement('div');
   scriptDiv.className = 'script-body';
   resultBody.appendChild(scriptDiv);
 
-  const baseSystem = `당신은 한국 보험 영업/마케팅 콘텐츠 전문 대본 작가입니다.
-다음 스타일 원칙을 지킵니다:
-- 시청자가 스스로 판단하고 행동하게 만드는 자연스러운 화법을 씁니다.
-- 민감한 정보를 물을 때는 이유를 먼저 설명하는 신뢰 형성 화법을 사용합니다.
-- 추천 전에 짧은 예고를 던져 자연스러운 흐름을 만듭니다.
-- 전문 용어는 쉬운 비유로 풀어서 설명합니다.
-- 과장 광고나 확인되지 않은 사실은 포함하지 않고, 제공된 출처자료에 없는 수치는 지어내지 않습니다.
-- 실제 사람이 카메라 앞에서 말하듯 구어체로 작성합니다.
-- 결과는 대본 본문만 출력합니다.`;
-
   const sourceBlock = source ? `\n\n[출처자료 — 이 내용을 근거로 구체적으로 설명하세요]\n${source}` : '';
+  const contextLine = `보험 분야: ${category}\n주제: ${topic}\n${host ? '진행자 호칭: ' + host : ''}\n${target ? '타겟 고객: ' + target : ''}\n톤앤매너: ${tone}\n${extra ? '추가 반영 사항: ' + extra : ''}`;
 
   try {
     if (format === 'short') {
-      resultBody.innerHTML = '<div class="script-body">생성 중...</div>';
       resultLabel.textContent = '숏폼 대본 (30~60초)';
-      const system = baseSystem + `\n- 30~60초 숏폼 대본. 3초 안에 시선을 잡는 강한 훅으로 시작, 핵심 정보 1~2개, 명확한 CTA로 마무리. 분량 200~350자.` + sourceBlock;
-      const userPrompt = `주제: ${topic}\n${target ? '타겟 고객: ' + target : ''}\n톤앤매너: ${tone}\n\n위 조건에 맞는 숏폼 대본을 작성해줘.`;
+      const system = baseSystem(false) + `\n- 30~60초 숏폼 대본. 3초 안에 시선을 잡는 강한 훅으로 시작, 핵심 정보 1~2개, 명확한 CTA로 마무리. 분량 200~350자.`;
+      const userPrompt = `${contextLine}\n\n위 조건에 맞는 숏폼 대본을 작성해줘.`;
       const script = await callClaude(system, [{ role: 'user', content: userPrompt }]);
       resultBody.innerHTML = '';
       const div = document.createElement('div');
       div.className = 'script-body';
       div.textContent = script || '대본을 받아오지 못했어요. 다시 시도해주세요.';
       resultBody.appendChild(div);
+      charcount.innerHTML = `대본 <b>${(script||'').length.toLocaleString()}</b>자`;
+      await generateBundle(script, contextLine, category);
     } else {
-      resultLabel.textContent = '롱폼 상세 대본 (목표 1만자 이상)';
-      resultBody.innerHTML = '';
-      resultBody.appendChild(scriptDiv);
+      resultLabel.textContent = '롱폼 상세 대본';
       progressWrap.style.display = 'block';
 
       const TARGET_CHARS = 10500;
-      const MAX_CHUNKS = 18;
+      const MAX_CHUNKS = 10;
       let fullScript = '';
       let chunkIndex = 0;
+      let coveredTopics = [];
 
-      const longSystem = baseSystem + `\n- 최종 1만자 이상, 요약하지 말고 근거자료를 인용하며 상세히 설명하세요.
-- 지금은 전체 대본 중 한 부분만 이어서 씁니다. 이전 내용을 반복하지 말고 자연스럽게 이어주세요.
-- 이번 청크는 하나의 완결된 단락으로 마무리하세요.` + sourceBlock;
+      const longSystem = baseSystem(citeOn) + `\n- 최종 대본 본문이 1만자 이상이어야 한다. 요약하지 말고 상세히 설명한다.
+- 지금은 전체 대본 중 한 부분만 이어서 쓴다. 이미 다룬 소제목/항목은 절대 반복하지 않는다.
+- 이번 청크는 문장이 중간에 끊기지 않게 완결된 단락으로 마무리한다.` + sourceBlock;
 
       while (fullScript.length < TARGET_CHARS && chunkIndex < MAX_CHUNKS) {
         chunkIndex++;
-        progressText.textContent = `작성 중... (${fullScript.length.toLocaleString()}자 / 목표 ${TARGET_CHARS.toLocaleString()}자, ${chunkIndex}번째 구간)`;
+        progressText.textContent = `작성 중 (${fullScript.length.toLocaleString()} / ${TARGET_CHARS.toLocaleString()}자) · ${chunkIndex}번째 구간`;
         progressBar.style.width = Math.min(100, Math.round((fullScript.length / TARGET_CHARS) * 100)) + '%';
+
+        const topicsNote = coveredTopics.length
+          ? `\n\n[이미 다룬 소제목 — 절대 반복 금지]\n${coveredTopics.map((t,i)=>`${i+1}. ${t}`).join('\n')}`
+          : '';
 
         let stagePrompt;
         if (chunkIndex === 1) {
-          stagePrompt = `주제: ${topic}\n${target ? '타겟 고객: ' + target : ''}\n톤앤매너: ${tone}\n\n상세 롱폼 대본의 도입부(강한 훅 + 문제 제기)를 써줘. 본론은 아직.`;
+          stagePrompt = `${contextLine}\n\n상세 롱폼 대본의 도입부(강한 훅 + 문제 제기)를 써줘. 본론은 아직 시작하지 마.`;
         } else if (fullScript.length < TARGET_CHARS * 0.85) {
-          stagePrompt = `주제: ${topic}\n${target ? '타겟 고객: ' + target : ''}\n톤앤매너: ${tone}\n\n마지막 부분:\n"""\n${fullScript.slice(-900)}\n"""\n\n자연스럽게 이어서 본론을 더 상세히 계속 써줘. 아직 마무리하지 말고.`;
+          stagePrompt = `${contextLine}\n\n지금까지 작성된 대본의 마지막 부분:\n"""\n${fullScript.slice(-1200)}\n"""${topicsNote}\n\n위에 자연스럽게 이어서, 아직 다루지 않은 새로운 소제목(항목)으로 본론을 계속 써줘. 새 소제목을 시작할 땐 굵게(**소제목**) 표시해줘. 아직 마무리하지 말고.`;
         } else {
-          stagePrompt = `주제: ${topic}\n${target ? '타겟 고객: ' + target : ''}\n톤앤매너: ${tone}\n\n마지막 부분:\n"""\n${fullScript.slice(-900)}\n"""\n\n요약 정리하고 CTA로 마무리해줘.`;
+          stagePrompt = `${contextLine}\n\n지금까지 작성된 대본의 마지막 부분:\n"""\n${fullScript.slice(-1200)}\n"""${topicsNote}\n\n위에 자연스럽게 이어서, 전체 내용을 요약 정리하고 CTA로 대본을 완결해줘. 문장을 반드시 끝맺어줘.`;
         }
 
         let chunk;
@@ -261,16 +581,32 @@ async function generateScript() {
         if (!chunk) break;
         fullScript += (fullScript ? '\n\n' : '') + chunk.trim();
         scriptDiv.textContent = fullScript;
+        charcount.innerHTML = `대본 <b>${fullScript.length.toLocaleString()}</b>자`;
+
+        const headerMatches = chunk.match(/\*\*([^*]{2,40})\*\*/g) || [];
+        headerMatches.forEach(h => {
+          const clean = h.replace(/\*\*/g, '').trim();
+          if (clean && !coveredTopics.includes(clean)) coveredTopics.push(clean);
+        });
 
         if (chunkIndex > 2 && fullScript.length >= TARGET_CHARS * 0.85 &&
-            /(문의|상담|신청|연락|가입).{0,15}(주세요|드립니다|바랍니다)?\s*$/.test(chunk.trim().slice(-60))) {
+            /(문의|상담|신청|연락|가입).{0,15}(주세요|드립니다|바랍니다)?[.!]?\s*$/.test(chunk.trim().slice(-60))) {
           break;
         }
         await new Promise(r => setTimeout(r, 300));
       }
 
-      progressText.textContent = `완료 — 총 ${fullScript.length.toLocaleString()}자`;
+      progressText.textContent = `완료 — 대본 ${fullScript.length.toLocaleString()}자`;
       progressBar.style.width = '100%';
+
+      if (citeOn) {
+        const stamp = document.createElement('div');
+        stamp.style.cssText = 'display:flex; align-items:center; gap:10px; margin-top:16px; padding-top:14px; border-top:1px solid var(--line);';
+        stamp.innerHTML = `<div class="stamp">출처<br>확인</div><span style="font-size:12px; color:var(--paper-mute);">통계·수치 문장에 출처 표시가 반영되었어요. 실제 배포 전 원문과 다시 한번 대조해주세요.</span>`;
+        resultBody.appendChild(stamp);
+      }
+
+      await generateBundle(fullScript, contextLine, category);
     }
   } catch (err) {
     resultBody.innerHTML = '<div class="error-box">오류가 발생했어요: ' + err.message + '</div>';
@@ -278,6 +614,61 @@ async function generateScript() {
     genBtn.disabled = false;
     genBtn.textContent = '대본 생성하기';
   }
+}
+
+async function generateBundle(script, contextLine, category) {
+  const bundlePanel = document.getElementById('bundlePanel');
+  const bundleBody = document.getElementById('bundleBody');
+  bundlePanel.style.display = 'block';
+  bundleBody.innerHTML = '<p class="footnote">부가 콘텐츠 생성 중...</p>';
+
+  const system = `당신은 보험 콘텐츠 채널 운영 전문가입니다. 완성된 대본을 보고, 업로드에 필요한 부가 콘텐츠를 JSON으로만 출력하세요. 다른 설명, 코드블록 표시(백틱) 없이 순수 JSON만 출력합니다.
+형식:
+{
+  "titles": ["유튜브용 제목 후보 3개"],
+  "thumbnails": ["썸네일에 들어갈 임팩트 짧은 문구 3개, 각 10자 내외"],
+  "description": "유튜브 설명란(더보기)에 들어갈 3~4문장 요약 + 관련 키워드 자연스럽게 포함",
+  "captionInstagram": "인스타 릴스용 캡션 (짧고 후킹있게, 이모지 1~2개 가능)",
+  "captionTiktok": "틱톡용 캡션 (해시태그 제외 본문만)",
+  "hashtags": ["해시태그 8~10개, # 포함"],
+  "subtitleKeywords": ["영상 자막에서 강조(색상/굵게) 표시하면 좋을 핵심 단어 6~8개"],
+  "nextEpisodeIdeas": ["같은 시리즈로 이어갈 다음 편 주제 아이디어 3개"]
+}`;
+  const userPrompt = `${contextLine}\n\n[완성된 대본]\n${script}\n\n위 대본을 기반으로 부가 콘텐츠 JSON을 만들어줘.`;
+
+  try {
+    const raw = await callClaude(system, [{ role: 'user', content: userPrompt }]);
+    const cleaned = raw.replace(/```json|```/g, '').trim();
+    const data = JSON.parse(cleaned);
+    renderBundle(data);
+  } catch (err) {
+    bundleBody.innerHTML = '<div class="error-box">부가 콘텐츠 생성에 실패했어요 (대본 자체는 정상 생성됐어요): ' + err.message + '</div>';
+  }
+}
+
+function renderBundle(data) {
+  const bundleBody = document.getElementById('bundleBody');
+  const listHtml = (arr) => '<ul>' + (arr||[]).map(x => `<li>${escapeHtml(x)}</li>`).join('') + '</ul>';
+  const tagsHtml = (arr) => (arr||[]).map(x => `<span class="tag-pill">${escapeHtml(x)}</span>`).join('');
+
+  bundleBody.innerHTML = `
+    <div class="bundle-grid">
+      <div class="bcard"><h4>제목 후보</h4><div class="content">${listHtml(data.titles)}</div></div>
+      <div class="bcard"><h4>썸네일 문구</h4><div class="content">${listHtml(data.thumbnails)}</div></div>
+      <div class="bcard full"><h4>설명란 (더보기)</h4><div class="content">${escapeHtml(data.description||'')}</div></div>
+      <div class="bcard"><h4>인스타 캡션</h4><div class="content">${escapeHtml(data.captionInstagram||'')}</div></div>
+      <div class="bcard"><h4>틱톡 캡션</h4><div class="content">${escapeHtml(data.captionTiktok||'')}</div></div>
+      <div class="bcard full"><h4>해시태그</h4><div class="content">${tagsHtml(data.hashtags)}</div></div>
+      <div class="bcard"><h4>자막 강조 키워드</h4><div class="content">${tagsHtml(data.subtitleKeywords)}</div></div>
+      <div class="bcard"><h4>다음 편 아이디어</h4><div class="content">${listHtml(data.nextEpisodeIdeas)}</div></div>
+    </div>
+  `;
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str || '';
+  return div.innerHTML;
 }
 </script>
 </body>

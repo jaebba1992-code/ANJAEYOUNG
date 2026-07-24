@@ -1,9 +1,5 @@
 {
   "name": "insurance-script-generator",
   "version": "1.0.0",
-  "private": true,
-  "description": "보험 롱폼/숏폼 대본 생성기 - 지사 공유용",
-  "scripts": {
-    "dev": "vercel dev"
-  }
+  "private": true
 }
