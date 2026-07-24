@@ -2,504 +2,283 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>보험 대본 생성기 — 롱폼 & 숏폼 (지사 공유용)</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;700;900&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>보험 대본 생성기</title>
 <style>
-  :root{
-    --bg:#101216; --panel:#191c22; --panel-2:#1f232b; --line:#2a2f38; --line-soft:#232730;
-    --text:#F1EFE7; --text-dim:#9aa0ac; --text-faint:#5f6672;
-    --onair:#E5484D; --onair-dim:#5c2226; --amber:#F0A93A; --amber-dim:#4a3618;
-    --teal:#3FBF9F; --teal-dim:#173b32; --violet:#9C8CF0; --violet-dim:#2c2748;
+  :root {
+    --bg: #14171c;
+    --panel: #1b1f26;
+    --panel-2: #21262e;
+    --border: #2c323b;
+    --border-strong: #3a4149;
+    --text: #edeef0;
+    --text-2: #a3aab3;
+    --text-muted: #6b7278;
+    --accent: #e8a33d;
+    --accent-dim: #6b5427;
+    font-family: -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
   }
-  *{box-sizing:border-box;}
-  body{margin:0;background:var(--bg);color:var(--text);font-family:'Noto Sans KR', sans-serif;padding:0 0 80px;}
-  .wrap{max-width:920px;margin:0 auto;padding:0 20px;}
-  .studio-bar{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--line);background:var(--panel);}
-  .studio-left{display:flex;align-items:center;gap:10px;}
-  .dot{width:9px;height:9px;border-radius:50%;background:var(--onair);animation:pulse 1.6s infinite;}
-  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.25;}}
-  .onair-label{font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.14em;color:var(--onair);font-weight:600;}
-  .tc{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--text-faint);letter-spacing:.05em;}
-  .hero{padding:44px 0 28px;}
-  .eyebrow{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--amber);letter-spacing:.12em;margin:0 0 10px;}
-  h1{font-family:'Black Han Sans', sans-serif;font-weight:400;font-size:32px;line-height:1.25;margin:0 0 12px;}
-  .sub{color:var(--text-dim);font-size:14.5px;line-height:1.7;max-width:640px;margin:0;}
-  .panel{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:26px;margin-top:26px;}
-  .field{margin-bottom:18px;}
-  .field:last-child{margin-bottom:0;}
-  label{display:block;font-size:12.5px;color:var(--text-dim);margin-bottom:7px;font-weight:500;}
-  input[type=text], input[type=password], select, textarea{
-    width:100%;background:var(--panel-2);border:1px solid var(--line);color:var(--text);border-radius:4px;
-    padding:11px 12px;font-family:'Noto Sans KR',sans-serif;font-size:14.5px;outline:none;
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 40px 20px;
   }
-  input:focus, select:focus, textarea:focus{border-color:var(--amber);}
-  textarea{resize:vertical;min-height:64px;line-height:1.6;}
-  .row2{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
-  @media(max-width:640px){.row2{grid-template-columns:1fr;}}
-  .chip-group{display:flex;gap:8px;flex-wrap:wrap;}
-  .chip{border:1px solid var(--line);background:var(--panel-2);color:var(--text-dim);padding:8px 14px;border-radius:20px;font-size:13px;cursor:pointer;}
-  .chip.active{border-color:var(--amber);color:var(--amber);background:var(--amber-dim);}
-  .gen-btn{margin-top:24px;width:100%;padding:15px;border-radius:5px;border:none;background:var(--onair);color:#1a0708;font-weight:700;font-size:15px;cursor:pointer;}
-  .gen-btn:disabled{background:var(--panel-2);color:var(--text-faint);cursor:not-allowed;}
-  .gen-btn:not(:disabled):hover{background:#f0575c;}
-  .err{margin-top:14px;padding:12px 14px;border-radius:4px;background:var(--onair-dim);color:#ffb3b5;font-size:13.5px;border:1px solid #5c2226;display:none;line-height:1.6;}
-  .retry-btn{margin-top:10px;background:transparent;border:1px solid #ffb3b5;color:#ffb3b5;border-radius:4px;padding:7px 14px;font-size:12.5px;cursor:pointer;}
-  .retry-btn:hover{background:#ffb3b5;color:#1a0708;}
-  .loading{display:none;margin-top:26px;text-align:center;color:var(--text-dim);font-size:13.5px;}
-  .loading .slate{width:56px;height:40px;margin:0 auto 14px;border:2px solid var(--text-faint);border-radius:3px;position:relative;overflow:hidden;}
-  .loading .slate::before{content:'';position:absolute;top:0;left:0;right:0;height:10px;background:repeating-linear-gradient(45deg,var(--text) 0 6px,#000 6px 12px);opacity:.5;}
-  .results{display:none;margin-top:34px;}
-  .series-card{background:var(--violet-dim);border:1px solid #3a3168;border-radius:6px;padding:18px 20px;margin-bottom:22px;}
-  .series-card .block-label{color:var(--violet);}
-  .series-list{display:flex;flex-direction:column;gap:6px;margin-top:8px;}
-  .series-item{display:flex;gap:8px;align-items:flex-start;font-size:14px;line-height:1.6;}
-  .series-item .num{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--violet);padding-top:2px;}
-  .tab-bar{display:flex;gap:6px;margin-bottom:18px;border-bottom:1px solid var(--line);}
-  .tab-btn{background:transparent;border:none;color:var(--text-faint);font-size:14px;font-weight:700;padding:12px 18px;cursor:pointer;position:relative;}
-  .tab-btn .tab-tag{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;display:block;margin-top:2px;font-weight:600;}
-  .tab-btn.active{color:var(--text);}
-  .tab-btn.active::after{content:'';position:absolute;left:0;right:0;bottom:-1px;height:2px;background:var(--onair);}
-  .tab-btn[data-tab="short"].active::after{background:var(--amber);}
-  .tab-panel{display:none;}
-  .tab-panel.active{display:block;}
-  .script-card{background:var(--panel);border:1px solid var(--line);border-radius:6px;margin-bottom:22px;overflow:hidden;}
-  .card-head{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--line);background:var(--panel-2);}
-  .card-tag{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.1em;padding:3px 9px;border-radius:3px;font-weight:600;}
-  .tag-long{background:var(--teal-dim);color:var(--teal);}
-  .tag-short{background:var(--amber-dim);color:var(--amber);}
-  .icon-btn{background:transparent;border:1px solid var(--line);color:var(--text-dim);border-radius:4px;padding:6px 10px;font-size:12px;cursor:pointer;}
-  .icon-btn:hover{border-color:var(--text-dim);color:var(--text);}
-  .card-body{padding:20px;}
-  .meta-line{font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--text-faint);margin-bottom:16px;}
-  .script-block{margin-bottom:16px;}
-  .script-block:last-child{margin-bottom:0;}
-  .block-label{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--amber);letter-spacing:.08em;margin-bottom:6px;display:block;}
-  .block-text{font-size:14.5px;line-height:1.85;color:var(--text);white-space:pre-wrap;padding:12px 14px;background:var(--panel-2);border-left:2px solid var(--line-soft);border-radius:0 4px 4px 0;}
-  .cta-text{border-left-color:var(--onair);background:rgba(229,72,77,0.06);}
-  .question-text{border-left-color:var(--violet);background:rgba(156,140,240,0.08);}
-  .arc-tag{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em;color:var(--bg);background:var(--amber);padding:2px 7px;border-radius:3px;margin-right:8px;font-weight:700;}
-  .option-list{display:flex;flex-direction:column;gap:8px;}
-  .option-item{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:var(--panel-2);border-radius:4px;border-left:2px solid var(--line-soft);font-size:14px;line-height:1.6;}
-  .option-num{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text-faint);flex-shrink:0;padding-top:2px;}
-  .tech-list{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;}
-  .tech-pill{font-size:12.5px;background:var(--teal-dim);color:var(--teal);padding:6px 11px;border-radius:4px;line-height:1.5;border:1px solid #1f4a40;}
-  .tag-pill{font-size:12.5px;background:var(--panel-2);color:var(--text-dim);padding:5px 10px;border-radius:4px;border:1px solid var(--line);}
-  .tag-pill-wrap{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;}
-  .emphasis-pill{font-size:13px;background:var(--amber-dim);color:var(--amber);padding:5px 11px;border-radius:4px;border:1px solid #4a3618;font-weight:700;}
-  .compliance-note{margin-top:18px;padding:12px 14px;border-radius:4px;background:var(--amber-dim);border:1px solid #4a3618;color:#f2c98a;font-size:12.5px;line-height:1.6;}
-  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--panel-2);border:1px solid var(--line);color:var(--text);padding:10px 18px;border-radius:5px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;}
-  .toast.show{opacity:1;}
-  .gate{max-width:420px;margin:80px auto;padding:0 20px;}
+  .wrap { max-width: 760px; margin: 0 auto; }
+  .eyebrow { font-size: 13px; color: var(--accent); letter-spacing: 0.08em; margin: 0 0 6px; font-weight: 500; }
+  h1 { font-size: 26px; font-weight: 500; margin: 0 0 6px; letter-spacing: -0.01em; }
+  .sub { color: var(--text-2); font-size: 14px; margin: 0 0 32px; line-height: 1.6; }
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 24px; margin-bottom: 20px; }
+  .row { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+  .field { flex: 1; min-width: 200px; }
+  label { display: block; font-size: 12px; color: var(--text-2); margin-bottom: 6px; font-weight: 500; }
+  input[type=text], textarea, select {
+    width: 100%; background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px;
+    color: var(--text); padding: 10px 12px; font-size: 14px; font-family: inherit;
+  }
+  input[type=text]:focus, textarea:focus, select:focus { outline: none; border-color: var(--accent-dim); }
+  .segmented { display: flex; background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 3px; gap: 3px; }
+  .seg-btn { flex: 1; background: transparent; border: none; color: var(--text-2); padding: 8px 10px; border-radius: 6px; font-size: 13px; cursor: pointer; font-family: inherit; }
+  .seg-btn.active { background: var(--accent-dim); color: var(--accent); font-weight: 500; }
+  button.generate {
+    width: 100%; background: var(--accent); color: #1a1204; border: none; border-radius: 8px;
+    padding: 13px; font-size: 14px; font-weight: 500; cursor: pointer; font-family: inherit; margin-top: 4px;
+  }
+  button.generate:disabled { opacity: 0.5; cursor: default; }
+  button.generate:not(:disabled):hover { filter: brightness(1.06); }
+  .result-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+  .result-head span { font-size: 13px; color: var(--text-2); }
+  .copy-btn { background: transparent; border: 1px solid var(--border-strong); color: var(--text-2); border-radius: 6px; padding: 6px 12px; font-size: 12px; cursor: pointer; font-family: inherit; }
+  .copy-btn:hover { border-color: var(--accent-dim); color: var(--accent); }
+  .script-body { white-space: pre-wrap; line-height: 1.85; font-size: 15px; color: var(--text); min-height: 60px; }
+  .error-box { background: #2a1a1a; border: 1px solid #4a2a2a; color: #e0a3a3; border-radius: 8px; padding: 12px 14px; font-size: 13px; line-height: 1.6; }
+  .footnote { color: var(--text-muted); font-size: 12px; text-align: center; margin-top: 24px; line-height: 1.6; }
+  .footnote a { color: var(--text-2); }
 </style>
 </head>
 <body>
-
-<div class="studio-bar">
-  <div class="studio-left"><div class="dot"></div><span class="onair-label">ON AIR · SCRIPT LAB</span></div>
-  <span class="tc" id="tc">00:00:00:00</span>
-</div>
-
-<div id="gateWrap" class="gate">
-  <div class="panel">
-    <div class="field">
-      <label for="accessCode">팀 접속 코드</label>
-      <input type="password" id="accessCode" placeholder="담당자에게 받은 접속 코드를 입력하세요">
-    </div>
-    <button class="gen-btn" id="gateBtn">입장하기</button>
-    <div class="err" id="gateErr"></div>
-  </div>
-</div>
-
-<div class="wrap" id="mainWrap" style="display:none;">
-  <div class="hero">
-    <p class="eyebrow">보험 콘텐츠 대본 생성기 · 지사 공유용</p>
-    <h1>주제 하나로<br>롱폼 유튜브 + 숏폼 릴스 대본을<br>기승전결까지 갖춰서 뽑아드립니다</h1>
-    <p class="sub">롱폼 대본은 세부 사례·근거까지 담아 2만자 이상 분량으로 생성됩니다. 제목, 썸네일 문구, 더보기란, 캡션, 시리즈 아이디어, SEO 태그까지 한 번에 나와요.</p>
-  </div>
+<div class="wrap">
+  <p class="eyebrow">INSURANCE SCRIPT LAB</p>
+  <h1>보험 콘텐츠 대본 생성기</h1>
+  <p class="sub">주제와 출처자료를 입력하면 롱폼(유튜브) 또는 숏폼(릴스/쇼츠) 대본을 자동으로 만들어드려요.</p>
 
   <div class="panel">
-    <div class="field">
-      <label for="topic">영상 주제 / 키워드</label>
-      <input type="text" id="topic" placeholder="예: 운전자보험 필수특약 3가지, 죽어도 해지하면 안 되는 보험 4가지">
-    </div>
-    <div class="row2">
+    <div class="row">
       <div class="field">
-        <label for="category">보험 분야</label>
-        <select id="category">
-          <option value="자동차/운전자보험">자동차 / 운전자보험</option>
-          <option value="실손의료보험">실손의료보험 (실비)</option>
-          <option value="암·3대질병보험" selected>암 · 3대질병보험</option>
-          <option value="종신·정기보험">종신 · 정기보험</option>
-          <option value="간병·치매보험">간병 · 치매보험</option>
-          <option value="어린이보험">어린이보험</option>
-          <option value="보험 전반/리모델링">보험 전반 · 리모델링</option>
-          <option value="__custom__">기타 · 직접 입력</option>
+        <label>형식</label>
+        <div class="segmented" id="formatSeg">
+          <button type="button" class="seg-btn active" data-val="short">숏폼 (30~60초)</button>
+          <button type="button" class="seg-btn" data-val="long">롱폼 상세 (1만자↑)</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label>주제 / 상품</label>
+        <input type="text" id="topic" placeholder="예: 어린이보험 갱신형 vs 비갱신형 차이">
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label>타겟 고객 (선택)</label>
+        <input type="text" id="target" placeholder="예: 30대 초보 부모">
+      </div>
+      <div class="field">
+        <label>톤</label>
+        <select id="tone">
+          <option value="친근하고 공감형">친근하고 공감형</option>
+          <option value="전문적이고 신뢰감 있는">전문적이고 신뢰감 있는</option>
+          <option value="긴장감 있고 후킹 강한">긴장감 있고 후킹 강한</option>
         </select>
-        <input type="text" id="categoryCustom" placeholder="예: 배상책임보험, 화재보험, 특정 특약 등" style="margin-top:8px;display:none;">
       </div>
+    </div>
+
+    <div class="row" id="sourceRow" style="display:none;">
       <div class="field">
-        <label for="presenter">진행자 호칭</label>
-        <input type="text" id="presenter" placeholder="예: 보험 전문가" value="보험 전문가">
+        <label>출처자료 (근거로 삼을 자료를 붙여넣으세요)</label>
+        <textarea id="source" rows="6" placeholder="약관, 통계, 기사, 유튜브 자막 등 근거 자료 원문을 붙여넣으면 이 내용을 인용해서 작성합니다."></textarea>
       </div>
     </div>
-    <div class="field">
-      <label>영업 강도 (세일즈 화법을 얼마나 세게 녹일지)</label>
-      <div class="chip-group" id="intensity-group">
-        <div class="chip" data-val="부드럽게">부드럽게 · 정보 위주</div>
-        <div class="chip active" data-val="보통">보통 · 정보+상담유도</div>
-        <div class="chip" data-val="강하게">강하게 · 문의 전환 집중</div>
+
+    <button class="generate" id="genBtn">대본 생성하기</button>
+    <div id="progressWrap" style="display:none; margin-top:12px;">
+      <div style="height:6px; background:var(--panel-2); border-radius:3px; overflow:hidden;">
+        <div id="progressBar" style="height:100%; width:0%; background:var(--accent); transition:width .3s;"></div>
       </div>
+      <p id="progressText" style="font-size:12px; color:var(--text-2); margin:8px 0 0; text-align:center;"></p>
     </div>
-    <div class="field">
-      <label for="detail">추가로 꼭 넣고 싶은 내용 (선택)</label>
-      <textarea id="detail" placeholder="예: 최근 개정된 자동차부상치료비 내용 강조하고 싶어요 / 30대 직장인 타겟"></textarea>
-    </div>
-    <button class="gen-btn" id="genBtn">대본 생성하기</button>
-    <div class="err" id="errBox"></div>
   </div>
 
-  <div class="loading" id="loading">
-    <div class="slate"></div>
-    <div id="loadingMsg">대본 뽑는 중... (긴 대본이라 1~2분 정도 걸려요)</div>
+  <div class="panel" id="resultPanel" style="display:none;">
+    <div class="result-head">
+      <span id="resultLabel">생성된 대본</span>
+      <button class="copy-btn" id="copyBtn">복사</button>
+    </div>
+    <div id="resultBody"></div>
   </div>
 
-  <div class="results" id="results">
-    <div class="series-card" id="seriesCard"></div>
-    <div class="tab-bar">
-      <button class="tab-btn active" data-tab="long" id="tabBtnLong">롱폼 · 유튜브<span class="tab-tag" style="color:var(--teal)">LONG FORM</span></button>
-      <button class="tab-btn" data-tab="short" id="tabBtnShort">숏폼 · 릴스/쇼츠/틱톡<span class="tab-tag" style="color:var(--amber)">SHORT FORM</span></button>
-    </div>
-    <div class="tab-panel active" id="tabLong"></div>
-    <div class="tab-panel" id="tabShort"></div>
-  </div>
+  <p class="footnote">서버 상태가 궁금하면 <a href="/api/health" target="_blank">/api/health</a> 를 확인해보세요.</p>
 </div>
-
-<div class="toast" id="toast">복사했어요</div>
 
 <script>
-(function(){
-  var tcEl = document.getElementById('tc');
-  var start = Date.now();
-  setInterval(function(){
-    var el = Date.now() - start;
-    var h = String(Math.floor(el/3600000)).padStart(2,'0');
-    var m = String(Math.floor(el/60000)%60).padStart(2,'0');
-    var s = String(Math.floor(el/1000)%60).padStart(2,'0');
-    var f = String(Math.floor((el%1000)/40)).padStart(2,'0');
-    tcEl.textContent = h+':'+m+':'+s+':'+f;
-  }, 40);
+let format = 'short';
 
-  var savedCode = sessionStorage.getItem('teamAccessCode');
-  if(savedCode){
-    document.getElementById('gateWrap').style.display = 'none';
-    document.getElementById('mainWrap').style.display = 'block';
-  }
-
-  document.getElementById('gateBtn').addEventListener('click', function(){
-    var code = document.getElementById('accessCode').value.trim();
-    if(!code){
-      document.getElementById('gateErr').textContent = '접속 코드를 입력해주세요.';
-      document.getElementById('gateErr').style.display = 'block';
-      return;
-    }
-    sessionStorage.setItem('teamAccessCode', code);
-    document.getElementById('gateWrap').style.display = 'none';
-    document.getElementById('mainWrap').style.display = 'block';
+document.querySelectorAll('#formatSeg .seg-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#formatSeg .seg-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    format = btn.dataset.val;
+    document.getElementById('sourceRow').style.display = format === 'long' ? 'flex' : 'none';
   });
+});
 
-  var categorySelect = document.getElementById('category');
-  var categoryCustom = document.getElementById('categoryCustom');
-  categorySelect.addEventListener('change', function(){
-    categoryCustom.style.display = categorySelect.value === '__custom__' ? 'block' : 'none';
-  });
+document.getElementById('copyBtn').addEventListener('click', () => {
+  const text = document.getElementById('resultBody').innerText;
+  navigator.clipboard.writeText(text);
+  const btn = document.getElementById('copyBtn');
+  const old = btn.textContent;
+  btn.textContent = '복사됨';
+  setTimeout(() => btn.textContent = old, 1200);
+});
 
-  document.querySelectorAll('#intensity-group .chip').forEach(function(chip){
-    chip.addEventListener('click', function(){
-      document.querySelectorAll('#intensity-group .chip').forEach(function(c){c.classList.remove('active');});
-      chip.classList.add('active');
-    });
-  });
+document.getElementById('genBtn').addEventListener('click', generateScript);
 
-  document.getElementById('tabBtnLong').addEventListener('click', function(){ switchTab('long'); });
-  document.getElementById('tabBtnShort').addEventListener('click', function(){ switchTab('short'); });
-  function switchTab(which){
-    document.getElementById('tabBtnLong').classList.toggle('active', which==='long');
-    document.getElementById('tabBtnShort').classList.toggle('active', which==='short');
-    document.getElementById('tabLong').classList.toggle('active', which==='long');
-    document.getElementById('tabShort').classList.toggle('active', which==='short');
-  }
-
-  var SYSTEM_PROMPT = [
-"너는 한국 보험 유튜브 채널과 인스타/틱톡 숏폼을 함께 운영하는 보험설계사의 전속 대본·채널운영 작가다.",
-"다음 두 가지 실제 자료를 학습해서 그 스타일을 그대로 재현해야 한다.",
-"",
-"[자료 1: 롱폼 유튜브 대본 스타일 — 실제 영상에서 추출한 패턴]",
-"- 도입 훅(0:00~0:15): 결론/반전/숫자를 먼저 던진다",
-"- 곧바로 화자 소개: 진행자 호칭으로 한 줄 신뢰 형성",
-"- 본론은 항상 숫자로 구조화한다 (핵심 3~4가지 등). 각 포인트마다 근거(제도, 배경, 사례, 비교)를 반드시 풀어서 설명한다",
-"- 시청자의 손해/손실을 계속 환기한다",
-"- 마무리는 요약 → 참여 유도 질문 → 상담 유도 → 구독 유도 → 다음 영상 예고 순서",
-"- 어조: 친절하지만 확신에 찬 전문가 톤. 반말/과장 광고 문구 없이, 팩트와 근거로 설득한다",
-"",
-"[자료 2: 세일즈 화법 카탈로그 — 자연스럽게 녹여야 할 기법들]",
-"이유 먼저 밝히기 / 예고편 화법 / 이율배반 자극 / 스리슬쩍 명령어 삽입 / 원투펀치 / 구체적 숫자 신뢰화법 / 숫자 체감 번역 / 손실회피 프레이밍 / 자기중요감 자극 / 확신의 깊이 / 저도 화법 / 전제 깔기 / 상상화법 / 단점 뒤집기 / 제3자 인용",
-"",
-"[분량 규칙 — 반드시 지킬 것]",
-"- 롱폼 대본(sections의 narration 전체 합)은 최소 18,000자, 목표 20,000자 이상이어야 한다. 매우 중요한 규칙이다.",
-"- 각 포인트(전 단계) 섹션은 최소 2,500자 이상으로, 배경 설명 → 구조적 이유 → 구체적 예시나 상황 묘사 → 시청자에게 주는 시사점 순서로 깊게 풀어써야 한다. 요약하듯 짧게 쓰지 말고 실제 유튜브 대본처럼 구어체로 충분히 설명한다.",
-"- 절대 핵심 요약이나 개요 수준으로 짧게 쓰지 않는다. 근거·사례·비유·반문을 충분히 섞어서 실제 10분 이상 분량의 말할 내용을 채운다.",
-"- 숏폼은 반대로 15~60초 분량에 맞게 짧고 강하게 쓴다 (전체 300~600자 내외).",
-"",
-"[리텐션 규칙] 기승전결 구조 명확히, 훅은 숫자/반전/경고 포함, 중간에 예고편 화법으로 궁금증 루프 최소 1회, 결말은 요약→참여질문→상담유도→구독유도 순서.",
-"[참여·확산] engagement_question(댓글 유도 질문)과 series_ideas(후속 주제 3~5개)를 반드시 포함.",
-"[제목·썸네일·SEO] titles 3개(숫자형/경고형/질문형), thumbnail_texts 3개, seo_tags 10~15개, hashtags 5~8개 모두 포함.",
-"",
-"[출력 규칙]",
-"1. 반드시 순수 JSON 객체 하나만 출력한다. 코드블록이나 설명 문구를 절대 붙이지 않는다.",
-"2. JSON 스키마:",
-"{",
-'  "series_ideas": ["후속 주제1", "후속 주제2", "후속 주제3", "후속 주제4"],',
-'  "longform": {',
-'    "titles": ["숫자형 제목", "경고형 제목", "질문형 제목"],',
-'    "thumbnail_texts": ["문구1", "문구2", "문구3"],',
-'    "duration_estimate": "예상 러닝타임",',
-'    "sections": [ {"timecode": "0:00", "arc": "기|승|전|결", "label": "섹션 이름", "narration": "실제 내레이션 대사, 충분히 길게"}, ... ],',
-'    "engagement_question": "댓글 유도 질문",',
-'    "cta": "마무리 CTA 문단",',
-'    "description": "더보기란 본문",',
-'    "hashtags": ["#태그1", ...],',
-'    "seo_tags": ["태그1", ...],',
-'    "techniques_used": ["기법명: 설명", ...]',
-'  },',
-'  "shortform": {',
-'    "cover_texts": ["문구1", "문구2", "문구3"],',
-'    "hook": "3초 훅",',
-'    "script": "훅 이후 전체 대사",',
-'    "emphasis_keywords": ["키워드1", ...],',
-'    "engagement_question": "댓글 유도 질문",',
-'    "cta": "마무리 유도 문장",',
-'    "caption": "게시글 본문",',
-'    "hashtags": ["#태그1", ...],',
-'    "techniques_used": ["기법명: 설명", ...]',
-'  }',
-"}",
-"3. 보험 상품명, 회사명, 구체적인 보험료·보장금액·시행일자는 절대 지어내지 말고 [ ] 표시로 빈칸을 남긴다.",
-"4. 과장광고, 확정적 수익 보장, 허위·과장 표현은 절대 쓰지 않는다. 보험업법상 광고 심의를 통과해야 하는 콘텐츠라는 점을 항상 염두에 둔다."
-  ].join("\\n");
-
-  function buildUserPrompt(){
-    var topic = document.getElementById('topic').value.trim();
-    var category = document.getElementById('category').value;
-    if(category === '__custom__'){
-      category = document.getElementById('categoryCustom').value.trim() || '보험 전반';
-    }
-    var presenter = document.getElementById('presenter').value.trim() || '보험 전문가';
-    var intensity = document.querySelector('#intensity-group .chip.active').dataset.val;
-    var detail = document.getElementById('detail').value.trim();
-    var lines = [
-      '주제: ' + topic,
-      '보험 분야: ' + category,
-      '진행자 호칭: ' + presenter,
-      '영업 강도: ' + intensity
-    ];
-    if(detail) lines.push('추가 요청사항: ' + detail);
-    lines.push('위 조건으로 JSON 스키마 그대로 만들어줘. 롱폼 narration은 반드시 합계 18,000자 이상으로 깊이 있게 써줘.');
-    return lines.join('\\n');
-  }
-
-  function esc(s){ var d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML; }
-  function renderTechniques(list){
-    if(!list || !list.length) return '';
-    return '<div class="tech-list">' + list.map(function(t){
-      var parts = String(t).split(':'); var name = parts.shift(); var rest = parts.join(':').trim();
-      return '<span class="tech-pill"><b>' + esc(name.trim()) + '</b>' + (rest ? ' — ' + esc(rest) : '') + '</span>';
-    }).join('') + '</div>';
-  }
-  function renderTags(list, cls){
-    if(!list || !list.length) return '';
-    return '<div class="tag-pill-wrap">' + list.map(function(t){ return '<span class="' + cls + '">' + esc(t) + '</span>'; }).join('') + '</div>';
-  }
-  function renderOptionList(items){
-    if(!items || !items.length) return '';
-    return '<div class="option-list">' + items.map(function(it, i){
-      return '<div class="option-item"><span class="option-num">' + (i+1) + '</span><span>' + esc(it) + '</span></div>';
-    }).join('') + '</div>';
-  }
-  function renderSeries(data){
-    var el = document.getElementById('seriesCard');
-    var ideas = data.series_ideas || [];
-    if(!ideas.length){ el.style.display='none'; return; }
-    el.style.display='block';
-    el.innerHTML = '<span class="block-label">시리즈 아이디어</span><div class="series-list">' + ideas.map(function(it, i){
-      return '<div class="series-item"><span class="num">'+(i+1)+'</span><span>'+esc(it)+'</span></div>';
-    }).join('') + '</div>';
-  }
-
-  function renderResults(data){
-    var lf = data.longform || {};
-    var sf = data.shortform || {};
-    renderSeries(data);
-
-    var sectionsHtml = (lf.sections || []).map(function(sec){
-      return '<div class="script-block"><span class="block-label">' + esc(sec.timecode || '') + ' · ' + esc(sec.label || '') + '</span>' +
-        '<div class="block-text">' + (sec.arc ? '<span class="arc-tag">' + esc(sec.arc) + '</span>' : '') + esc(sec.narration || '') + '</div></div>';
-    }).join('');
-
-    var totalChars = (lf.sections||[]).reduce(function(sum,s){ return sum + (s.narration||'').length; }, 0);
-
-    var longHtml = '<div class="script-card">' +
-      '<div class="card-head"><span class="card-tag tag-long">LONG FORM · YOUTUBE</span><div><button class="icon-btn" data-copy="long">전체 복사</button></div></div>' +
-      '<div class="card-body">' +
-        '<div class="script-block"><span class="block-label">제목 후보 3개</span>' + renderOptionList(lf.titles) + '</div>' +
-        '<div class="script-block"><span class="block-label">썸네일 문구 3개</span>' + renderOptionList(lf.thumbnail_texts) + '</div>' +
-        '<div class="meta-line">예상 러닝타임 ' + esc(lf.duration_estimate || '-') + ' · 대본 분량 약 ' + totalChars.toLocaleString() + '자</div>' +
-        sectionsHtml +
-        '<div class="script-block"><span class="block-label">댓글 유도 질문</span><div class="block-text question-text">' + esc(lf.engagement_question || '') + '</div></div>' +
-        '<div class="script-block"><span class="block-label">CTA · 마무리</span><div class="block-text cta-text">' + esc(lf.cta || '') + '</div></div>' +
-        '<div class="script-block"><span class="block-label">더보기란</span><div class="block-text">' + esc(lf.description || '') + '</div>' + renderTags(lf.hashtags, 'tag-pill') + '</div>' +
-        '<div class="script-block"><span class="block-label">SEO 태그</span>' + renderTags(lf.seo_tags, 'tag-pill') + '</div>' +
-        '<div class="script-block"><span class="block-label">사용된 화법</span>' + renderTechniques(lf.techniques_used) + '</div>' +
-        '<div class="compliance-note">이 대본은 초안입니다. 실제 업로드 전 보험협회 광고 심의 절차와 상품 정보(회사명, 보험료, 보장금액)의 사실관계를 반드시 직접 확인해주세요.</div>' +
-      '</div></div>';
-
-    var shortHtml = '<div class="script-card">' +
-      '<div class="card-head"><span class="card-tag tag-short">SHORT FORM</span><div><button class="icon-btn" data-copy="short">전체 복사</button></div></div>' +
-      '<div class="card-body">' +
-        '<div class="script-block"><span class="block-label">커버 문구 3개</span>' + renderOptionList(sf.cover_texts) + '</div>' +
-        '<div class="script-block"><span class="block-label">HOOK</span><div class="block-text">' + esc(sf.hook || '') + '</div></div>' +
-        '<div class="script-block"><span class="block-label">본문</span><div class="block-text">' + esc(sf.script || '') + '</div></div>' +
-        '<div class="script-block"><span class="block-label">자막 강조 키워드</span>' + renderTags(sf.emphasis_keywords, 'emphasis-pill') + '</div>' +
-        '<div class="script-block"><span class="block-label">댓글 유도 질문</span><div class="block-text question-text">' + esc(sf.engagement_question || '') + '</div></div>' +
-        '<div class="script-block"><span class="block-label">CTA</span><div class="block-text cta-text">' + esc(sf.cta || '') + '</div></div>' +
-        '<div class="script-block"><span class="block-label">캡션</span><div class="block-text">' + esc(sf.caption || '') + '</div>' + renderTags(sf.hashtags, 'tag-pill') + '</div>' +
-        '<div class="script-block"><span class="block-label">사용된 화법</span>' + renderTechniques(sf.techniques_used) + '</div>' +
-      '</div></div>';
-
-    document.getElementById('tabLong').innerHTML = longHtml;
-    document.getElementById('tabShort').innerHTML = shortHtml;
-    document.getElementById('results').style.display = 'block';
-
-    document.querySelectorAll('[data-copy]').forEach(function(btn){
-      btn.addEventListener('click', function(){
-        var text = btn.dataset.copy === 'long' ? plainTextLong(lf) : plainTextShort(sf);
-        navigator.clipboard.writeText(text).then(function(){ showToast('복사했어요'); });
-      });
-    });
-  }
-
-  function plainTextLong(lf){
-    var out = ['[제목 후보]'];
-    (lf.titles||[]).forEach(function(t,i){ out.push((i+1)+'. '+t); });
-    out.push('', '[썸네일 문구]');
-    (lf.thumbnail_texts||[]).forEach(function(t,i){ out.push((i+1)+'. '+t); });
-    out.push('', '예상 러닝타임: ' + (lf.duration_estimate||''), '');
-    (lf.sections||[]).forEach(function(s){
-      out.push('[' + s.timecode + ' ' + (s.arc?('('+s.arc+') '):'') + s.label + ']');
-      out.push(s.narration || ''); out.push('');
-    });
-    out.push('[댓글 유도 질문]', lf.engagement_question || '', '', '[CTA]', lf.cta || '', '', '[더보기란]', lf.description || '');
-    if(lf.hashtags && lf.hashtags.length) out.push(lf.hashtags.join(' '));
-    out.push('', '[SEO 태그]', (lf.seo_tags||[]).join(', '));
-    return out.join('\\n');
-  }
-  function plainTextShort(sf){
-    var out = ['[커버 문구]'];
-    (sf.cover_texts||[]).forEach(function(t,i){ out.push((i+1)+'. '+t); });
-    out.push('', '[HOOK]', sf.hook||'', '', '[본문]', sf.script||'');
-    out.push('', '[자막 강조 키워드]', (sf.emphasis_keywords||[]).join(', '));
-    out.push('', '[댓글 유도 질문]', sf.engagement_question || '', '', '[CTA]', sf.cta||'', '', '[캡션]', sf.caption||'');
-    if(sf.hashtags && sf.hashtags.length) out.push(sf.hashtags.join(' '));
-    return out.join('\\n');
-  }
-
-  function showToast(msg){
-    var t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show');
-    setTimeout(function(){ t.classList.remove('show'); }, 1800);
-  }
-  function showError(msg, allowRetry){
-    var e = document.getElementById('errBox');
-    e.innerHTML = esc(msg) + (allowRetry ? '<br><button class="retry-btn" id="retryBtn">다시 시도</button>' : '');
-    e.style.display = 'block';
-    if(allowRetry){ document.getElementById('retryBtn').addEventListener('click', function(){ document.getElementById('genBtn').click(); }); }
-  }
-
-  var loadingMsgs = ['훅 문장 뽑는 중...', '기승전결 구조 짜는 중...', '포인트별 세부 내용 채우는 중...', '제목·썸네일 문구 뽑는 중...', '영업 화법 녹이는 중...', '분량 채우는 중 (조금 걸려요)...'];
-  var loadingTimer = null;
-
-  document.getElementById('genBtn').addEventListener('click', async function(){
-    var topic = document.getElementById('topic').value.trim();
-    var errBox = document.getElementById('errBox');
-    errBox.style.display = 'none';
-    if(!topic){ showError('영상 주제를 먼저 입력해주세요.'); return; }
-
-    var btn = document.getElementById('genBtn');
-    var loading = document.getElementById('loading');
-    var results = document.getElementById('results');
-    btn.disabled = true;
-    results.style.display = 'none';
-    loading.style.display = 'block';
-    var msgIdx = 0;
-    document.getElementById('loadingMsg').textContent = loadingMsgs[0];
-    loadingTimer = setInterval(function(){
-      msgIdx = (msgIdx+1) % loadingMsgs.length;
-      document.getElementById('loadingMsg').textContent = loadingMsgs[msgIdx];
-    }, 2200);
-
-    try{
-      var response = await fetch('/api/generate', {
+async function callClaude(system, messages, retries = 3) {
+  let lastErr;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const response = await fetch('/api/generate', {
         method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({
-          accessCode: sessionStorage.getItem('teamAccessCode') || '',
-          system: SYSTEM_PROMPT,
-          messages: [{ role:'user', content: buildUserPrompt() }],
-          max_tokens: 16000
-        })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ system, messages })
       });
-      var data = await response.json();
-
-      if(!response.ok){
-        if(response.status === 401){
-          sessionStorage.removeItem('teamAccessCode');
-          throw new Error('접속 코드가 만료되었거나 올바르지 않아요. 새로고침 후 다시 입력해주세요.');
-        }
-        throw new Error(data.error || ('서버 오류 (' + response.status + ')'));
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || ('오류 ' + response.status));
+      return data.text || '';
+    } catch (err) {
+      lastErr = err;
+      if (attempt < retries) {
+        await new Promise(r => setTimeout(r, 1200 * (attempt + 1)));
+        continue;
       }
-      if(data.error){ throw new Error(data.error.message || JSON.stringify(data.error)); }
-      if(!data.content || !data.content.length){ throw new Error('빈 응답을 받았어요. stop_reason: ' + (data.stop_reason || '알 수 없음')); }
-
-      var textBlock = data.content.map(function(c){ return c.type === 'text' ? c.text : ''; }).join('');
-      var firstBrace = textBlock.indexOf('{');
-      var lastBrace = textBlock.lastIndexOf('}');
-      if(firstBrace === -1 || lastBrace === -1 || lastBrace < firstBrace){ throw new Error('응답에서 JSON을 찾지 못했어요.'); }
-      var clean = textBlock.slice(firstBrace, lastBrace + 1);
-
-      var parsed;
-      try{ parsed = JSON.parse(clean); }
-      catch(parseErr){
-        if(data.stop_reason === 'max_tokens'){ throw new Error('응답이 중간에 잘렸어요. 주제를 조금 더 짧게 쓰거나 다시 시도해주세요.'); }
-        throw new Error('JSON 파싱 실패: ' + parseErr.message);
-      }
-
-      renderResults(parsed);
-      switchTab('long');
-    }catch(err){
-      console.error(err);
-      if(err.message && err.message.indexOf('Failed to fetch') !== -1){
-        showError('서버에 연결하지 못했어요. 인터넷 연결을 확인한 뒤 다시 시도해주세요.', true);
-      }else{
-        showError('대본 생성 중 문제가 생겼어요: ' + err.message, true);
-      }
-    }finally{
-      clearInterval(loadingTimer);
-      loading.style.display = 'none';
-      btn.disabled = false;
     }
-  });
-})();
-</script>
+  }
+  throw lastErr;
+}
 
+async function generateScript() {
+  const topic = document.getElementById('topic').value.trim();
+  const target = document.getElementById('target').value.trim();
+  const tone = document.getElementById('tone').value;
+  const source = document.getElementById('source').value.trim();
+  const genBtn = document.getElementById('genBtn');
+  const resultPanel = document.getElementById('resultPanel');
+  const resultBody = document.getElementById('resultBody');
+  const resultLabel = document.getElementById('resultLabel');
+  const progressWrap = document.getElementById('progressWrap');
+  const progressBar = document.getElementById('progressBar');
+  const progressText = document.getElementById('progressText');
+
+  if (!topic) { alert('주제를 입력해주세요.'); return; }
+
+  genBtn.disabled = true;
+  genBtn.textContent = '생성 중...';
+  resultPanel.style.display = 'block';
+  resultBody.innerHTML = '';
+  const scriptDiv = document.createElement('div');
+  scriptDiv.className = 'script-body';
+  resultBody.appendChild(scriptDiv);
+
+  const baseSystem = `당신은 한국 보험 영업/마케팅 콘텐츠 전문 대본 작가입니다.
+다음 스타일 원칙을 지킵니다:
+- 시청자가 스스로 판단하고 행동하게 만드는 자연스러운 화법을 씁니다.
+- 민감한 정보를 물을 때는 이유를 먼저 설명하는 신뢰 형성 화법을 사용합니다.
+- 추천 전에 짧은 예고를 던져 자연스러운 흐름을 만듭니다.
+- 전문 용어는 쉬운 비유로 풀어서 설명합니다.
+- 과장 광고나 확인되지 않은 사실은 포함하지 않고, 제공된 출처자료에 없는 수치는 지어내지 않습니다.
+- 실제 사람이 카메라 앞에서 말하듯 구어체로 작성합니다.
+- 결과는 대본 본문만 출력합니다.`;
+
+  const sourceBlock = source ? `\n\n[출처자료 — 이 내용을 근거로 구체적으로 설명하세요]\n${source}` : '';
+
+  try {
+    if (format === 'short') {
+      resultBody.innerHTML = '<div class="script-body">생성 중...</div>';
+      resultLabel.textContent = '숏폼 대본 (30~60초)';
+      const system = baseSystem + `\n- 30~60초 숏폼 대본. 3초 안에 시선을 잡는 강한 훅으로 시작, 핵심 정보 1~2개, 명확한 CTA로 마무리. 분량 200~350자.` + sourceBlock;
+      const userPrompt = `주제: ${topic}\n${target ? '타겟 고객: ' + target : ''}\n톤앤매너: ${tone}\n\n위 조건에 맞는 숏폼 대본을 작성해줘.`;
+      const script = await callClaude(system, [{ role: 'user', content: userPrompt }]);
+      resultBody.innerHTML = '';
+      const div = document.createElement('div');
+      div.className = 'script-body';
+      div.textContent = script || '대본을 받아오지 못했어요. 다시 시도해주세요.';
+      resultBody.appendChild(div);
+    } else {
+      resultLabel.textContent = '롱폼 상세 대본 (목표 1만자 이상)';
+      resultBody.innerHTML = '';
+      resultBody.appendChild(scriptDiv);
+      progressWrap.style.display = 'block';
+
+      const TARGET_CHARS = 10500;
+      const MAX_CHUNKS = 18;
+      let fullScript = '';
+      let chunkIndex = 0;
+
+      const longSystem = baseSystem + `\n- 최종 1만자 이상, 요약하지 말고 근거자료를 인용하며 상세히 설명하세요.
+- 지금은 전체 대본 중 한 부분만 이어서 씁니다. 이전 내용을 반복하지 말고 자연스럽게 이어주세요.
+- 이번 청크는 하나의 완결된 단락으로 마무리하세요.` + sourceBlock;
+
+      while (fullScript.length < TARGET_CHARS && chunkIndex < MAX_CHUNKS) {
+        chunkIndex++;
+        progressText.textContent = `작성 중... (${fullScript.length.toLocaleString()}자 / 목표 ${TARGET_CHARS.toLocaleString()}자, ${chunkIndex}번째 구간)`;
+        progressBar.style.width = Math.min(100, Math.round((fullScript.length / TARGET_CHARS) * 100)) + '%';
+
+        let stagePrompt;
+        if (chunkIndex === 1) {
+          stagePrompt = `주제: ${topic}\n${target ? '타겟 고객: ' + target : ''}\n톤앤매너: ${tone}\n\n상세 롱폼 대본의 도입부(강한 훅 + 문제 제기)를 써줘. 본론은 아직.`;
+        } else if (fullScript.length < TARGET_CHARS * 0.85) {
+          stagePrompt = `주제: ${topic}\n${target ? '타겟 고객: ' + target : ''}\n톤앤매너: ${tone}\n\n마지막 부분:\n"""\n${fullScript.slice(-900)}\n"""\n\n자연스럽게 이어서 본론을 더 상세히 계속 써줘. 아직 마무리하지 말고.`;
+        } else {
+          stagePrompt = `주제: ${topic}\n${target ? '타겟 고객: ' + target : ''}\n톤앤매너: ${tone}\n\n마지막 부분:\n"""\n${fullScript.slice(-900)}\n"""\n\n요약 정리하고 CTA로 마무리해줘.`;
+        }
+
+        let chunk;
+        try {
+          chunk = await callClaude(longSystem, [{ role: 'user', content: stagePrompt }]);
+        } catch (chunkErr) {
+          progressText.textContent = `${chunkIndex}번째 구간 오류 — ${fullScript.length.toLocaleString()}자는 남아있어요.`;
+          const errDiv = document.createElement('div');
+          errDiv.className = 'error-box';
+          errDiv.style.marginTop = '14px';
+          errDiv.textContent = '오류: ' + chunkErr.message;
+          resultBody.appendChild(errDiv);
+          break;
+        }
+        if (!chunk) break;
+        fullScript += (fullScript ? '\n\n' : '') + chunk.trim();
+        scriptDiv.textContent = fullScript;
+
+        if (chunkIndex > 2 && fullScript.length >= TARGET_CHARS * 0.85 &&
+            /(문의|상담|신청|연락|가입).{0,15}(주세요|드립니다|바랍니다)?\s*$/.test(chunk.trim().slice(-60))) {
+          break;
+        }
+        await new Promise(r => setTimeout(r, 300));
+      }
+
+      progressText.textContent = `완료 — 총 ${fullScript.length.toLocaleString()}자`;
+      progressBar.style.width = '100%';
+    }
+  } catch (err) {
+    resultBody.innerHTML = '<div class="error-box">오류가 발생했어요: ' + err.message + '</div>';
+  } finally {
+    genBtn.disabled = false;
+    genBtn.textContent = '대본 생성하기';
+  }
+}
+</script>
 </body>
 </html>
