@@ -632,7 +632,7 @@ async function handlePdfUpload(file) {
 
 document.getElementById('genBtn').addEventListener('click', generateScript);
 
-async function callClaude(system, messages, retries = 3, tools = null) {
+async function callClaude(system, messages, retries = 3, tools = null, maxTokens = 2048) {
   let lastErr;
   for (let attempt = 0; attempt <= retries; attempt++) {
     const controller = new AbortController();
@@ -641,7 +641,7 @@ async function callClaude(system, messages, retries = 3, tools = null) {
       const response = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ system, messages, tools: tools || undefined }),
+        body: JSON.stringify({ system, messages, tools: tools || undefined, max_tokens: maxTokens }),
         signal: controller.signal
       });
       clearTimeout(timeoutId);
@@ -800,14 +800,15 @@ async function runLongFormChunks(state) {
     if (state.chunkIndex === 1) {
       stagePrompt = `${state.contextLine}\n\n상세 롱폼 대본의 도입부(강한 훅 + 문제 제기)를 써줘. 본론은 아직 시작하지 마.`;
     } else if (state.fullScript.length < state.TARGET_CHARS * 0.85) {
-      stagePrompt = `${state.contextLine}\n\n지금까지 작성된 대본의 마지막 부분:\n"""\n${state.fullScript.slice(-1200)}\n"""${topicsNote}\n\n위에 자연스럽게 이어서, 아직 다루지 않은 새로운 소제목(항목)으로 본론을 계속 써줘. 새 소제목을 시작할 땐 굵게(**소제목**) 표시해줘. 아직 마무리하지 말고.`;
+      stagePrompt = `${state.contextLine}\n\n지금까지 작성된 대본의 마지막 부분:\n"""\n${state.fullScript.slice(-1200)}\n"""${topicsNote}\n\n위에 자연스럽게 이어서, 아직 다루지 않은 새로운 소제목(항목)으로 본론을 계속 써줘. 새 소제목을 시작할 땐 굵게(**소제목**) 표시해줘. 아직 마무리하지 말고. 이 구간은 반드시 문장을 끝까지 완결해서 마무리해줘 (중간에 끊기지 않게).`;
     } else {
-      stagePrompt = `${state.contextLine}\n\n지금까지 작성된 대본의 마지막 부분:\n"""\n${state.fullScript.slice(-1200)}\n"""${topicsNote}\n\n위에 자연스럽게 이어서, 대본을 마무리해줘. 마무리에는 반드시 아래 3가지가 순서대로 다 들어가야 한다 (하나라도 빠지면 안 됨):\n1) 내용 요약 정리\n2) 왜 "지금" 문의/상담해야 하는지 구체적인 이유 (예: 시간이 지나면 조건이 바뀔 수 있다, 지금 확인 안 하면 놓치는 게 있다 등 — 단순히 "궁금하면 문의하세요"가 아니라 지금 행동해야 하는 이유를 설득력 있게)\n3) 진행자 소개(PR) 한두 문장 — ${state.host ? `진행자 호칭 "${state.host}"을 활용해서 신뢰를 주는 짧은 자기소개` : '실명 없이 전문성을 어필하는 짧은 소개'}\n4) 힘있는 클로징 문장 (절대 "오늘 영상 어떠셨나요", "도움이 되셨길 바라요" 같은 밋밋한 소감형으로 끝내지 말 것)\n문장을 반드시 끝맺어줘.`;
+      stagePrompt = `${state.contextLine}\n\n지금까지 작성된 대본의 마지막 부분:\n"""\n${state.fullScript.slice(-1200)}\n"""${topicsNote}\n\n위에 자연스럽게 이어서, 대본을 마무리해줘. 마무리에는 반드시 아래 요소가 순서대로 다 들어가야 한다 (하나라도 빠지면 안 됨):\n1) 내용 요약 정리\n2) 왜 "지금" 문의/상담해야 하는지 구체적인 이유 (예: 시간이 지나면 조건이 바뀔 수 있다, 지금 확인 안 하면 놓치는 게 있다 등 — 단순히 "궁금하면 문의하세요"가 아니라 지금 행동해야 하는 이유를 설득력 있게)\n3) 진행자 소개(PR) 한두 문장 — ${state.host ? `진행자 호칭 "${state.host}"을 활용해서 신뢰를 주는 짧은 자기소개` : '실명 없이 전문성을 어필하는 짧은 소개'}\n4) 힘있는 클로징 문장 (절대 "오늘 영상 어떠셨나요", "도움이 되셨길 바라요" 같은 밋밋한 소감형으로 끝내지 말 것)\n문장을 반드시 끝까지 완결해줘.`;
     }
 
     let chunk;
     try {
-      chunk = await callClaude(state.longSystem, [{ role: 'user', content: stagePrompt }], 3, state.citeOn ? WEB_SEARCH_TOOL : null);
+      const maxTok = state.citeOn ? 3200 : 2048;
+      chunk = await callClaude(state.longSystem, [{ role: 'user', content: stagePrompt }], 3, state.citeOn ? WEB_SEARCH_TOOL : null, maxTok);
     } catch (chunkErr) {
       state.chunkIndex--; // this attempt failed, don't count it as done — retry will redo this same stage
       progressText.textContent = `${state.chunkIndex + 1}번째 구간에서 오류 — 지금까지 ${state.fullScript.length.toLocaleString()}자는 남아있어요. 이어서 쓰기를 누르면 여기서부터 계속돼요.`;
@@ -816,7 +817,7 @@ async function runLongFormChunks(state) {
       errDiv.style.marginTop = '14px';
       errDiv.textContent = '오류: ' + chunkErr.message;
       resultBody.appendChild(errDiv);
-      addContinueButton(state, '이어서 쓰기');
+      addContinueButton(state, '이어서 쓰기', false);
       return;
     }
     if (!chunk) break;
@@ -840,18 +841,24 @@ async function runLongFormChunks(state) {
   progressText.textContent = `완료 — 대본 ${state.fullScript.length.toLocaleString()}자`;
   progressBar.style.width = '100%';
 
+  const existingStamp = document.getElementById('citeStamp');
+  if (existingStamp) existingStamp.remove();
   if (state.citeOn) {
     const stamp = document.createElement('div');
+    stamp.id = 'citeStamp';
     stamp.style.cssText = 'display:flex; align-items:center; gap:10px; margin-top:16px; padding-top:14px; border-top:1px solid var(--line);';
     stamp.innerHTML = `<div class="stamp">출처<br>확인</div><span style="font-size:12px; color:var(--paper-mute);">통계·수치 문장마다 출처(첨부자료 위치 또는 실제 검색된 링크)가 표시되었어요. 심의 제출 전 원문과 다시 한번 대조해주세요.</span>`;
     resultBody.appendChild(stamp);
   }
 
-  addContinueButton(state, '더 길게 이어쓰기');
-  await generateBundle(state.fullScript, state.contextLine, state.category);
+  addContinueButton(state, '더 길게 이어쓰기', true);
+
+  if (!document.getElementById('bundleBtn')) {
+    addBundleButton(state);
+  }
 }
 
-function addContinueButton(state, label) {
+function addContinueButton(state, label, isExtend) {
   const resultBody = document.getElementById('resultBody');
   const btn = document.createElement('button');
   btn.id = 'continueBtn';
@@ -861,8 +868,32 @@ function addContinueButton(state, label) {
   btn.onclick = async () => {
     btn.disabled = true;
     btn.textContent = '이어서 생성 중...';
+    if (isExtend) {
+      // force the loop to run further even if target was already reached
+      state.TARGET_CHARS = state.fullScript.length + 2500;
+    } else {
+      // resuming after an error — make sure we still aim for at least the original target
+      state.TARGET_CHARS = Math.max(state.TARGET_CHARS, 10500);
+    }
     if (state.chunkIndex >= state.MAX_CHUNKS) state.MAX_CHUNKS += 4;
     await runLongFormChunks(state);
+  };
+  resultBody.appendChild(btn);
+}
+
+function addBundleButton(state) {
+  const resultBody = document.getElementById('resultBody');
+  const btn = document.createElement('button');
+  btn.id = 'bundleBtn';
+  btn.className = 'generate';
+  btn.style.cssText = 'margin-top:10px; width:100%;';
+  btn.textContent = '부가 콘텐츠 생성 (제목·캡션·해시태그 등)';
+  btn.onclick = async () => {
+    btn.disabled = true;
+    btn.textContent = '생성 중...';
+    await generateBundle(state.fullScript, state.contextLine, state.category);
+    btn.textContent = '부가 콘텐츠 다시 생성';
+    btn.disabled = false;
   };
   resultBody.appendChild(btn);
 }

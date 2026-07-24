@@ -8,10 +8,11 @@ module.exports = async function handler(req, res) {
     return res.status(500).json({ error: 'ANTHROPIC_API_KEY가 서버에 설정되지 않았어요. /api/health 에서 확인해주세요.' });
   }
 
-  const { system, messages, tools } = req.body || {};
+  const { system, messages, tools, max_tokens } = req.body || {};
   if (!messages) {
     return res.status(400).json({ error: 'messages가 필요합니다.' });
   }
+  const safeMaxTokens = Math.min(Math.max(parseInt(max_tokens, 10) || 2048, 256), 4096);
 
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -23,7 +24,7 @@ module.exports = async function handler(req, res) {
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
-        max_tokens: 2048,
+        max_tokens: safeMaxTokens,
         system: system || undefined,
         messages,
         tools: tools || undefined
