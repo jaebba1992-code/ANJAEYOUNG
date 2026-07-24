@@ -284,6 +284,46 @@
 
   .footnote { color: var(--paper-mute); font-size: 11.5px; text-align: center; margin-top: 28px; line-height: 1.7; }
   .footnote a { color: var(--paper-dim); }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    color: var(--paper-dim);
+    border-radius: 20px;
+    padding: 5px 8px 5px 14px;
+    font-size: 12.5px;
+    margin: 0 6px 6px 0;
+  }
+  .chip .x { cursor: pointer; color: var(--paper-mute); font-weight: bold; padding: 0 4px; }
+  .chip .x:hover { color: var(--seal); }
+  .chip.default-chip { opacity: 0.65; }
+
+  .lib-item, .hist-item {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    padding: 12px 14px;
+    margin-bottom: 8px;
+  }
+  .lib-item-head, .hist-item-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  .lib-item-title, .hist-item-title { font-size: 13.5px; color: var(--paper); font-weight: 500; }
+  .lib-item-meta, .hist-item-meta { font-size: 11px; color: var(--paper-mute); margin-top: 2px; }
+  .lib-item-actions, .hist-item-actions { display: flex; gap: 6px; flex-shrink: 0; }
+  .mini-btn {
+    background: transparent; border: 1px solid var(--line); color: var(--paper-dim);
+    border-radius: 3px; padding: 4px 10px; font-size: 11.5px; cursor: pointer; font-family: 'Pretendard', sans-serif;
+  }
+  .mini-btn:hover { border-color: var(--brass-dim); color: var(--brass); }
+  .mini-btn.danger:hover { border-color: var(--seal); color: var(--seal); }
+
+  .warn-box {
+    background: #2e2410; border: 1px solid #5a4718; color: #e0c088;
+    border-radius: 3px; padding: 12px 14px; font-size: 12.5px; line-height: 1.7; margin-top: 14px;
+  }
+  .warn-box b { color: #f0d090; }
 </style>
 </head>
 <body>
@@ -291,6 +331,68 @@
   <p class="eyebrow">INSURANCE CONTENT STUDIO</p>
   <h1>보험 콘텐츠 제작실</h1>
   <p class="sub">주제 하나로 근거 있는 롱폼·숏폼 대본과, 업로드에 필요한 부가 콘텐츠(제목·썸네일·캡션·해시태그)까지 한 번에 준비합니다.</p>
+
+  <div class="panel" id="resumeBanner" style="display:none; border-color:var(--brass-dim);">
+    <p class="panel-title" style="border:none; padding:0; margin:0 0 10px;">이어서 쓰다 만 대본이 있어요</p>
+    <p id="resumeInfo" style="font-size:13px; color:var(--paper-dim); margin:0 0 14px;"></p>
+    <div style="display:flex; gap:10px;">
+      <button class="generate" id="resumeContinueBtn" style="flex:1;">이어서 계속 쓰기</button>
+      <button class="copy-btn" id="resumeDismissBtn" style="flex:1;">새로 시작하기 (이전 것 지움)</button>
+    </div>
+  </div>
+
+  <div class="panel" id="historyPanel" style="display:none;">
+    <div class="result-head" style="cursor:pointer;" id="historyToggle">
+      <p class="panel-title" style="border:none; padding:0; margin:0;">이전 작업 목록 <span style="color:var(--paper-mute); font-weight:400; font-size:12px;" id="historyCount"></span></p>
+      <span class="copy-btn" id="historyToggleBtn">펼치기</span>
+    </div>
+    <div id="historyList" style="display:none; margin-top:14px;"></div>
+  </div>
+
+  <div class="panel">
+    <div class="result-head" style="cursor:pointer;" id="complianceToggle">
+      <p class="panel-title" style="border:none; padding:0; margin:0;">심의 안전 표현 관리 <span style="color:var(--paper-mute); font-weight:400; font-size:12px;">— 반려 사례가 생기면 여기에 계속 추가하세요</span></p>
+      <span class="copy-btn" id="complianceToggleBtn">펼치기</span>
+    </div>
+    <div id="complianceBody" style="display:none; margin-top:14px;">
+      <p style="font-size:12.5px; color:var(--paper-dim); line-height:1.7; margin:0 0 12px;">
+        여기 등록된 단어·표현은 대본 생성 시 자동으로 피하도록 지시하고, 생성 후에도 한 번 더 검사해서 남아있으면 화면에 경고로 표시해요.
+      </p>
+      <div class="row">
+        <div class="field">
+          <input type="text" id="banWordInput" placeholder="예: 골든타임">
+        </div>
+        <button class="copy-btn" id="banWordAddBtn" style="padding:0 20px;">추가</button>
+      </div>
+      <div id="banWordList" style="margin-top:10px;"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="result-head" style="cursor:pointer;" id="libraryToggle">
+      <p class="panel-title" style="border:none; padding:0; margin:0;">내 출처자료 라이브러리 <span style="color:var(--paper-mute); font-weight:400; font-size:12px;">— 자주 쓰는 근거자료를 저장해두면 다음부터 자동으로 먼저 찾아써요</span></p>
+      <span class="copy-btn" id="libraryToggleBtn">펼치기</span>
+    </div>
+    <div id="libraryBody" style="display:none; margin-top:14px;">
+      <p style="font-size:12.5px; color:var(--paper-dim); line-height:1.7; margin:0 0 12px;">
+        예를 들어 "1세대 실비 조건", "일상생활배상책임 자기부담금" 같은 자료를 여기 저장해두시면, 나중에 관련 주제로 대본 만들 때 이 라이브러리를 먼저 찾아본 뒤에만 웹 검색으로 넘어가요.
+      </p>
+      <div class="row">
+        <div class="field">
+          <label>제목/태그</label>
+          <input type="text" id="libTitleInput" placeholder="예: 1세대 실비 조건">
+        </div>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label>내용</label>
+          <textarea id="libContentInput" rows="4" placeholder="저장할 근거자료 원문을 붙여넣으세요"></textarea>
+        </div>
+      </div>
+      <button class="copy-btn" id="libAddBtn" style="width:100%; padding:10px;">라이브러리에 저장</button>
+      <div id="libraryList" style="margin-top:14px;"></div>
+    </div>
+  </div>
 
   <div class="panel">
     <p class="panel-title">제작 설정</p>
@@ -412,6 +514,304 @@
 <script>
 let format = 'short';
 let intensity = 'normal';
+
+/* ===================== 심의 안전 표현 관리 ===================== */
+const DEFAULT_BAN_WORDS = ['골든타임', '무조건', '100%', '반드시', '확정적으로', '지금 안 하면', '큰일'];
+
+function loadBanWords() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('ins_ban_words') || '[]');
+    return saved;
+  } catch (e) { return []; }
+}
+function saveBanWords(list) {
+  localStorage.setItem('ins_ban_words', JSON.stringify(list));
+}
+function getAllBanWords() {
+  return [...DEFAULT_BAN_WORDS, ...loadBanWords()];
+}
+function renderBanWordList() {
+  const el = document.getElementById('banWordList');
+  const custom = loadBanWords();
+  el.innerHTML = '';
+  DEFAULT_BAN_WORDS.forEach(w => {
+    const chip = document.createElement('span');
+    chip.className = 'chip default-chip';
+    chip.innerHTML = `${escapeHtml(w)} <span style="font-size:10px;">(기본)</span>`;
+    el.appendChild(chip);
+  });
+  custom.forEach((w, i) => {
+    const chip = document.createElement('span');
+    chip.className = 'chip';
+    chip.innerHTML = `${escapeHtml(w)} <span class="x" data-i="${i}">×</span>`;
+    chip.querySelector('.x').addEventListener('click', () => {
+      const list = loadBanWords();
+      list.splice(i, 1);
+      saveBanWords(list);
+      renderBanWordList();
+    });
+    el.appendChild(chip);
+  });
+}
+document.getElementById('banWordAddBtn').addEventListener('click', () => {
+  const input = document.getElementById('banWordInput');
+  const val = input.value.trim();
+  if (!val) return;
+  const list = loadBanWords();
+  if (!list.includes(val)) list.push(val);
+  saveBanWords(list);
+  input.value = '';
+  renderBanWordList();
+});
+document.getElementById('banWordInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') document.getElementById('banWordAddBtn').click();
+});
+document.getElementById('complianceToggle').addEventListener('click', () => {
+  const body = document.getElementById('complianceBody');
+  const btn = document.getElementById('complianceToggleBtn');
+  const show = body.style.display === 'none';
+  body.style.display = show ? 'block' : 'none';
+  btn.textContent = show ? '접기' : '펼치기';
+});
+renderBanWordList();
+
+function complianceSystemBlock() {
+  const words = getAllBanWords();
+  return `\n[심의 안전 표현 — 반드시 지킬 것]
+- 확정적/단정적 표현 금지: "무조건", "100%", "반드시 받는다" 등 보장이 확실하지 않은 것을 단정하는 표현을 쓰지 않는다.
+- 불안감·다급함 조성 금지: "지금 안 하면 큰일난다", "골든타임" 같이 심리적 압박이나 공포를 주는 표현 대신, 사실만 담담하게 전달한다. 예: "꼭 기억하셔야 할 골든타임, 바로 임신 22주 6일이에요" 대신 "꼭 기억하셔야 할 임신 22주 6일이에요" 처럼 사실만 남기고 압박 표현은 뺀다.
+- 타 설계사·타사 비방 금지: 다른 설계사나 보험사를 깎아내리거나 비교 비방하지 않는다.
+- 공격적·강압적 어조 금지: 명령조나 몰아붙이는 어투 대신 정보 제공 중심의 차분한 어조를 쓴다.
+- 다음 단어·표현은 절대 사용하지 않는다: ${words.join(', ')}
+- 같은 의미를 전달해야 한다면, 사실 위주로 순화해서 표현한다.`;
+}
+
+function scanForBanWords(text) {
+  const words = getAllBanWords();
+  return words.filter(w => text.includes(w));
+}
+
+/* ===================== 이전 작업 기록 (localStorage) ===================== */
+function loadHistory() {
+  try { return JSON.parse(localStorage.getItem('ins_script_history') || '[]'); } catch (e) { return []; }
+}
+function saveHistory(list) {
+  // keep last 30 to avoid localStorage bloat
+  localStorage.setItem('ins_script_history', JSON.stringify(list.slice(0, 30)));
+}
+function addToHistory(entry) {
+  const list = loadHistory();
+  if (entry.id) {
+    const idx = list.findIndex(h => h.id === entry.id);
+    if (idx !== -1) {
+      list[idx] = { ...list[idx], ...entry };
+      saveHistory(list);
+      renderHistory();
+      return;
+    }
+  }
+  list.unshift({ id: entry.id || Date.now(), ...entry });
+  saveHistory(list);
+  renderHistory();
+}
+function deleteFromHistory(id) {
+  saveHistory(loadHistory().filter(h => h.id !== id));
+  renderHistory();
+}
+function renderHistory() {
+  const list = loadHistory();
+  document.getElementById('historyPanel').style.display = list.length ? 'block' : 'none';
+  document.getElementById('historyCount').textContent = `(${list.length}개)`;
+  const el = document.getElementById('historyList');
+  el.innerHTML = list.map(h => `
+    <div class="hist-item">
+      <div class="hist-item-head">
+        <div>
+          <div class="hist-item-title">${escapeHtml(h.topic || '(제목 없음)')}</div>
+          <div class="hist-item-meta">${h.format === 'long' ? '롱폼' : '숏폼'} · ${h.category || ''} · ${new Date(h.id).toLocaleString('ko-KR')} · ${(h.script||'').length.toLocaleString()}자</div>
+        </div>
+        <div class="hist-item-actions">
+          <button class="mini-btn" data-action="view" data-id="${h.id}">보기</button>
+          <button class="mini-btn danger" data-action="del" data-id="${h.id}">삭제</button>
+        </div>
+      </div>
+    </div>
+  `).join('');
+  el.querySelectorAll('[data-action="view"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const h = loadHistory().find(x => x.id == btn.dataset.id);
+      if (!h) return;
+      document.getElementById('resultPanel').style.display = 'block';
+      document.getElementById('resultLabel').textContent = (h.format === 'long' ? '롱폼 상세 대본' : '숏폼 대본') + ' (기록 불러옴)';
+      const resultBody = document.getElementById('resultBody');
+      resultBody.innerHTML = '';
+      const div = document.createElement('div');
+      div.className = 'script-body';
+      div.textContent = h.script;
+      resultBody.appendChild(div);
+      document.getElementById('charcount').innerHTML = `대본 <b>${(h.script||'').length.toLocaleString()}</b>자`;
+      window.scrollTo({ top: resultBody.getBoundingClientRect().top + window.scrollY - 20, behavior: 'smooth' });
+    });
+  });
+  el.querySelectorAll('[data-action="del"]').forEach(btn => {
+    btn.addEventListener('click', () => deleteFromHistory(Number(btn.dataset.id)));
+  });
+}
+document.getElementById('historyToggle').addEventListener('click', () => {
+  const list = document.getElementById('historyList');
+  const btn = document.getElementById('historyToggleBtn');
+  const show = list.style.display === 'none';
+  list.style.display = show ? 'block' : 'none';
+  btn.textContent = show ? '접기' : '펼치기';
+});
+renderHistory();
+
+/* ===================== 진행 중 초안 자동 저장 (오류로 날아가는 것 방지) ===================== */
+function saveDraft(state) {
+  try {
+    localStorage.setItem('ins_draft', JSON.stringify({
+      savedAt: Date.now(),
+      topic: state.topic || document.getElementById('topic').value,
+      category: state.category,
+      host: state.host,
+      citeOn: state.citeOn,
+      fullScript: state.fullScript,
+      coveredTopics: state.coveredTopics,
+      chunkIndex: state.chunkIndex,
+      historyId: state.historyId
+    }));
+  } catch (e) {}
+}
+function clearDraft() {
+  localStorage.removeItem('ins_draft');
+  document.getElementById('resumeBanner').style.display = 'none';
+}
+function checkForDraft() {
+  try {
+    const raw = localStorage.getItem('ins_draft');
+    if (!raw) return;
+    const draft = JSON.parse(raw);
+    if (!draft.fullScript || draft.fullScript.length < 20) { clearDraft(); return; }
+    document.getElementById('resumeBanner').style.display = 'block';
+    document.getElementById('resumeInfo').textContent = `"${draft.topic}" — ${draft.fullScript.length.toLocaleString()}자까지 써져 있어요. (${new Date(draft.savedAt).toLocaleString('ko-KR')} 저장됨)`;
+  } catch (e) {}
+}
+checkForDraft();
+document.getElementById('resumeDismissBtn').addEventListener('click', clearDraft);
+document.getElementById('resumeContinueBtn').addEventListener('click', resumeFromDraft);
+
+async function resumeFromDraft() {
+  const raw = localStorage.getItem('ins_draft');
+  if (!raw) return;
+  const draft = JSON.parse(raw);
+
+  document.getElementById('topic').value = draft.topic || '';
+  document.getElementById('category').value = draft.category || document.getElementById('category').value;
+  document.getElementById('host').value = draft.host || '';
+  format = 'long';
+  document.querySelectorAll('#formatSeg .seg-btn').forEach(b => b.classList.toggle('active', b.dataset.val === 'long'));
+  document.getElementById('sourceRow').style.display = 'flex';
+  document.getElementById('citeRow').style.display = 'flex';
+  document.getElementById('citeToggle').checked = !!draft.citeOn;
+
+  document.getElementById('resumeBanner').style.display = 'none';
+  document.getElementById('resultPanel').style.display = 'block';
+  document.getElementById('bundlePanel').style.display = 'none';
+  const resultBody = document.getElementById('resultBody');
+  resultBody.innerHTML = '';
+  const scriptDiv = document.createElement('div');
+  scriptDiv.className = 'script-body';
+  scriptDiv.textContent = draft.fullScript;
+  resultBody.appendChild(scriptDiv);
+  document.getElementById('resultLabel').textContent = '롱폼 상세 대본 (이어서 진행 중)';
+  document.getElementById('charcount').innerHTML = `대본 <b>${draft.fullScript.length.toLocaleString()}</b>자`;
+  document.getElementById('progressWrap').style.display = 'block';
+
+  const target = document.getElementById('target').value.trim();
+  const tone = document.getElementById('tone').value;
+  const extra = document.getElementById('extra').value.trim();
+  const contextLine = `보험 분야: ${draft.category}\n주제: ${draft.topic}\n${draft.host ? '진행자 호칭: ' + draft.host : ''}\n${target ? '타겟 고객: ' + target : ''}\n톤앤매너: ${tone}\n${extra ? '추가 반영 사항: ' + extra : ''}`;
+
+  const longSystem = baseSystem(draft.citeOn) + `\n- 최종 대본 본문이 1만자 이상이어야 한다. 요약하지 말고 상세히 설명한다.
+- 지금은 전체 대본 중 한 부분만 이어서 쓴다. 이미 다룬 소제목/항목은 절대 반복하지 않는다.
+- 이번 청크는 문장이 중간에 끊기지 않게 완결된 단락으로 마무리한다.`;
+
+  lfState = {
+    fullScript: draft.fullScript,
+    chunkIndex: draft.chunkIndex || 0,
+    coveredTopics: draft.coveredTopics || [],
+    contextLine, longSystem, citeOn: draft.citeOn, category: draft.category, host: draft.host, topic: draft.topic,
+    TARGET_CHARS: 10500,
+    MAX_CHUNKS: (draft.chunkIndex || 0) + 10,
+    scriptDiv,
+    historyId: draft.historyId || Date.now()
+  };
+
+  await runLongFormChunks(lfState);
+}
+
+/* ===================== 출처자료 라이브러리 ===================== */
+function loadLibrary() {
+  try { return JSON.parse(localStorage.getItem('ins_source_library') || '[]'); } catch (e) { return []; }
+}
+function saveLibrary(list) {
+  localStorage.setItem('ins_source_library', JSON.stringify(list));
+}
+document.getElementById('libAddBtn').addEventListener('click', () => {
+  const title = document.getElementById('libTitleInput').value.trim();
+  const content = document.getElementById('libContentInput').value.trim();
+  if (!title || !content) { alert('제목과 내용을 둘 다 입력해주세요.'); return; }
+  const list = loadLibrary();
+  list.unshift({ id: Date.now(), title, content });
+  saveLibrary(list);
+  document.getElementById('libTitleInput').value = '';
+  document.getElementById('libContentInput').value = '';
+  renderLibrary();
+});
+function renderLibrary() {
+  const list = loadLibrary();
+  const el = document.getElementById('libraryList');
+  el.innerHTML = list.map(item => `
+    <div class="lib-item">
+      <div class="lib-item-head">
+        <div>
+          <div class="lib-item-title">${escapeHtml(item.title)}</div>
+          <div class="lib-item-meta">${item.content.length.toLocaleString()}자</div>
+        </div>
+        <div class="lib-item-actions">
+          <button class="mini-btn danger" data-id="${item.id}">삭제</button>
+        </div>
+      </div>
+    </div>
+  `).join('') || '<p style="font-size:12.5px; color:var(--paper-mute);">아직 저장된 자료가 없어요.</p>';
+  el.querySelectorAll('.mini-btn.danger').forEach(btn => {
+    btn.addEventListener('click', () => {
+      saveLibrary(loadLibrary().filter(x => x.id != btn.dataset.id));
+      renderLibrary();
+    });
+  });
+}
+document.getElementById('libraryToggle').addEventListener('click', () => {
+  const body = document.getElementById('libraryBody');
+  const btn = document.getElementById('libraryToggleBtn');
+  const show = body.style.display === 'none';
+  body.style.display = show ? 'block' : 'none';
+  btn.textContent = show ? '접기' : '펼치기';
+});
+renderLibrary();
+
+// simple keyword-overlap search: pulls in saved library items relevant to the topic
+function searchLibrary(topic, extra) {
+  const query = (topic + ' ' + (extra || '')).toLowerCase();
+  const keywords = query.split(/[\s,·・/]+/).filter(w => w.length >= 2);
+  const list = loadLibrary();
+  const matches = list.filter(item => {
+    const hay = (item.title + ' ' + item.content).toLowerCase();
+    return keywords.some(k => hay.includes(k));
+  });
+  return matches;
+}
+
 
 document.querySelectorAll('#formatSeg .seg-btn').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -632,11 +1032,12 @@ async function handlePdfUpload(file) {
 
 document.getElementById('genBtn').addEventListener('click', generateScript);
 
-async function callClaude(system, messages, retries = 3, tools = null, maxTokens = 2048) {
+async function callClaude(system, messages, retries = 2, tools = null, maxTokens = 2048) {
   let lastErr;
   for (let attempt = 0; attempt <= retries; attempt++) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 50000);
+    let retryable = true;
     try {
       const response = await fetch('/api/generate', {
         method: 'POST',
@@ -645,16 +1046,32 @@ async function callClaude(system, messages, retries = 3, tools = null, maxTokens
         signal: controller.signal
       });
       clearTimeout(timeoutId);
-      const data = await response.json();
+
+      let data;
+      try {
+        data = await response.json();
+      } catch (parseErr) {
+        // Server crashed/timed out and returned an HTML error page instead of JSON.
+        // Retrying would just resend the same large prompt and burn tokens again — don't.
+        retryable = false;
+        throw new Error('서버 응답이 비정상이었어요 (타임아웃/서버 오류 가능성). 재시도하지 않았어요 — 같은 요청을 반복하면 비용만 더 나가요.');
+      }
+
       if (!response.ok) throw new Error(data.error || ('오류 ' + response.status));
       return data.text || '';
     } catch (err) {
       clearTimeout(timeoutId);
-      lastErr = err.name === 'AbortError' ? new Error('응답이 50초 넘게 없어 시간 초과됐어요.') : err;
-      if (attempt < retries) {
+      if (err.name === 'AbortError') {
+        retryable = false;
+        lastErr = new Error('응답이 50초 넘게 없어 시간 초과됐어요. 재시도하지 않았어요 — 같은 요청을 반복하면 비용만 더 나가요.');
+      } else {
+        lastErr = err;
+      }
+      if (retryable && attempt < retries) {
         await new Promise(r => setTimeout(r, 1200 * (attempt + 1)));
         continue;
       }
+      break;
     }
   }
   throw lastErr;
@@ -668,6 +1085,19 @@ function intensityGuide() {
     return '정보 전달과 함께 상담·문의 전환을 적극적으로 유도한다. 중간중간 예고 화법("이거 아셔야 하는 이유가 있어요")을 여러 번 배치하고, CTA를 최소 2회 이상, 마지막엔 강하게 마무리한다.';
   }
   return '정보 전달 위주로 가되, 중간에 한 번, 마지막에 한 번 자연스럽게 상담 유도를 넣는다.';
+}
+
+function complianceBlock() {
+  return `\n[광고 심의 준수 — 항상 반드시 지켜야 하는 규칙, 생략 불가]
+아래 표현들은 보험업 광고 심의에서 반려 사유가 되므로 절대 쓰지 않는다:
+- 확정적·단정적 표현: "무조건", "100%", "반드시 ~됩니다", "틀림없이" 같은 보장성 단정 문구 금지 → "~일 수 있습니다", "~인 경우가 많습니다" 처럼 완곡하게 쓴다.
+- 불안감·공포 조성 표현: "지금 안 하면 큰일 납니다", "놓치면 후회합니다", **"골든타임"** 같이 다급함·불안감을 조성하는 단어 금지 → 감정적 압박 없이 사실만 담백하게 서술한다.
+  예시) "꼭 기억하셔야 할 골든타임, 바로 임신 22주 6일이에요" (X, 불안감 조성)
+       → "꼭 기억하셔야 할 임신 22주 6일이에요" (O, 압박 단어만 제거하고 사실은 유지)
+- 타 설계사·타사 비방/비교: 다른 설계사나 보험사를 언급하며 깎아내리거나 직접 비교하는 표현 금지 → 비교 대상 없이 본인·본사 정보 위주로만 서술한다.
+- 다급함 조성 표현: "지금 당장", "마지막 기회", "오늘까지만", "서두르세요" 금지 → 여유 있는 어조로 바꾼다.
+- 공격적·강압적 어투: 명령조나 압박하는 말투 금지 → 부드러운 권유형으로 쓴다.
+이 규칙은 영업 강도(부드럽게/보통/강하게) 설정과 무관하게 항상 최우선으로 적용된다. 세일즈 화법(행동 유도, 예고 던지기 등)은 유지하되, 위 금지 표현만 피해서 순화된 문장으로 쓴다.`;
 }
 
 function salesSystemBlock() {
@@ -685,10 +1115,10 @@ function baseSystem(citeOn) {
 - 실제 사람이 카메라 앞에서 말하듯 자연스러운 구어체로 작성한다.
 - 후킹(강한 도입)과 기승전결이 명확한 구조로 작성한다.
 ${citeOn ? `- 통계·수치·사실관계를 언급할 때는 반드시 문장 뒤에 출처를 표시한다. 아래 순서로 확인한다:
-  1) 제공된 [출처자료] 안에 있는 내용이면: "(출처: 첨부자료 - 해당 위치)" 형식으로 표시한다. 원문에 [p.12]나 [슬라이드 4] 같은 위치 표시가 있으면 그대로 활용한다.
-  2) [출처자료]에 없지만 [웹 검색으로 찾은 관련 자료]에 있는 내용이면: 그 안의 수치를 그대로 쓰고 "(출처: 기관/사이트명, URL)" 형식으로 표시한다. 절대 새로운 수치를 지어내지 않는다.
-  3) 두 자료 어디에도 없는 통계는 절대 언급하지 않는다. "정확한 수치는 확인해주세요" 같은 회피 문구도 쓰지 않는다 — 그냥 수치 없이 자연스럽게 서술한다 (예: "많은 가정에서 예상보다 큰 지출 부담을 느낀다").` : '- 확인되지 않은 통계·수치는 단정적으로 말하지 않는다.'}
-- 결과는 대본 본문만 출력하고 다른 설명은 붙이지 않는다.` + salesSystemBlock();
+  1) [내 라이브러리에 저장된 관련 자료]나 [출처자료] 안에 있는 내용이면: "(출처: 첨부자료 - 해당 위치)" 형식으로 표시한다. 원문에 [p.12]나 [슬라이드 4] 같은 위치 표시가 있으면 그대로 활용한다. 이 두 자료가 최우선이다.
+  2) 위 자료에 없지만 [웹 검색으로 찾은 관련 자료]에 있는 내용이면: 그 안의 수치를 그대로 쓰고 "(출처: 기관/사이트명, URL)" 형식으로 표시한다. 절대 새로운 수치를 지어내지 않는다.
+  3) 세 자료 어디에도 없는 통계는 절대 언급하지 않는다. "정확한 수치는 확인해주세요" 같은 회피 문구도 쓰지 않는다 — 그냥 수치 없이 자연스럽게 서술한다 (예: "많은 가정에서 예상보다 큰 지출 부담을 느낀다").` : '- 확인되지 않은 통계·수치는 단정적으로 말하지 않는다.'}
+- 결과는 대본 본문만 출력하고 다른 설명은 붙이지 않는다.` + complianceSystemBlock() + salesSystemBlock();
 }
 
 const WEB_SEARCH_TOOL = [{ type: 'web_search_20250305', name: 'web_search' }];
@@ -725,6 +1155,11 @@ async function generateScript() {
   scriptDiv.className = 'script-body';
   resultBody.appendChild(scriptDiv);
 
+  const libMatches = searchLibrary(topic, extra);
+  const libBlock = libMatches.length
+    ? `\n\n[내 라이브러리에 저장된 관련 자료 — 이 안에 있는 내용이면 최우선으로 이걸 근거로 쓰고, 여기 없을 때만 다른 출처를 찾으세요]\n${libMatches.map(m => `■ ${m.title}\n${m.content}`).join('\n\n')}`
+    : '';
+
   const MAX_SOURCE_CHARS = 6000;
   let sourceForPrompt = source;
   let sourceTruncated = false;
@@ -732,7 +1167,7 @@ async function generateScript() {
     sourceForPrompt = source.slice(0, MAX_SOURCE_CHARS);
     sourceTruncated = true;
   }
-  const sourceBlock = source ? `\n\n[출처자료 — 이 내용을 근거로 구체적으로 설명하세요]\n${sourceForPrompt}${sourceTruncated ? '\n\n(※ 출처자료가 길어 앞부분만 반영됩니다. 특정 부분을 꼭 반영해야 하면 그 부분만 따로 붙여넣어주세요.)' : ''}` : '';
+  const sourceBlock = (source ? `\n\n[출처자료 — 이 내용을 근거로 구체적으로 설명하세요]\n${sourceForPrompt}${sourceTruncated ? '\n\n(※ 출처자료가 길어 앞부분만 반영됩니다. 특정 부분을 꼭 반영해야 하면 그 부분만 따로 붙여넣어주세요.)' : ''}` : '') + libBlock;
   const contextLine = `보험 분야: ${category}\n주제: ${topic}\n${host ? '진행자 호칭: ' + host : ''}\n${target ? '타겟 고객: ' + target : ''}\n톤앤매너: ${tone}\n${extra ? '추가 반영 사항: ' + extra : ''}`;
 
   try {
@@ -747,6 +1182,8 @@ async function generateScript() {
       div.textContent = script || '대본을 받아오지 못했어요. 다시 시도해주세요.';
       resultBody.appendChild(div);
       charcount.innerHTML = `대본 <b>${(script||'').length.toLocaleString()}</b>자`;
+      renderComplianceCheck(script, resultBody);
+      if (script) addToHistory({ topic, category, format: 'short', script });
       await generateBundle(script, contextLine, category);
     } else {
       resultLabel.textContent = '롱폼 상세 대본';
@@ -777,10 +1214,11 @@ async function generateScript() {
         fullScript: '',
         chunkIndex: 0,
         coveredTopics: [],
-        contextLine, longSystem, citeOn, category, host,
+        contextLine, longSystem, citeOn, category, host, topic,
         TARGET_CHARS: 10500,
         MAX_CHUNKS: 10,
-        scriptDiv
+        scriptDiv,
+        historyId: Date.now()
       };
 
       await runLongFormChunks(lfState);
@@ -841,6 +1279,7 @@ async function runLongFormChunks(state) {
     state.fullScript += (state.fullScript ? '\n\n' : '') + chunk.trim();
     state.scriptDiv.textContent = state.fullScript;
     charcount.innerHTML = `대본 <b>${state.fullScript.length.toLocaleString()}</b>자`;
+    saveDraft(state);
 
     const headerMatches = chunk.match(/\*\*([^*]{2,40})\*\*/g) || [];
     headerMatches.forEach(h => {
@@ -868,6 +1307,9 @@ async function runLongFormChunks(state) {
     resultBody.appendChild(stamp);
   }
 
+  renderComplianceCheck(state.fullScript, resultBody);
+  addToHistory({ id: state.historyId, topic: state.topic, category: state.category, format: 'long', script: state.fullScript });
+  clearDraft();
   addContinueButton(state, '더 길게 이어쓰기', true);
 
   if (!document.getElementById('bundleBtn')) {
@@ -913,6 +1355,43 @@ function addBundleButton(state) {
     btn.disabled = false;
   };
   resultBody.appendChild(btn);
+}
+
+const COMPLIANCE_PATTERNS = [
+  { label: '확정적 표현', re: /무조건|100%|반드시\s*[가-힣]{0,6}됩니다|틀림없이/g },
+  { label: '불안감·공포 조성', re: /골든\s*타임|지금\s*안\s*하면|놓치면\s*후회|큰일\s*납니다|늦으면\s*후회/g },
+  { label: '다급함 조성', re: /지금\s*당장|마지막\s*기회|오늘까지만|서두르세요/g },
+  { label: '타 설계사·타사 비방/비교', re: /타\s*설계사|다른\s*보험사보다|경쟁사/g },
+];
+
+function scanCompliance(text) {
+  const hits = [];
+  COMPLIANCE_PATTERNS.forEach(({ label, re }) => {
+    const matches = text.match(re);
+    if (matches) {
+      [...new Set(matches)].forEach(m => hits.push({ label, phrase: m }));
+    }
+  });
+  loadBanWords().forEach(w => {
+    if (w && text.includes(w)) hits.push({ label: '사용자 지정 금지어', phrase: w });
+  });
+  return hits;
+}
+
+function renderComplianceCheck(text, container) {
+  const hits = scanCompliance(text);
+  const box = document.createElement('div');
+  box.style.cssText = 'margin-top:16px; padding-top:14px; border-top:1px solid var(--line);';
+  if (hits.length === 0) {
+    box.innerHTML = `<div style="display:flex; align-items:center; gap:8px; font-size:12.5px; color:#8fae8f;">✓ 심의 위험 표현(확정적 문구, 불안감 조성, 다급함, 타사 비방 등) 자동 검사 — 발견된 것 없음</div>`;
+  } else {
+    const list = hits.map(h => `<li><b>${escapeHtml(h.phrase)}</b> — ${escapeHtml(h.label)}</li>`).join('');
+    box.innerHTML = `<div class="error-box" style="border-color:#4a3a1a; background:#2a2214; color:#e0c37a;">
+      ⚠ 심의 위험 표현이 남아있을 수 있어요, 직접 확인해주세요:
+      <ul style="margin:8px 0 0; padding-left:20px;">${list}</ul>
+    </div>`;
+  }
+  container.appendChild(box);
 }
 
 async function generateBundle(script, contextLine, category) {
