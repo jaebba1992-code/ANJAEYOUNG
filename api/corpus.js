@@ -37,7 +37,9 @@ module.exports = async function handler(req, res) {
       if (!Array.isArray(rows) || rows.length === 0) {
         return res.status(400).json({ error: 'rows 배열이 필요합니다.' });
       }
-      const { error } = await supabase.from('source_corpus').insert(rows);
+      const { error } = await supabase
+        .from('source_corpus')
+        .upsert(rows, { onConflict: 'source_file,page_number' });
       if (error) throw error;
       return res.status(200).json({ ok: true, inserted: rows.length });
     }
