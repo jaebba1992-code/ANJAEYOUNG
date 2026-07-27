@@ -5,6 +5,14 @@ module.exports = async function handler(req, res) {
     const supabase = getSupabase();
 
     if (req.method === 'GET') {
+      if (req.query.count === '1') {
+        const { count, error } = await supabase
+          .from('source_corpus')
+          .select('*', { count: 'exact', head: true });
+        if (error) throw error;
+        return res.status(200).json({ count: count || 0 });
+      }
+
       const q = (req.query.q || '').trim();
       if (!q) return res.status(400).json({ error: 'q(검색어) 파라미터가 필요합니다.' });
 
