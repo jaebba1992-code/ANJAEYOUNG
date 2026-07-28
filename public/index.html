@@ -2212,7 +2212,7 @@ document.getElementById('blogGenBtn').addEventListener('click', async () => {
       const naverRes = await apiGet('/api/naver-search?type=blog&display=5&query=' + encodeURIComponent(keyword));
       const items = naverRes.items || [];
       if (items.length) {
-        patternBlock = `\n\n[네이버 블로그 실제 상위노출 글 목록 — 이 글들이 다루는 주제/각도를 참고하되 절대 그대로 베끼지 마세요]\n${items.map((it, i) => `${i+1}. ${it.title}\n요약: ${it.description}\n작성자: ${it.bloggername || '-'}`).join('\n\n')}`;
+        patternBlock = `\n\n[네이버 블로그 실제 상위노출 글 목록 — 이 글들이 다루는 주제/각도를 참고하되 절대 그대로 베끼지 마세요]\n${items.map((it, i) => `${i+1}. ${it.title}\n요약: ${(it.description||'').slice(0, 150)}`).join('\n\n')}`;
         analysisPanel.style.display = 'block';
         const html = items.map((it, i) => `<div style="margin-bottom:10px;"><a href="${it.link}" target="_blank" style="color:var(--brass);">${i+1}. ${escapeHtml(it.title)}</a><div style="color:var(--paper-mute); font-size:12.5px; margin-top:2px;">${escapeHtml(it.description)}</div></div>`).join('');
         analysisBody.innerHTML = html;
@@ -2257,7 +2257,7 @@ ${host ? '작성자 호칭: ' + host : ''}
 위 키워드에 최적화된 블로그 글을 작성해줘. 클로징(설계안 검토/제작 안내 + 연락처)까지 반드시 완결해서 써줘.`;
 
   try {
-    const article = await callClaude(system, [{ role: 'user', content: userPrompt }], 2, null, 3000);
+    const article = await callClaude(system, [{ role: 'user', content: userPrompt }], 2, null, 2400);
     progressText.textContent = '이미지 찾는 중...';
     progressBar.style.width = '90%';
     resultBody.innerHTML = '';
