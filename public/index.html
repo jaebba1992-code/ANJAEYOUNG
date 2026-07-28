@@ -2165,6 +2165,7 @@ document.getElementById('cafeCopyBtn').addEventListener('click', () => {
 });
 
 let blogState = null;
+let lastBlogAnalysis = null;
 
 document.getElementById('blogGenBtn').addEventListener('click', async () => {
   const keyword = document.getElementById('blogKeyword').value.trim();
@@ -2196,6 +2197,14 @@ document.getElementById('blogGenBtn').addEventListener('click', async () => {
 
   let patternBlock = '';
   if (analyzeOn) {
+    if (lastBlogAnalysis && lastBlogAnalysis.keyword === keyword) {
+      patternBlock = lastBlogAnalysis.patternBlock;
+      analysisPanel.style.display = 'block';
+      analysisBody.textContent = lastBlogAnalysis.raw;
+      progressWrap.style.display = 'block';
+      progressText.textContent = '이전 분석 결과 재사용 중... (같은 키워드라 검색은 다시 안 해요)';
+      progressBar.style.width = '50%';
+    } else {
     progressWrap.style.display = 'block';
     progressText.textContent = '"' + keyword + '" 상위 노출 글 패턴 분석 중...';
     progressBar.style.width = '30%';
@@ -2215,9 +2224,11 @@ document.getElementById('blogGenBtn').addEventListener('click', async () => {
         patternBlock = `\n\n[상위 노출 글 패턴 분석 결과 — 내용은 베끼지 말고 이 분량감·구조만 참고하세요]\n${analyzeResult.trim()}`;
         analysisPanel.style.display = 'block';
         analysisBody.textContent = analyzeResult.trim();
+        lastBlogAnalysis = { keyword, patternBlock, raw: analyzeResult.trim() };
       }
     } catch (e) {
       progressText.textContent = '패턴 분석 실패 — 기본 구조로 계속 진행할게요.';
+    }
     }
   }
 
@@ -2252,7 +2263,7 @@ ${host ? '작성자 호칭: ' + host : ''}
 위 키워드에 최적화된 블로그 글을 작성해줘. 클로징(설계안 검토/제작 안내 + 연락처)까지 반드시 완결해서 써줘.`;
 
   try {
-    const article = await callClaude(system, [{ role: 'user', content: userPrompt }], 2, null, 3600);
+    const article = await callClaude(system, [{ role: 'user', content: userPrompt }], 2, null, 3000);
     progressText.textContent = '완료';
     progressBar.style.width = '100%';
     resultBody.innerHTML = '';
