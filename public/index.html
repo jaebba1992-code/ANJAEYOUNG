@@ -2200,34 +2200,28 @@ document.getElementById('blogGenBtn').addEventListener('click', async () => {
     if (lastBlogAnalysis && lastBlogAnalysis.keyword === keyword) {
       patternBlock = lastBlogAnalysis.patternBlock;
       analysisPanel.style.display = 'block';
-      analysisBody.textContent = lastBlogAnalysis.raw;
+      analysisBody.innerHTML = lastBlogAnalysis.html;
       progressWrap.style.display = 'block';
       progressText.textContent = '이전 분석 결과 재사용 중... (같은 키워드라 검색은 다시 안 해요)';
       progressBar.style.width = '50%';
     } else {
     progressWrap.style.display = 'block';
-    progressText.textContent = '"' + keyword + '" 상위 노출 글 패턴 분석 중...';
+    progressText.textContent = '"' + keyword + '" 네이버 블로그 상위노출 글 가져오는 중...';
     progressBar.style.width = '30%';
     try {
-      const analyzeSystem = `당신은 블로그 SEO 분석가입니다. 주어진 키워드로 검색했을 때 상위 노출되는 블로그 글 2~3개를 web_search로 찾아서, 아래 형식으로 정리하세요. 원문을 그대로 옮기지 말고 패턴만 요약합니다.
-
-먼저 분석한 각 글마다:
-- 제목과 정확한 URL (전체 링크, 도메인만 X)
-그 다음 종합 패턴:
-- 평균 글자 수 (대략)
-- 평균 이미지/사진 개수 (대략, 알 수 있으면)
-- 공통적인 글 구조 (도입부 훅 방식, 소제목 구성, 마무리 방식)
-- 자주 쓰이는 소제목 패턴
-다른 설명 없이 이 내용만 출력하세요.`;
-      const analyzeResult = await callClaude(analyzeSystem, [{ role: 'user', content: `키워드: ${keyword}\n\n이 키워드로 검색했을 때 상위 노출되는 블로그 글들을 찾아서 각각의 링크와 함께 패턴을 분석해줘.` }], 1, WEB_SEARCH_TOOL, 1100);
-      if (analyzeResult && analyzeResult.trim()) {
-        patternBlock = `\n\n[상위 노출 글 패턴 분석 결과 — 내용은 베끼지 말고 이 분량감·구조만 참고하세요]\n${analyzeResult.trim()}`;
+      const naverRes = await apiGet('/api/naver-search?type=blog&display=5&query=' + encodeURIComponent(keyword));
+      const items = naverRes.items || [];
+      if (items.length) {
+        patternBlock = `\n\n[네이버 블로그 실제 상위노출 글 목록 — 이 글들이 다루는 주제/각도를 참고하되 절대 그대로 베끼지 마세요]\n${items.map((it, i) => `${i+1}. ${it.title}\n요약: ${it.description}\n작성자: ${it.bloggername || '-'}`).join('\n\n')}`;
         analysisPanel.style.display = 'block';
-        analysisBody.textContent = analyzeResult.trim();
-        lastBlogAnalysis = { keyword, patternBlock, raw: analyzeResult.trim() };
+        const html = items.map((it, i) => `<div style="margin-bottom:10px;"><a href="${it.link}" target="_blank" style="color:var(--brass);">${i+1}. ${escapeHtml(it.title)}</a><div style="color:var(--paper-mute); font-size:12.5px; margin-top:2px;">${escapeHtml(it.description)}</div></div>`).join('');
+        analysisBody.innerHTML = html;
+        lastBlogAnalysis = { keyword, patternBlock, html };
+      } else {
+        progressText.textContent = '네이버 검색 결과가 없어요 — 기본 구조로 계속 진행할게요.';
       }
     } catch (e) {
-      progressText.textContent = '패턴 분석 실패 — 기본 구조로 계속 진행할게요.';
+      progressText.textContent = '네이버 검색 실패 — 기본 구조로 계속 진행할게요. (' + e.message + ')';
     }
     }
   }
