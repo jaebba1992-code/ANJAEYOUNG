@@ -332,6 +332,14 @@
   <h1>보험 콘텐츠 제작실</h1>
   <p class="sub">주제 하나로 근거 있는 롱폼·숏폼 대본과, 업로드에 필요한 부가 콘텐츠(제목·썸네일·캡션·해시태그)까지 한 번에 준비합니다.</p>
 
+  <div class="segmented" style="margin-bottom:24px;">
+    <button type="button" class="seg-btn active" id="tabBtnScript" style="padding:11px;">대본 생성기</button>
+    <button type="button" class="seg-btn" id="tabBtnCafe" style="padding:11px;">카페 답변</button>
+    <button type="button" class="seg-btn" id="tabBtnBlog" style="padding:11px;">블로그 포스팅</button>
+  </div>
+
+  <div id="scriptTab">
+
   <div class="panel" id="resumeBanner" style="display:none; border-color:var(--brass-dim);">
     <p class="panel-title" style="border:none; padding:0; margin:0 0 10px;">이어서 쓰다 만 대본이 있어요</p>
     <p id="resumeInfo" style="font-size:13px; color:var(--paper-dim); margin:0 0 14px;"></p>
@@ -520,11 +528,210 @@
   </div>
 
   <p class="footnote">서버 상태: <a href="/api/health" target="_blank">/api/health</a> · 글자 수는 대본 본문만 집계하며, 출처자료·부가 콘텐츠는 포함되지 않습니다.</p>
+
+  </div>
+
+  <div id="cafeTab" style="display:none;">
+
+  <div class="panel">
+    <p class="panel-title">카페 답변 생성 <span style="color:var(--paper-mute); font-weight:400; font-size:12px;">— 실제 카페에 올라온 질문에 본인 계정으로 답변할 초안을 만들어요</span></p>
+
+    <div class="row">
+      <div class="field">
+        <label>질문 원문 <span class="opt">(카페에서 그대로 복사해온 실제 질문)</span></label>
+        <textarea id="cafeQuestion" rows="5" placeholder="예: 안녕하세요! 태아보험 알아보고 있는데 현대해상이랑 메리츠 중에 뭐가 나을까요? 처음이라 하나도 모르겠어요ㅠㅠ"></textarea>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label>질문자 닉네임 <span class="opt">(선택, 있으면 답변 첫머리에서 불러드려요)</span></label>
+        <input type="text" id="cafeAskerName" placeholder="예: euniya93">
+      </div>
+      <div class="field">
+        <label>보험 분야</label>
+        <select id="cafeCategory">
+          <option>태아·어린이보험</option>
+          <option>암·3대질병보험</option>
+          <option>실손의료보험</option>
+          <option>자동차보험</option>
+          <option>연금·저축성보험</option>
+          <option>종신·정기보험</option>
+          <option>운전자보험</option>
+          <option>기타</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label>답변자 호칭 <span class="opt">(실명 대신 역할명 권장, 예: OO팀장)</span></label>
+        <input type="text" id="cafeHost" placeholder="예: 보험 전문가, OO팀장">
+      </div>
+      <div class="field">
+        <label>톤</label>
+        <select id="cafeTone">
+          <option value="친근하고 공감형">친근하고 공감형</option>
+          <option value="전문적이고 신뢰감 있는">전문적이고 신뢰감 있는</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label>영업 강도 <span class="opt">(세일즈 화법은 항상 반영되고, 강도만 조절돼요)</span></label>
+        <div class="segmented" id="cafeIntensitySeg">
+          <button type="button" class="seg-btn" data-val="soft">부드럽게 · 정보 위주</button>
+          <button type="button" class="seg-btn active" data-val="normal">보통 · 정보+상담유도</button>
+          <button type="button" class="seg-btn" data-val="strong">강하게 · 문의전환 집중</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label>상담 연락 링크 <span class="opt">(선택, 카톡 오픈채팅 등)</span></label>
+        <input type="text" id="cafeContactLink" placeholder="예: https://open.kakao.com/o/xxxxxxx">
+      </div>
+      <div class="field">
+        <label>연락처 <span class="opt">(선택)</span></label>
+        <input type="text" id="cafeContactPhone" placeholder="예: 010-0000-0000">
+      </div>
+    </div>
+
+    <button class="generate" id="cafeGenBtn">답변 생성하기</button>
+  </div>
+
+  <div class="panel" id="cafeResultPanel" style="display:none;">
+    <div class="result-head">
+      <div class="result-head-left">
+        <p class="panel-title" id="cafeResultLabel" style="border:none; padding:0; margin:0;">생성된 답변</p>
+      </div>
+      <button class="copy-btn" id="cafeCopyBtn">답변 복사</button>
+    </div>
+    <div id="cafeResultBody"></div>
+  </div>
+
+  </div>
+
+  <div id="blogTab" style="display:none;">
+
+  <div class="panel">
+    <p class="panel-title">키워드 추천 <span style="color:var(--paper-mute); font-weight:400; font-size:12px;">— 검색량 대비 경쟁이 낮은 "황금 키워드"를 찾아드려요</span></p>
+    <div class="row">
+      <div class="field">
+        <label>키워드 검색 <span class="opt">(예: 태아, 실비, 자동차보험)</span></label>
+        <input type="text" id="kwSearchInput" placeholder="키워드에 포함될 단어를 입력하세요">
+      </div>
+      <div class="field">
+        <label>경쟁도</label>
+        <select id="kwMaxCompetition">
+          <option value="전체">전체</option>
+          <option value="낮음">낮음만</option>
+          <option value="중간">낮음+중간</option>
+        </select>
+      </div>
+    </div>
+    <button class="copy-btn" id="kwSearchBtn" style="width:100%; padding:10px;">키워드 찾기</button>
+    <div id="kwResultList" style="margin-top:14px;"></div>
+    <p id="kwStatus" style="font-size:11.5px; color:var(--paper-mute); margin-top:8px;"></p>
+
+    <div style="margin-top:22px; padding-top:18px; border-top:1px solid var(--line);">
+      <p style="font-size:12.5px; color:var(--brass); font-weight:600; margin:0 0 8px;">키워드 데이터 업로드 (관리자용, 최초 1회)</p>
+      <input type="file" id="kwFileInput" accept=".json" style="font-size:12px; color:var(--paper-dim);">
+      <button class="mini-btn" id="kwUploadBtn" style="margin-left:8px;">업로드 시작</button>
+      <p id="kwUploadStatus" style="font-size:11.5px; color:var(--paper-mute); margin-top:8px;"></p>
+      <p id="kwCurrentCount" style="font-size:12px; color:var(--brass); margin-top:10px; font-weight:600;">확인 중...</p>
+    </div>
+  </div>
+
+  <div class="panel">
+    <p class="panel-title">블로그 글 생성</p>
+
+    <div class="row">
+      <div class="field">
+        <label>타겟 키워드 <span class="opt">(위에서 고르거나 직접 입력)</span></label>
+        <input type="text" id="blogKeyword" placeholder="예: 태아보험순위비교">
+      </div>
+      <div class="field">
+        <label>보험 분야</label>
+        <select id="blogCategory">
+          <option>태아·어린이보험</option>
+          <option>암·3대질병보험</option>
+          <option>실손의료보험</option>
+          <option>자동차보험</option>
+          <option>연금·저축성보험</option>
+          <option>종신·정기보험</option>
+          <option>운전자보험</option>
+          <option>기타</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label>작성자 호칭 <span class="opt">(선택)</span></label>
+        <input type="text" id="blogHost" placeholder="예: 보험 전문가, OO팀장">
+      </div>
+      <div class="field">
+        <label>톤</label>
+        <select id="blogTone">
+          <option value="친근하고 공감형">친근하고 공감형</option>
+          <option value="전문적이고 신뢰감 있는">전문적이고 신뢰감 있는</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="checkline">
+      <input type="checkbox" id="blogAnalyzeToggle" checked>
+      <div class="txt"><b>상위 노출 글 패턴 분석 켜기</b> — 이 키워드로 검색했을 때 상위 노출된 글 2~3개를 찾아서, 평균 분량·구조·후킹 방식을 참고해 글을 씁니다 (내용은 그대로 베끼지 않고 새로 작성).</div>
+    </div>
+
+    <button class="generate" id="blogGenBtn">블로그 글 생성하기</button>
+    <div id="blogProgressWrap" style="display:none;">
+      <div class="track"><div class="bar" id="blogProgressBar"></div></div>
+      <p class="txt" id="blogProgressText"></p>
+    </div>
+  </div>
+
+  <div class="panel" id="blogResultPanel" style="display:none;">
+    <div class="result-head">
+      <div class="result-head-left">
+        <p class="panel-title" id="blogResultLabel" style="border:none; padding:0; margin:0;">생성된 블로그 글</p>
+        <span class="charcount" id="blogCharcount"></span>
+      </div>
+      <button class="copy-btn" id="blogCopyBtn">글 복사</button>
+    </div>
+    <div id="blogResultBody"></div>
+  </div>
+
+  </div>
+
 </div>
 
 <script>
 let format = 'short';
 let intensity = 'normal';
+let cafeIntensity = 'normal';
+
+document.getElementById('tabBtnScript').addEventListener('click', () => setActiveTab('script'));
+document.getElementById('tabBtnCafe').addEventListener('click', () => setActiveTab('cafe'));
+document.getElementById('tabBtnBlog').addEventListener('click', () => setActiveTab('blog'));
+function setActiveTab(name) {
+  document.getElementById('tabBtnScript').classList.toggle('active', name === 'script');
+  document.getElementById('tabBtnCafe').classList.toggle('active', name === 'cafe');
+  document.getElementById('tabBtnBlog').classList.toggle('active', name === 'blog');
+  document.getElementById('scriptTab').style.display = name === 'script' ? 'block' : 'none';
+  document.getElementById('cafeTab').style.display = name === 'cafe' ? 'block' : 'none';
+  document.getElementById('blogTab').style.display = name === 'blog' ? 'block' : 'none';
+}
+document.querySelectorAll('#cafeIntensitySeg .seg-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#cafeIntensitySeg .seg-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    cafeIntensity = btn.dataset.val;
+  });
+});
 
 /* ===================== 심의 안전 표현 관리 (Supabase, 팀 공유) ===================== */
 const DEFAULT_BAN_WORDS = ['골든타임', '무조건', '100%', '반드시', '확정적으로', '지금 안 하면', '큰일'];
@@ -908,6 +1115,88 @@ async function searchCorpus(topic, extra) {
   }
 }
 
+async function refreshKeywordCount() {
+  const el = document.getElementById('kwCurrentCount');
+  try {
+    const probe = await apiGet('/api/keywords?q=보험&limit=1');
+    el.textContent = (probe.items && probe.items.length)
+      ? `✔ 키워드 데이터가 등록되어 있어요.`
+      : '아직 키워드 데이터가 없어요.';
+  } catch (e) {
+    el.textContent = '확인할 수 없어요 (Supabase 연결 확인 필요)';
+  }
+}
+refreshKeywordCount();
+
+document.getElementById('kwUploadBtn').addEventListener('click', async () => {
+  const file = document.getElementById('kwFileInput').files[0];
+  const statusEl = document.getElementById('kwUploadStatus');
+  if (!file) { alert('.json 파일을 먼저 선택해주세요.'); return; }
+
+  statusEl.textContent = '파일 읽는 중...';
+  try {
+    const text = await file.text();
+    const rows = JSON.parse(text);
+    if (!Array.isArray(rows)) throw new Error('올바른 키워드 JSON 파일이 아니에요.');
+
+    const BATCH_SIZE = 200;
+    let done = 0;
+    for (let i = 0; i < rows.length; i += BATCH_SIZE) {
+      const batch = rows.slice(i, i + BATCH_SIZE);
+      statusEl.textContent = `업로드 중... (${Math.min(i + BATCH_SIZE, rows.length)}/${rows.length})`;
+      await apiPost('/api/keywords', { rows: batch });
+      done += batch.length;
+      await new Promise(r => setTimeout(r, 100));
+    }
+    statusEl.textContent = `완료 — 총 ${done.toLocaleString()}개 키워드 업로드됐어요.`;
+    await refreshKeywordCount();
+  } catch (e) {
+    statusEl.textContent = '오류: ' + e.message;
+  }
+});
+
+document.getElementById('kwSearchBtn').addEventListener('click', async () => {
+  const q = document.getElementById('kwSearchInput').value.trim();
+  const maxCompetition = document.getElementById('kwMaxCompetition').value;
+  const listEl = document.getElementById('kwResultList');
+  const statusEl = document.getElementById('kwStatus');
+  if (!q) { alert('검색할 단어를 입력해주세요.'); return; }
+
+  statusEl.textContent = '검색 중...';
+  listEl.innerHTML = '';
+  try {
+    const params = new URLSearchParams({ q, limit: '15' });
+    if (maxCompetition !== '전체') params.set('maxCompetition', maxCompetition);
+    const { items } = await apiGet('/api/keywords?' + params.toString());
+    if (!items || items.length === 0) {
+      statusEl.textContent = '결과가 없어요.';
+      return;
+    }
+    statusEl.textContent = `${items.length}개 찾음 (황금점수 높은 순)`;
+    listEl.innerHTML = items.map(k => `
+      <div class="lib-item">
+        <div class="lib-item-head">
+          <div>
+            <div class="lib-item-title">${escapeHtml(k.keyword)}</div>
+            <div class="lib-item-meta">검색량 ${Number(k.total_search).toLocaleString()} · 경쟁도 ${k.competition || '-'} · 황금점수 ${k.golden_score}</div>
+          </div>
+          <div class="lib-item-actions">
+            <button class="mini-btn" data-kw="${escapeHtml(k.keyword)}">이 키워드로 쓰기</button>
+          </div>
+        </div>
+      </div>
+    `).join('');
+    listEl.querySelectorAll('[data-kw]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.getElementById('blogKeyword').value = btn.dataset.kw;
+        window.scrollTo({ top: document.getElementById('blogKeyword').getBoundingClientRect().top + window.scrollY - 100, behavior: 'smooth' });
+      });
+    });
+  } catch (e) {
+    statusEl.textContent = '오류: ' + e.message;
+  }
+});
+
 async function refreshCorpusCount() {
   const el = document.getElementById('corpusCurrentCount');
   try {
@@ -1232,35 +1521,23 @@ async function callClaude(system, messages, retries = 2, tools = null, maxTokens
   throw lastErr;
 }
 
-function intensityGuide() {
-  if (intensity === 'soft') {
-    return '정보 전달이 중심이고, 세일즈는 은은하게 녹여서 넣는다. CTA는 영상 끝에 1회, 부드러운 제안 형태로.';
+function intensityGuide(level) {
+  const lvl = level || intensity;
+  if (lvl === 'soft') {
+    return '정보 전달이 중심이고, 세일즈는 은은하게 녹여서 넣는다. CTA는 끝에 1회, 부드러운 제안 형태로.';
   }
-  if (intensity === 'strong') {
+  if (lvl === 'strong') {
     return '정보 전달과 함께 상담·문의 전환을 적극적으로 유도한다. 중간중간 예고 화법("이거 아셔야 하는 이유가 있어요")을 여러 번 배치하고, CTA를 최소 2회 이상, 마지막엔 강하게 마무리한다.';
   }
   return '정보 전달 위주로 가되, 중간에 한 번, 마지막에 한 번 자연스럽게 상담 유도를 넣는다.';
 }
 
-function complianceBlock() {
-  return `\n[광고 심의 준수 — 항상 반드시 지켜야 하는 규칙, 생략 불가]
-아래 표현들은 보험업 광고 심의에서 반려 사유가 되므로 절대 쓰지 않는다:
-- 확정적·단정적 표현: "무조건", "100%", "반드시 ~됩니다", "틀림없이" 같은 보장성 단정 문구 금지 → "~일 수 있습니다", "~인 경우가 많습니다" 처럼 완곡하게 쓴다.
-- 불안감·공포 조성 표현: "지금 안 하면 큰일 납니다", "놓치면 후회합니다", **"골든타임"** 같이 다급함·불안감을 조성하는 단어 금지 → 감정적 압박 없이 사실만 담백하게 서술한다.
-  예시) "꼭 기억하셔야 할 골든타임, 바로 임신 22주 6일이에요" (X, 불안감 조성)
-       → "꼭 기억하셔야 할 임신 22주 6일이에요" (O, 압박 단어만 제거하고 사실은 유지)
-- 타 설계사·타사 비방/비교: 다른 설계사나 보험사를 언급하며 깎아내리거나 직접 비교하는 표현 금지 → 비교 대상 없이 본인·본사 정보 위주로만 서술한다.
-- 다급함 조성 표현: "지금 당장", "마지막 기회", "오늘까지만", "서두르세요" 금지 → 여유 있는 어조로 바꾼다.
-- 공격적·강압적 어투: 명령조나 압박하는 말투 금지 → 부드러운 권유형으로 쓴다.
-이 규칙은 영업 강도(부드럽게/보통/강하게) 설정과 무관하게 항상 최우선으로 적용된다. 세일즈 화법(행동 유도, 예고 던지기 등)은 유지하되, 위 금지 표현만 피해서 순화된 문장으로 쓴다.`;
-}
-
-function salesSystemBlock() {
+function salesSystemBlock(level) {
   return `\n[세일즈 화법 — 항상 반드시 지켜야 하는 핵심 규칙, 생략 불가]
 - 직접적인 지시("전화하세요") 대신, 문장 안에 자연스럽게 행동 명령을 심는다. 예: "이런 상황이면, 지금 증권부터 한번 확인해보세요" 처럼 구체적 행동을 문장 속에 스리슬쩍 넣는다.
 - 민감한 질문(자산, 병력 등)을 하기 전에는 반드시 "왜 이걸 여쭤보는지" 이유부터 설명해서 신뢰를 먼저 쌓는다.
 - 제안이나 추천 전에는 짧은 예고를 던져서 궁금증을 유발한다 (예: "이거 하나만 아시면 상황이 달라져요").
-- 영업 강도: ${intensityGuide()}
+- 영업 강도: ${intensityGuide(level)}
 - 과장이나 확인되지 않은 사실은 절대 포함하지 않는다. 세일즈 화법은 신뢰를 기반으로 해야 하며, 없는 사실을 지어내 설득하지 않는다.`;
 }
 
@@ -1625,6 +1902,168 @@ function renderBundle(data) {
     </div>
   `;
 }
+
+function cafeSystem(intensityLevel) {
+  return `당신은 네이버 카페에서 실제 질문에 답변하는 보험 설계사입니다.
+- 질문자의 닉네임이 주어지면 답변 첫머리에서 이름을 불러 인사한다.
+- "●" 같은 불릿 기호로 정보를 구조화해서, 이유를 하나씩 짚어가며 설명한다.
+- 정성스럽고 친근한 톤으로, 실제 사람이 정성껏 답 다는 것처럼 자연스럽게 쓴다.
+- 절대 경쟁사나 다른 설계사를 실명으로 언급하며 비교·비방하지 않는다. 본인이 추천하는 상품/방향의 장점을 사실 기반으로 구체적으로 설명하는 방식으로만 신뢰를 준다.
+- "1위", "압도적", "최고" 같이 객관적으로 증명할 수 없는 절대적 우위 주장을 하지 않는다.
+- 마지막에는 자연스럽게 상담 연락(카톡/전화)으로 이어지는 CTA를 넣는다. 연락처 정보가 주어지면 마지막에 포함한다.
+- 결과는 답변 본문만 출력하고 다른 설명은 붙이지 않는다.` + complianceSystemBlock() + salesSystemBlock(intensityLevel);
+}
+
+document.getElementById('cafeGenBtn').addEventListener('click', async () => {
+  const question = document.getElementById('cafeQuestion').value.trim();
+  const askerName = document.getElementById('cafeAskerName').value.trim();
+  const category = document.getElementById('cafeCategory').value;
+  const host = document.getElementById('cafeHost').value.trim();
+  const tone = document.getElementById('cafeTone').value;
+  const contactLink = document.getElementById('cafeContactLink').value.trim();
+  const contactPhone = document.getElementById('cafeContactPhone').value.trim();
+
+  const genBtn = document.getElementById('cafeGenBtn');
+  const resultPanel = document.getElementById('cafeResultPanel');
+  const resultBody = document.getElementById('cafeResultBody');
+
+  if (!question) { alert('질문 원문을 입력해주세요.'); return; }
+
+  genBtn.disabled = true;
+  genBtn.textContent = '생성 중...';
+  resultPanel.style.display = 'block';
+  resultBody.innerHTML = '<div class="script-body">생성 중...</div>';
+
+  const contactBlock = (contactLink || contactPhone)
+    ? `\n연락처 정보: ${contactLink ? '카톡 상담 링크 ' + contactLink : ''} ${contactPhone ? '전화 ' + contactPhone : ''}`
+    : '\n연락처 정보가 없으니, 구체적 링크나 번호 없이 "편하게 문의 주세요" 정도로만 자연스럽게 마무리한다.';
+
+  const system = cafeSystem(cafeIntensity);
+  const userPrompt = `보험 분야: ${category}
+${host ? '답변자 호칭: ' + host : ''}
+톤앤매너: ${tone}
+${askerName ? '질문자 닉네임: ' + askerName : ''}${contactBlock}
+
+[카페에 올라온 실제 질문]
+${question}
+
+위 질문에 대한 답변을 작성해줘.`;
+
+  try {
+    const answer = await callClaude(system, [{ role: 'user', content: userPrompt }], 2, null, 1600);
+    resultBody.innerHTML = '';
+    const div = document.createElement('div');
+    div.className = 'script-body';
+    div.textContent = answer || '답변을 받아오지 못했어요. 다시 시도해주세요.';
+    resultBody.appendChild(div);
+    renderComplianceCheck(answer || '', resultBody);
+  } catch (err) {
+    resultBody.innerHTML = '<div class="error-box">오류가 발생했어요: ' + err.message + '</div>';
+  } finally {
+    genBtn.disabled = false;
+    genBtn.textContent = '답변 생성하기';
+  }
+});
+
+document.getElementById('cafeCopyBtn').addEventListener('click', () => {
+  const el = document.querySelector('#cafeResultBody .script-body');
+  const text = el ? el.innerText : '';
+  navigator.clipboard.writeText(text);
+  const btn = document.getElementById('cafeCopyBtn');
+  const old = btn.textContent;
+  btn.textContent = '복사됨';
+  setTimeout(() => btn.textContent = old, 1200);
+});
+
+document.getElementById('blogGenBtn').addEventListener('click', async () => {
+  const keyword = document.getElementById('blogKeyword').value.trim();
+  const category = document.getElementById('blogCategory').value;
+  const host = document.getElementById('blogHost').value.trim();
+  const tone = document.getElementById('blogTone').value;
+  const analyzeOn = document.getElementById('blogAnalyzeToggle').checked;
+
+  const genBtn = document.getElementById('blogGenBtn');
+  const resultPanel = document.getElementById('blogResultPanel');
+  const resultBody = document.getElementById('blogResultBody');
+  const charcount = document.getElementById('blogCharcount');
+  const progressWrap = document.getElementById('blogProgressWrap');
+  const progressText = document.getElementById('blogProgressText');
+  const progressBar = document.getElementById('blogProgressBar');
+
+  if (!keyword) { alert('타겟 키워드를 입력해주세요.'); return; }
+
+  genBtn.disabled = true;
+  genBtn.textContent = '생성 중...';
+  resultPanel.style.display = 'block';
+  resultBody.innerHTML = '<div class="script-body">준비 중...</div>';
+  charcount.textContent = '';
+
+  let patternBlock = '';
+  if (analyzeOn) {
+    progressWrap.style.display = 'block';
+    progressText.textContent = '"' + keyword + '" 상위 노출 글 패턴 분석 중...';
+    progressBar.style.width = '30%';
+    try {
+      const analyzeSystem = `당신은 블로그 SEO 분석가입니다. 주어진 키워드로 검색했을 때 상위 노출되는 블로그 글 2~3개를 web_search로 찾아서, 아래 항목을 분석해 정리하세요. 원문을 그대로 옮기지 말고 패턴만 요약합니다.
+- 평균 글자 수 (대략)
+- 평균 이미지/사진 개수 (대략, 알 수 있으면)
+- 공통적인 글 구조 (도입부 훅 방식, 소제목 구성, 마무리 방식)
+- 자주 쓰이는 소제목 패턴
+다른 설명 없이 이 4개 항목만 정리해서 출력하세요.`;
+      const analyzeResult = await callClaude(analyzeSystem, [{ role: 'user', content: `키워드: ${keyword}\n\n이 키워드로 검색했을 때 상위 노출되는 블로그 글들의 패턴을 분석해줘.` }], 1, WEB_SEARCH_TOOL, 900);
+      if (analyzeResult && analyzeResult.trim()) {
+        patternBlock = `\n\n[상위 노출 글 패턴 분석 결과 — 내용은 베끼지 말고 이 분량감·구조만 참고하세요]\n${analyzeResult.trim()}`;
+      }
+    } catch (e) {
+      progressText.textContent = '패턴 분석 실패 — 기본 구조로 계속 진행할게요.';
+    }
+  }
+
+  progressText.textContent = '블로그 글 작성 중...';
+  progressBar.style.width = '70%';
+
+  const system = `당신은 보험 블로그 콘텐츠 작가입니다.
+- 타겟 키워드를 제목에 자연스럽게 포함하고, 본문 전체에 걸쳐 3~6회 정도 자연스럽게 반복해서 SEO에 도움이 되게 쓴다 (억지로 욱여넣지 않는다).
+- 후킹 있는 도입부, 소제목으로 구조화된 본문, 명확한 클로징(기승전결)을 갖춘다.
+- 실제 블로그처럼 문단을 짧게 끊어서 가독성 있게 쓴다.
+- 사진을 넣을 만한 지점에는 "[이미지: 어떤 사진]" 형태로 표시해준다.${patternBlock}
+- 결과는 제목과 본문만 출력하고 다른 설명은 붙이지 않는다.` + complianceSystemBlock() + salesSystemBlock('normal');
+
+  const userPrompt = `타겟 키워드: ${keyword}
+보험 분야: ${category}
+${host ? '작성자 호칭: ' + host : ''}
+톤앤매너: ${tone}
+
+위 키워드에 최적화된 블로그 글을 작성해줘.`;
+
+  try {
+    const article = await callClaude(system, [{ role: 'user', content: userPrompt }], 2, null, 2560);
+    progressText.textContent = '완료';
+    progressBar.style.width = '100%';
+    resultBody.innerHTML = '';
+    const div = document.createElement('div');
+    div.className = 'script-body';
+    div.textContent = article || '글을 받아오지 못했어요. 다시 시도해주세요.';
+    resultBody.appendChild(div);
+    charcount.innerHTML = `본문 <b>${(article||'').length.toLocaleString()}</b>자`;
+    renderComplianceCheck(article || '', resultBody);
+  } catch (err) {
+    resultBody.innerHTML = '<div class="error-box">오류가 발생했어요: ' + err.message + '</div>';
+  } finally {
+    genBtn.disabled = false;
+    genBtn.textContent = '블로그 글 생성하기';
+  }
+});
+
+document.getElementById('blogCopyBtn').addEventListener('click', () => {
+  const el = document.querySelector('#blogResultBody .script-body');
+  const text = el ? el.innerText : '';
+  navigator.clipboard.writeText(text);
+  const btn = document.getElementById('blogCopyBtn');
+  const old = btn.textContent;
+  btn.textContent = '복사됨';
+  setTimeout(() => btn.textContent = old, 1200);
+});
 
 function escapeHtml(str) {
   const div = document.createElement('div');
