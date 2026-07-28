@@ -714,6 +714,11 @@
       <div class="txt"><b>상위 노출 글 패턴 분석 켜기</b> — 이 키워드로 검색했을 때 상위 노출된 글 2~3개를 찾아서, 평균 분량·구조·후킹 방식을 참고해 글을 씁니다 (내용은 그대로 베끼지 않고 새로 작성).</div>
     </div>
 
+    <div class="checkline">
+      <input type="checkbox" id="blogImageToggle">
+      <div class="txt"><b>이미지 자동 삽입</b> — Unsplash 무료 스톡사진을 글 중간중간 자동으로 찾아서 넣어줘요. 체크 안 하면 텍스트만 생성돼요.</div>
+    </div>
+
     <button class="generate" id="blogGenBtn">블로그 글 생성하기</button>
     <div id="blogProgressWrap" style="display:none;">
       <div class="track"><div class="bar" id="blogProgressBar"></div></div>
@@ -2175,6 +2180,7 @@ document.getElementById('blogGenBtn').addEventListener('click', async () => {
   const contactLink = document.getElementById('blogContactLink').value.trim();
   const contactPhone = document.getElementById('blogContactPhone').value.trim();
   const analyzeOn = document.getElementById('blogAnalyzeToggle').checked;
+  const imageOn = document.getElementById('blogImageToggle').checked;
 
   const genBtn = document.getElementById('blogGenBtn');
   const resultPanel = document.getElementById('blogResultPanel');
@@ -2237,7 +2243,7 @@ document.getElementById('blogGenBtn').addEventListener('click', async () => {
 - 타겟 키워드를 제목에 자연스럽게 포함하고, 본문 전체에 걸쳐 3~6회 정도 자연스럽게 반복해서 SEO에 도움이 되게 쓴다 (억지로 욱여넣지 않는다).
 - 후킹 있는 도입부로 시작하고, 소제목으로 구조화된 본문(기승전결)을 거쳐, 반드시 아래의 클로징으로 완결한다.
 - 실제 블로그처럼 문단을 짧게 끊어서 가독성 있게 쓴다.
-- 사진을 넣을 만한 지점에는 "[이미지: 한글설명 / 영어검색키워드]" 형태로 표시해준다. 영어검색키워드는 스톡 사진 검색에 쓸 2~3단어로, 구체적이고 일반적인 장면 위주로 쓴다 (예: [이미지: 임신부가 서류를 검토하는 모습 / pregnant woman reading documents]). 보험 상품 화면이나 특정 수치가 들어간 이미지는 스톡사진으로 찾을 수 없으니, 사람·상황·분위기를 나타내는 장면 위주로만 이미지 자리를 표시한다.
+${imageOn ? `- 사진을 넣을 만한 지점에는 "[이미지: 한글설명 / 영어검색키워드]" 형태로 표시해준다. 영어검색키워드는 스톡 사진 검색에 쓸 2~3단어로, 구체적이고 일반적인 장면 위주로 쓴다 (예: [이미지: 임신부가 서류를 검토하는 모습 / pregnant woman reading documents]). 보험 상품 화면이나 특정 수치가 들어간 이미지는 스톡사진으로 찾을 수 없으니, 사람·상황·분위기를 나타내는 장면 위주로만 이미지 자리를 표시한다.` : '- 이미지 자리 표시는 하지 않는다. 텍스트만으로 글을 완성한다.'}
 - 절대 문장이 중간에 끊기지 않게, 글 전체를 끝까지 완결해서 마무리한다. 분량이 길어질 것 같으면 본문 설명을 조금 더 압축하더라도 클로징까지 반드시 도달한다.
 
 [클로징(마무리) 필수 요소 — 생략 불가, 반드시 이 순서로 포함]
@@ -2258,14 +2264,18 @@ ${host ? '작성자 호칭: ' + host : ''}
 
   try {
     const article = await callClaude(system, [{ role: 'user', content: userPrompt }], 2, null, 2400);
-    progressText.textContent = '이미지 찾는 중...';
+    progressText.textContent = imageOn ? '이미지 찾는 중...' : '완료';
     progressBar.style.width = '90%';
     resultBody.innerHTML = '';
     const div = document.createElement('div');
     div.className = 'script-body';
     resultBody.appendChild(div);
     if (article) {
-      await renderArticleWithImages(article, div);
+      if (imageOn) {
+        await renderArticleWithImages(article, div);
+      } else {
+        div.textContent = article;
+      }
     } else {
       div.textContent = '글을 받아오지 못했어요. 다시 시도해주세요.';
     }
@@ -2273,7 +2283,7 @@ ${host ? '작성자 호칭: ' + host : ''}
     progressBar.style.width = '100%';
     charcount.innerHTML = `본문 <b>${(article||'').length.toLocaleString()}</b>자`;
     renderComplianceCheck(article || '', resultBody);
-    blogState = { system, text: article || '', historyId: Date.now(), topic: keyword, category };
+    blogState = { system, text: article || '', historyId: Date.now(), topic: keyword, category, imageOn };
     if (article) addToHistory({ id: blogState.historyId, topic: keyword, category, format: 'blog', script: article });
     addBlogContinueButton();
   } catch (err) {
@@ -2357,7 +2367,10 @@ function addBlogContinueButton() {
       const more = await callClaude(blogState.system, [{ role: 'user', content: followUp }], 2, null, 3600);
       blogState.text += '\n\n' + (more || '').trim();
       const div = resultBody.querySelector('.script-body');
-      if (div) await renderArticleWithImages(blogState.text, div);
+      if (div) {
+        if (blogState.imageOn) await renderArticleWithImages(blogState.text, div);
+        else div.textContent = blogState.text;
+      }
       charcount.innerHTML = `본문 <b>${blogState.text.length.toLocaleString()}</b>자`;
       renderComplianceCheck(blogState.text, resultBody);
       addToHistory({ id: blogState.historyId, topic: blogState.topic, category: blogState.category, format: 'blog', script: blogState.text });
