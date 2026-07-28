@@ -650,6 +650,7 @@ async function renderHistory() {
         </div>
         <div class="hist-item-actions">
           <button class="mini-btn" data-action="view" data-id="${h.id}">보기</button>
+          ${h.format === 'long' ? `<button class="mini-btn" data-action="continue" data-id="${h.id}">이어서 쓰기</button>` : ''}
           <button class="mini-btn danger" data-action="del" data-id="${h.id}">삭제</button>
         </div>
       </div>
@@ -660,6 +661,7 @@ async function renderHistory() {
       const h = list.find(x => String(x.id) === btn.dataset.id);
       if (!h) return;
       document.getElementById('resultPanel').style.display = 'block';
+      document.getElementById('bundlePanel').style.display = 'none';
       document.getElementById('resultLabel').textContent = (h.format === 'long' ? '롱폼 상세 대본' : '숏폼 대본') + ' (기록 불러옴)';
       const resultBody = document.getElementById('resultBody');
       resultBody.innerHTML = '';
@@ -669,6 +671,13 @@ async function renderHistory() {
       resultBody.appendChild(div);
       document.getElementById('charcount').innerHTML = `대본 <b>${(h.script||'').length.toLocaleString()}</b>자`;
       window.scrollTo({ top: resultBody.getBoundingClientRect().top + window.scrollY - 20, behavior: 'smooth' });
+    });
+  });
+  el.querySelectorAll('[data-action="continue"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const h = list.find(x => String(x.id) === btn.dataset.id);
+      if (!h) return;
+      resumeFromHistoryEntry(h);
     });
   });
   el.querySelectorAll('[data-action="del"]').forEach(btn => {
@@ -763,6 +772,61 @@ async function resumeFromDraft() {
     MAX_CHUNKS: (draft.chunkIndex || 0) + 10,
     scriptDiv,
     historyId: draft.historyId || Date.now()
+  };
+
+  await runLongFormChunks(lfState);
+}
+
+async function resumeFromHistoryEntry(h) {
+  document.getElementById('topic').value = h.topic || '';
+  if (h.category) document.getElementById('category').value = h.category;
+  format = 'long';
+  document.querySelectorAll('#formatSeg .seg-btn').forEach(b => b.classList.toggle('active', b.dataset.val === 'long'));
+  document.getElementById('sourceRow').style.display = 'flex';
+  document.getElementById('citeRow').style.display = 'flex';
+  const citeOn = document.getElementById('citeToggle').checked;
+  const host = document.getElementById('host').value.trim();
+
+  document.getElementById('resultPanel').style.display = 'block';
+  document.getElementById('bundlePanel').style.display = 'none';
+  const resultBody = document.getElementById('resultBody');
+  resultBody.innerHTML = '';
+  const scriptDiv = document.createElement('div');
+  scriptDiv.className = 'script-body';
+  scriptDiv.textContent = h.script;
+  resultBody.appendChild(scriptDiv);
+  document.getElementById('resultLabel').textContent = '롱폼 상세 대본 (이어서 진행 중)';
+  document.getElementById('charcount').innerHTML = `대본 <b>${h.script.length.toLocaleString()}</b>자`;
+  document.getElementById('progressWrap').style.display = 'block';
+  window.scrollTo({ top: resultBody.getBoundingClientRect().top + window.scrollY - 20, behavior: 'smooth' });
+
+  const target = document.getElementById('target').value.trim();
+  const tone = document.getElementById('tone').value;
+  const extra = document.getElementById('extra').value.trim();
+  const contextLine = `보험 분야: ${h.category || ''}\n주제: ${h.topic}\n${host ? '진행자 호칭: ' + host : ''}\n${target ? '타겟 고객: ' + target : ''}\n톤앤매너: ${tone}\n${extra ? '추가 반영 사항: ' + extra : ''}`;
+
+  const longSystem = baseSystem(citeOn) + `\n- 최종 대본 본문이 1만자 이상이어야 한다. 요약하지 말고 상세히 설명한다.
+- 지금은 전체 대본 중 한 부분만 이어서 쓴다. 이미 다룬 소제목/항목은 절대 반복하지 않는다.
+- 이번 청크는 문장이 중간에 끊기지 않게 완결된 단락으로 마무리한다.`;
+
+  // rebuild the "already covered" topic list from bold headers already present in the saved script
+  const coveredTopics = [];
+  const headerMatches = (h.script || '').match(/\*\*([^*]{2,40})\*\*/g) || [];
+  headerMatches.forEach(m => {
+    const clean = m.replace(/\*\*/g, '').trim();
+    if (clean && !coveredTopics.includes(clean)) coveredTopics.push(clean);
+  });
+  const estimatedChunks = Math.max(1, Math.ceil((h.script || '').length / 1200));
+
+  lfState = {
+    fullScript: h.script,
+    chunkIndex: estimatedChunks,
+    coveredTopics,
+    contextLine, longSystem, citeOn, category: h.category, host, topic: h.topic,
+    TARGET_CHARS: h.script.length + 2500,
+    MAX_CHUNKS: estimatedChunks + 10,
+    scriptDiv,
+    historyId: h.id
   };
 
   await runLongFormChunks(lfState);
