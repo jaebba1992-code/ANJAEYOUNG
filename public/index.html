@@ -1735,7 +1735,7 @@ async function generateScript() {
 
   const libMatches = searchLibrary(topic, extra).slice(0, 3);
   const libBlock = libMatches.length
-    ? `\n\n[내 라이브러리에 저장된 관련 자료 — 이 안에 있는 내용이면 최우선으로 이걸 근거로 쓰고, 여기 없을 때만 다른 출처를 찾으세요]\n${libMatches.map(m => `■ ${m.title}\n${(m.content||'').slice(0, 1000)}`).join('\n\n')}`
+    ? `\n\n[내 라이브러리에 저장된 관련 자료 — 이 안에 있는 내용이면 최우선으로 이걸 근거로 쓰고, 여기 없을 때만 다른 출처를 찾으세요]\n${libMatches.map(m => `■ ${m.title}\n${(m.content||'').slice(0, 700)}`).join('\n\n')}`
     : '';
 
   let corpusBlock = '';
@@ -1744,7 +1744,7 @@ async function generateScript() {
     progressText.textContent = '내 출처자료(8천 페이지) 안에서 관련 내용 찾는 중...';
     const corpusMatches = await searchCorpus(topic, extra);
     if (corpusMatches.length) {
-      corpusBlock = `\n\n[내 출처자료 8천페이지 안에서 찾은 관련 내용 — 페이지 번호와 함께 정확히 인용하세요]\n${corpusMatches.map(m => `■ [${m.source_file || '자료'} p.${m.page_number || '?'}]\n${(m.content||'').slice(0, 1200)}`).join('\n\n')}`;
+      corpusBlock = `\n\n[내 출처자료 8천페이지 안에서 찾은 관련 내용 — 페이지 번호와 함께 정확히 인용하세요]\n${corpusMatches.map(m => `■ [${m.source_file || '자료'} p.${m.page_number || '?'}]\n${(m.content||'').slice(0, 900)}`).join('\n\n')}`;
     }
   }
 
@@ -1862,7 +1862,7 @@ async function runLongFormChunks(state) {
 
     let chunk;
     try {
-      const maxTok = state.citeOn ? 3200 : 2560;
+      const maxTok = state.citeOn ? 2800 : 2560;
       chunk = await callClaude(state.longSystem, [{ role: 'user', content: stagePrompt }], 3, null, maxTok);
     } catch (chunkErr) {
       state.chunkIndex--; // this attempt failed, don't count it as done — retry will redo this same stage
