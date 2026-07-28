@@ -533,6 +533,14 @@
 
   <div id="cafeTab" style="display:none;">
 
+  <div class="panel" id="cafeHistoryPanel" style="display:none;">
+    <div class="result-head" style="cursor:pointer;" id="cafeHistoryToggle">
+      <p class="panel-title" style="border:none; padding:0; margin:0;">이전 카페 답변 목록 <span style="color:var(--paper-mute); font-weight:400; font-size:12px;" id="cafeHistoryCount"></span></p>
+      <span class="copy-btn" id="cafeHistoryToggleBtn">펼치기</span>
+    </div>
+    <div id="cafeHistoryList" style="display:none; margin-top:14px;"></div>
+  </div>
+
   <div class="panel">
     <p class="panel-title">카페 답변 생성 <span style="color:var(--paper-mute); font-weight:400; font-size:12px;">— 실제 카페에 올라온 질문에 본인 계정으로 답변할 초안을 만들어요</span></p>
 
@@ -851,6 +859,7 @@ async function addToHistory(entry) {
     await apiPost('/api/history', entry);
     await renderHistory();
     await renderBlogHistory();
+    await renderCafeHistory();
   } catch (e) {
     console.error('history save failed', e);
   }
@@ -860,6 +869,7 @@ async function deleteFromHistory(id) {
     await apiDelete('/api/history', { id });
     await renderHistory();
     await renderBlogHistory();
+    await renderCafeHistory();
   } catch (e) {
     alert('삭제 실패: ' + e.message);
   }
@@ -874,7 +884,7 @@ async function fetchAllHistory() {
 }
 async function renderHistory() {
   const all = await fetchAllHistory();
-  const list = all.filter(h => h.format !== 'blog');
+  const list = all.filter(h => h.format !== 'blog' && h.format !== 'cafe');
 
   document.getElementById('historyPanel').style.display = list.length ? 'block' : 'none';
   document.getElementById('historyCount').textContent = `(${list.length}개)`;
@@ -983,6 +993,58 @@ document.getElementById('blogHistoryToggle').addEventListener('click', () => {
   btn.textContent = show ? '접기' : '펼치기';
 });
 renderBlogHistory();
+
+async function renderCafeHistory() {
+  const all = await fetchAllHistory();
+  const list = all.filter(h => h.format === 'cafe');
+
+  const panel = document.getElementById('cafeHistoryPanel');
+  if (!panel) return;
+  panel.style.display = list.length ? 'block' : 'none';
+  document.getElementById('cafeHistoryCount').textContent = `(${list.length}개)`;
+  const el = document.getElementById('cafeHistoryList');
+  el.innerHTML = list.map(h => `
+    <div class="hist-item">
+      <div class="hist-item-head">
+        <div>
+          <div class="hist-item-title">${escapeHtml(h.topic || '(질문 없음)')}</div>
+          <div class="hist-item-meta">${h.category || ''} · ${new Date(h.created_at || h.id).toLocaleString('ko-KR')} · ${(h.script||'').length.toLocaleString()}자</div>
+        </div>
+        <div class="hist-item-actions">
+          <button class="mini-btn" data-action="view" data-id="${h.id}">보기</button>
+          <button class="mini-btn danger" data-action="del" data-id="${h.id}">삭제</button>
+        </div>
+      </div>
+    </div>
+  `).join('');
+  el.querySelectorAll('[data-action="view"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const h = list.find(x => String(x.id) === btn.dataset.id);
+      if (!h) return;
+      document.getElementById('cafeResultPanel').style.display = 'block';
+      const resultBody = document.getElementById('cafeResultBody');
+      resultBody.innerHTML = '';
+      const div = document.createElement('div');
+      div.className = 'script-body';
+      div.textContent = h.script;
+      resultBody.appendChild(div);
+      cafeState = { system: cafeSystem(cafeIntensity), text: h.script, historyId: h.id, topic: h.topic, category: h.category };
+      addCafeContinueButton();
+      window.scrollTo({ top: resultBody.getBoundingClientRect().top + window.scrollY - 20, behavior: 'smooth' });
+    });
+  });
+  el.querySelectorAll('[data-action="del"]').forEach(btn => {
+    btn.addEventListener('click', () => deleteFromHistory(Number(btn.dataset.id)));
+  });
+}
+document.getElementById('cafeHistoryToggle').addEventListener('click', () => {
+  const list = document.getElementById('cafeHistoryList');
+  const btn = document.getElementById('cafeHistoryToggleBtn');
+  const show = list.style.display === 'none';
+  list.style.display = show ? 'block' : 'none';
+  btn.textContent = show ? '접기' : '펼치기';
+});
+renderCafeHistory();
 
 /* ===================== 진행 중 초안 자동 저장 (오류로 날아가는 것 방지) ===================== */
 function saveDraft(state) {
@@ -1999,6 +2061,8 @@ function cafeSystem(intensityLevel) {
 - 결과는 답변 본문만 출력하고 다른 설명은 붙이지 않는다.` + complianceSystemBlock() + salesSystemBlock(intensityLevel);
 }
 
+let cafeState = null;
+
 document.getElementById('cafeGenBtn').addEventListener('click', async () => {
   const question = document.getElementById('cafeQuestion').value.trim();
   const askerName = document.getElementById('cafeAskerName').value.trim();
@@ -2042,6 +2106,9 @@ ${question}
     div.textContent = answer || '답변을 받아오지 못했어요. 다시 시도해주세요.';
     resultBody.appendChild(div);
     renderComplianceCheck(answer || '', resultBody);
+    cafeState = { system, text: answer || '', historyId: Date.now(), topic: question.slice(0, 60), category };
+    if (answer) addToHistory({ id: cafeState.historyId, topic: cafeState.topic, category, format: 'cafe', script: answer });
+    addCafeContinueButton();
   } catch (err) {
     resultBody.innerHTML = '<div class="error-box">오류가 발생했어요: ' + err.message + '</div>';
   } finally {
@@ -2049,6 +2116,41 @@ ${question}
     genBtn.textContent = '답변 생성하기';
   }
 });
+
+function addCafeContinueButton() {
+  const resultBody = document.getElementById('cafeResultBody');
+  const old = document.getElementById('cafeContinueBtn');
+  if (old) old.remove();
+  const btn = document.createElement('button');
+  btn.id = 'cafeContinueBtn';
+  btn.className = 'copy-btn';
+  btn.style.cssText = 'margin-top:14px; width:100%; padding:11px;';
+  btn.textContent = '이어서 쓰기 (끊긴 것 같으면 눌러주세요)';
+  btn.onclick = async () => {
+    if (!cafeState) return;
+    btn.disabled = true;
+    btn.textContent = '이어서 생성 중...';
+    try {
+      const followUp = `지금까지 작성된 답변의 마지막 부분:\n"""\n${cafeState.text.slice(-800)}\n"""\n\n위에 자연스럽게 이어서 계속 써줘. 아직 상담 CTA(연락처 안내)가 없으면 마무리까지 포함해서 완결해줘. 이미 마무리가 되어 있었다면 자연스럽게 추가 설명을 덧붙이고 다시 완결해줘.`;
+      const more = await callClaude(cafeState.system, [{ role: 'user', content: followUp }], 2, null, 2560);
+      cafeState.text += '\n\n' + (more || '').trim();
+      const div = resultBody.querySelector('.script-body');
+      if (div) div.textContent = cafeState.text;
+      renderComplianceCheck(cafeState.text, resultBody);
+      addToHistory({ id: cafeState.historyId, topic: cafeState.topic, category: cafeState.category, format: 'cafe', script: cafeState.text });
+      addCafeContinueButton();
+    } catch (e) {
+      const errDiv = document.createElement('div');
+      errDiv.className = 'error-box';
+      errDiv.style.marginTop = '10px';
+      errDiv.textContent = '이어쓰기 오류: ' + e.message;
+      resultBody.appendChild(errDiv);
+      btn.disabled = false;
+      btn.textContent = '이어서 쓰기 (끊긴 것 같으면 눌러주세요)';
+    }
+  };
+  resultBody.appendChild(btn);
+}
 
 document.getElementById('cafeCopyBtn').addEventListener('click', () => {
   const el = document.querySelector('#cafeResultBody .script-body');
@@ -2059,6 +2161,8 @@ document.getElementById('cafeCopyBtn').addEventListener('click', () => {
   btn.textContent = '복사됨';
   setTimeout(() => btn.textContent = old, 1200);
 });
+
+let blogState = null;
 
 document.getElementById('blogGenBtn').addEventListener('click', async () => {
   const keyword = document.getElementById('blogKeyword').value.trim();
@@ -2156,7 +2260,9 @@ ${host ? '작성자 호칭: ' + host : ''}
     resultBody.appendChild(div);
     charcount.innerHTML = `본문 <b>${(article||'').length.toLocaleString()}</b>자`;
     renderComplianceCheck(article || '', resultBody);
-    if (article) addToHistory({ topic: keyword, category, format: 'blog', script: article });
+    blogState = { system, text: article || '', historyId: Date.now(), topic: keyword, category };
+    if (article) addToHistory({ id: blogState.historyId, topic: keyword, category, format: 'blog', script: article });
+    addBlogContinueButton();
   } catch (err) {
     resultBody.innerHTML = '<div class="error-box">오류가 발생했어요: ' + err.message + '</div>';
   } finally {
@@ -2164,6 +2270,43 @@ ${host ? '작성자 호칭: ' + host : ''}
     genBtn.textContent = '블로그 글 생성하기';
   }
 });
+
+function addBlogContinueButton() {
+  const resultBody = document.getElementById('blogResultBody');
+  const charcount = document.getElementById('blogCharcount');
+  const old = document.getElementById('blogContinueBtn');
+  if (old) old.remove();
+  const btn = document.createElement('button');
+  btn.id = 'blogContinueBtn';
+  btn.className = 'copy-btn';
+  btn.style.cssText = 'margin-top:14px; width:100%; padding:11px;';
+  btn.textContent = '이어서 쓰기 (끊긴 것 같으면 눌러주세요)';
+  btn.onclick = async () => {
+    if (!blogState) return;
+    btn.disabled = true;
+    btn.textContent = '이어서 생성 중...';
+    try {
+      const followUp = `지금까지 작성된 글의 마지막 부분:\n"""\n${blogState.text.slice(-900)}\n"""\n\n위에 자연스럽게 이어서 계속 써줘. 아직 클로징(설계안 검토/제작 안내 + 연락처 CTA)이 없으면 마무리까지 포함해서 완결해줘. 이미 마무리가 되어 있었다면 자연스럽게 내용을 보강하고 다시 완결해줘.`;
+      const more = await callClaude(blogState.system, [{ role: 'user', content: followUp }], 2, null, 3600);
+      blogState.text += '\n\n' + (more || '').trim();
+      const div = resultBody.querySelector('.script-body');
+      if (div) div.textContent = blogState.text;
+      charcount.innerHTML = `본문 <b>${blogState.text.length.toLocaleString()}</b>자`;
+      renderComplianceCheck(blogState.text, resultBody);
+      addToHistory({ id: blogState.historyId, topic: blogState.topic, category: blogState.category, format: 'blog', script: blogState.text });
+      addBlogContinueButton();
+    } catch (e) {
+      const errDiv = document.createElement('div');
+      errDiv.className = 'error-box';
+      errDiv.style.marginTop = '10px';
+      errDiv.textContent = '이어쓰기 오류: ' + e.message;
+      resultBody.appendChild(errDiv);
+      btn.disabled = false;
+      btn.textContent = '이어서 쓰기 (끊긴 것 같으면 눌러주세요)';
+    }
+  };
+  resultBody.appendChild(btn);
+}
 
 document.getElementById('blogCopyBtn').addEventListener('click', () => {
   const el = document.querySelector('#blogResultBody .script-body');
