@@ -2108,6 +2108,10 @@ ${question}
   try {
     const answer = await callClaude(system, [{ role: 'user', content: userPrompt }], 2, null, 2560);
     resultBody.innerHTML = '';
+    const qDiv = document.createElement('div');
+    qDiv.style.cssText = 'background:var(--panel-2); border:1px solid var(--line); border-left:3px solid var(--brass-dim); border-radius:3px; padding:14px 16px; margin-bottom:16px;';
+    qDiv.innerHTML = `<div style="font-size:11px; color:var(--brass); font-weight:600; letter-spacing:0.04em; margin-bottom:6px;">질문 원문${askerName ? ' — ' + escapeHtml(askerName) : ''}</div><div style="font-size:13.5px; color:var(--paper-dim); white-space:pre-wrap; line-height:1.6;">${escapeHtml(question)}</div>`;
+    resultBody.appendChild(qDiv);
     const div = document.createElement('div');
     div.className = 'script-body';
     div.textContent = answer || '답변을 받아오지 못했어요. 다시 시도해주세요.';
