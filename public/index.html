@@ -327,7 +327,18 @@
 </style>
 </head>
 <body>
-<div class="wrap">
+
+<div id="authGate" style="position:fixed; inset:0; background:var(--ink); z-index:999; display:flex; align-items:center; justify-content:center;">
+  <div style="width:100%; max-width:340px; padding:30px; background:var(--panel); border:1px solid var(--line); border-radius:6px;">
+    <p class="eyebrow" style="margin-bottom:14px;">INSURANCE CONTENT STUDIO</p>
+    <p style="font-size:14px; color:var(--paper-dim); margin:0 0 18px;">비밀번호를 입력하세요</p>
+    <input type="password" id="authPasswordInput" placeholder="비밀번호" style="width:100%; background:var(--panel-2); border:1px solid var(--line); border-radius:4px; color:var(--paper); padding:11px 13px; font-size:14px; margin-bottom:12px;">
+    <button class="generate" id="authSubmitBtn" style="width:100%;">입장하기</button>
+    <p id="authError" style="color:var(--seal); font-size:12.5px; margin-top:10px; display:none;">비밀번호가 틀렸어요.</p>
+  </div>
+</div>
+
+<div class="wrap" id="mainWrap" style="display:none;">
   <p class="eyebrow">INSURANCE CONTENT STUDIO</p>
   <h1>보험 콘텐츠 제작실</h1>
   <p class="sub">주제 하나로 근거 있는 롱폼·숏폼 대본과, 업로드에 필요한 부가 콘텐츠(제목·썸네일·캡션·해시태그)까지 한 번에 준비합니다.</p>
@@ -747,6 +758,47 @@
 </div>
 
 <script>
+/* ===================== 접속 비밀번호 게이트 ===================== */
+let appPassword = sessionStorage.getItem('ins_app_pw') || '';
+
+function authHeaders() {
+  return appPassword ? { 'x-app-password': appPassword } : {};
+}
+
+async function tryEnter(pw) {
+  const errEl = document.getElementById('authError');
+  try {
+    const res = await fetch('/api/auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: pw })
+    });
+    const data = await res.json();
+    if (res.ok && data.ok) {
+      appPassword = pw;
+      sessionStorage.setItem('ins_app_pw', pw);
+      document.getElementById('authGate').style.display = 'none';
+      document.getElementById('mainWrap').style.display = 'block';
+      return true;
+    }
+    errEl.style.display = 'block';
+    return false;
+  } catch (e) {
+    errEl.textContent = '연결 오류: ' + e.message;
+    errEl.style.display = 'block';
+    return false;
+  }
+}
+
+document.getElementById('authSubmitBtn').addEventListener('click', () => {
+  tryEnter(document.getElementById('authPasswordInput').value);
+});
+document.getElementById('authPasswordInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') tryEnter(document.getElementById('authPasswordInput').value);
+});
+// auto-try with a stored password (or empty, in case no password is configured server-side)
+tryEnter(appPassword);
+
 let format = 'short';
 let intensity = 'normal';
 let cafeIntensity = 'normal';
@@ -775,19 +827,19 @@ const DEFAULT_BAN_WORDS = ['골든타임', '무조건', '100%', '반드시', '�
 let cachedBanWords = []; // [{id, word}]
 
 async function apiGet(path) {
-  const res = await fetch(path);
+  const res = await fetch(path, { headers: { ...authHeaders() } });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || '요청 실패');
   return data;
 }
 async function apiPost(path, body) {
-  const res = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const res = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeaders() }, body: JSON.stringify(body) });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || '요청 실패');
   return data;
 }
 async function apiDelete(path, body) {
-  const res = await fetch(path, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const res = await fetch(path, { method: 'DELETE', headers: { 'Content-Type': 'application/json', ...authHeaders() }, body: JSON.stringify(body) });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || '요청 실패');
   return data;
@@ -1631,12 +1683,12 @@ async function callClaude(system, messages, retries = 2, tools = null, maxTokens
   let lastErr;
   for (let attempt = 0; attempt <= retries; attempt++) {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 50000);
+    const timeoutId = setTimeout(() => controller.abort(), 120000);
     let retryable = true;
     try {
       const response = await fetch('/api/generate', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({ system, messages, tools: tools || undefined, max_tokens: maxTokens }),
         signal: controller.signal
       });
@@ -1658,7 +1710,7 @@ async function callClaude(system, messages, retries = 2, tools = null, maxTokens
       clearTimeout(timeoutId);
       if (err.name === 'AbortError') {
         retryable = false;
-        lastErr = new Error('응답이 50초 넘게 없어 시간 초과됐어요. 재시도하지 않았어요 — 같은 요청을 반복하면 비용만 더 나가요.');
+        lastErr = new Error('응답이 2분 넘게 없어 시간 초과됐어요. 재시도하지 않았어요 — 같은 요청을 반복하면 비용만 더 나가요.');
       } else {
         lastErr = err;
       }
@@ -1740,7 +1792,7 @@ async function generateScript() {
 
   const libMatches = searchLibrary(topic, extra).slice(0, 3);
   const libBlock = libMatches.length
-    ? `\n\n[내 라이브러리에 저장된 관련 자료 — 이 안에 있는 내용이면 최우선으로 이걸 근거로 쓰고, 여기 없을 때만 다른 출처를 찾으세요]\n${libMatches.map(m => `■ ${m.title}\n${(m.content||'').slice(0, 700)}`).join('\n\n')}`
+    ? `\n\n[내 라이브러리에 저장된 관련 자료 — 이 안에 있는 내용이면 최우선으로 이걸 근거로 쓰고, 여기 없을 때만 다른 출처를 찾으세요]\n${libMatches.map(m => `■ ${m.title}\n${(m.content||'').slice(0, 1500)}`).join('\n\n')}`
     : '';
 
   let corpusBlock = '';
@@ -1749,7 +1801,7 @@ async function generateScript() {
     progressText.textContent = '내 출처자료(8천 페이지) 안에서 관련 내용 찾는 중...';
     const corpusMatches = await searchCorpus(topic, extra);
     if (corpusMatches.length) {
-      corpusBlock = `\n\n[내 출처자료 8천페이지 안에서 찾은 관련 내용 — 페이지 번호와 함께 정확히 인용하세요]\n${corpusMatches.map(m => `■ [${m.source_file || '자료'} p.${m.page_number || '?'}]\n${(m.content||'').slice(0, 900)}`).join('\n\n')}`;
+      corpusBlock = `\n\n[내 출처자료 8천페이지 안에서 찾은 관련 내용 — 페이지 번호와 함께 정확히 인용하세요]\n${corpusMatches.map(m => `■ [${m.source_file || '자료'} p.${m.page_number || '?'}]\n${(m.content||'').slice(0, 1500)}`).join('\n\n')}`;
     }
   }
 
@@ -1867,7 +1919,7 @@ async function runLongFormChunks(state) {
 
     let chunk;
     try {
-      const maxTok = state.citeOn ? 2800 : 2560;
+      const maxTok = state.citeOn ? 4096 : 3500;
       chunk = await callClaude(state.longSystem, [{ role: 'user', content: stagePrompt }], 3, null, maxTok);
     } catch (chunkErr) {
       state.chunkIndex--; // this attempt failed, don't count it as done — retry will redo this same stage
@@ -2106,7 +2158,7 @@ ${question}
 위 질문에 대한 답변을 작성해줘.`;
 
   try {
-    const answer = await callClaude(system, [{ role: 'user', content: userPrompt }], 2, null, 1900);
+    const answer = await callClaude(system, [{ role: 'user', content: userPrompt }], 2, null, 3200);
     resultBody.innerHTML = '';
     const qDiv = document.createElement('div');
     qDiv.style.cssText = 'background:var(--panel-2); border:1px solid var(--line); border-left:3px solid var(--brass-dim); border-radius:3px; padding:14px 16px; margin-bottom:16px;';
@@ -2143,7 +2195,7 @@ function addCafeContinueButton() {
     btn.textContent = '이어서 생성 중...';
     try {
       const followUp = `지금까지 작성된 답변의 마지막 부분:\n"""\n${cafeState.text.slice(-800)}\n"""\n\n위에 자연스럽게 이어서 계속 써줘. 아직 상담 CTA(연락처 안내)가 없으면 마무리까지 포함해서 완결해줘. 이미 마무리가 되어 있었다면 자연스럽게 추가 설명을 덧붙이고 다시 완결해줘.`;
-      const more = await callClaude(cafeState.system, [{ role: 'user', content: followUp }], 2, null, 1900);
+      const more = await callClaude(cafeState.system, [{ role: 'user', content: followUp }], 2, null, 3200);
       cafeState.text += '\n\n' + (more || '').trim();
       const div = resultBody.querySelector('.script-body');
       if (div) div.textContent = cafeState.text;
@@ -2267,7 +2319,7 @@ ${host ? '작성자 호칭: ' + host : ''}
 위 키워드에 최적화된 블로그 글을 작성해줘. 클로징(설계안 검토/제작 안내 + 연락처)까지 반드시 완결해서 써줘.`;
 
   try {
-    const article = await callClaude(system, [{ role: 'user', content: userPrompt }], 2, null, 2400);
+    const article = await callClaude(system, [{ role: 'user', content: userPrompt }], 2, null, 4096);
     progressText.textContent = imageOn ? '이미지 찾는 중...' : '완료';
     progressBar.style.width = '90%';
     resultBody.innerHTML = '';

@@ -1,4 +1,9 @@
+const { checkAppPassword } = require('./_auth');
+
 module.exports = async function handler(req, res) {
+  if (!checkAppPassword(req)) {
+    return res.status(401).json({ error: '비밀번호가 필요해요.' });
+  }
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'POST 요청만 허용됩니다.' });
   }

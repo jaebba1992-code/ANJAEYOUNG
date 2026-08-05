@@ -1,6 +1,10 @@
 const { getSupabase } = require('./_supabaseClient');
+const { checkAppPassword } = require('./_auth');
 
 module.exports = async function handler(req, res) {
+  if (!checkAppPassword(req)) {
+    return res.status(401).json({ error: '비밀번호가 필요해요.' });
+  }
   try {
     const supabase = getSupabase();
 
@@ -25,7 +29,7 @@ module.exports = async function handler(req, res) {
         .from('source_corpus')
         .select('id, source_file, page_number, content')
         .textSearch('search_vector', tsQuery, { type: 'plain', config: 'simple' })
-        .limit(3);
+        .limit(4);
 
       if (error) throw error;
       return res.status(200).json({ items: data });

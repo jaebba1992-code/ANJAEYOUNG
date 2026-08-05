@@ -1,4 +1,9 @@
+const { checkAppPassword } = require('./_auth');
+
 module.exports = async function handler(req, res) {
+  if (!checkAppPassword(req)) {
+    return res.status(401).json({ error: '비밀번호가 필요해요.' });
+  }
   const accessKey = process.env.UNSPLASH_ACCESS_KEY;
   if (!accessKey) {
     return res.status(500).json({ error: 'UNSPLASH_ACCESS_KEY 환경변수가 설정되지 않았어요.' });

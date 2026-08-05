@@ -1,6 +1,10 @@
 const { getSupabase } = require('./_supabaseClient');
+const { checkAppPassword } = require('./_auth');
 
 module.exports = async function handler(req, res) {
+  if (!checkAppPassword(req)) {
+    return res.status(401).json({ error: '비밀번호가 필요해요.' });
+  }
   try {
     const supabase = getSupabase();
 
