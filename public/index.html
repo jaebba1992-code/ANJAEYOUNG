@@ -2106,7 +2106,7 @@ ${question}
 위 질문에 대한 답변을 작성해줘.`;
 
   try {
-    const answer = await callClaude(system, [{ role: 'user', content: userPrompt }], 2, null, 2560);
+    const answer = await callClaude(system, [{ role: 'user', content: userPrompt }], 2, null, 1900);
     resultBody.innerHTML = '';
     const qDiv = document.createElement('div');
     qDiv.style.cssText = 'background:var(--panel-2); border:1px solid var(--line); border-left:3px solid var(--brass-dim); border-radius:3px; padding:14px 16px; margin-bottom:16px;';
@@ -2143,7 +2143,7 @@ function addCafeContinueButton() {
     btn.textContent = '이어서 생성 중...';
     try {
       const followUp = `지금까지 작성된 답변의 마지막 부분:\n"""\n${cafeState.text.slice(-800)}\n"""\n\n위에 자연스럽게 이어서 계속 써줘. 아직 상담 CTA(연락처 안내)가 없으면 마무리까지 포함해서 완결해줘. 이미 마무리가 되어 있었다면 자연스럽게 추가 설명을 덧붙이고 다시 완결해줘.`;
-      const more = await callClaude(cafeState.system, [{ role: 'user', content: followUp }], 2, null, 2560);
+      const more = await callClaude(cafeState.system, [{ role: 'user', content: followUp }], 2, null, 1900);
       cafeState.text += '\n\n' + (more || '').trim();
       const div = resultBody.querySelector('.script-body');
       if (div) div.textContent = cafeState.text;
