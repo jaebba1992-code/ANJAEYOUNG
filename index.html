@@ -1,0 +1,2469 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>보험 콘텐츠 제작실</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;600;700&family=Pretendard:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+  :root {
+    --ink: #12141a;
+    --panel: #1a1d26;
+    --panel-2: #21252f;
+    --line: #2c303c;
+    --line-soft: #23262f;
+    --paper: #ece7d8;
+    --paper-dim: #9a978c;
+    --paper-mute: #6b6a63;
+    --brass: #b3925a;
+    --brass-dim: #4a3f2c;
+    --seal: #a8402f;
+    --seal-dim: #3a201b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--ink);
+    background-image: radial-gradient(circle at 15% 0%, rgba(179,146,90,0.07), transparent 45%);
+    color: var(--paper);
+    min-height: 100vh;
+    padding: 56px 20px 80px;
+    font-family: 'Pretendard', -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  }
+  .wrap { max-width: 820px; margin: 0 auto; }
+
+  /* Header */
+  .eyebrow {
+    font-family: 'Pretendard', sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    color: var(--brass);
+    font-weight: 600;
+    margin: 0 0 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .eyebrow::before {
+    content: '';
+    width: 20px; height: 1px;
+    background: var(--brass);
+    display: inline-block;
+  }
+  h1 {
+    font-family: 'Noto Serif KR', serif;
+    font-weight: 700;
+    font-size: 34px;
+    letter-spacing: -0.01em;
+    margin: 0 0 10px;
+    color: var(--paper);
+  }
+  .sub {
+    color: var(--paper-dim);
+    font-size: 14.5px;
+    line-height: 1.75;
+    margin: 0 0 40px;
+    max-width: 560px;
+  }
+
+  /* Panel */
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 30px 30px 28px;
+    margin-bottom: 24px;
+    position: relative;
+  }
+  .panel-title {
+    font-family: 'Noto Serif KR', serif;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--paper);
+    margin: 0 0 22px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .row { display: flex; gap: 14px; margin-bottom: 18px; flex-wrap: wrap; }
+  .field { flex: 1; min-width: 200px; }
+  label {
+    display: block;
+    font-size: 11.5px;
+    color: var(--paper-mute);
+    margin-bottom: 8px;
+    font-weight: 500;
+    letter-spacing: 0.03em;
+  }
+  label .opt { color: var(--paper-mute); font-weight: 400; opacity: 0.7; }
+
+  input[type=text], textarea, select {
+    width: 100%;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    color: var(--paper);
+    padding: 11px 13px;
+    font-size: 14px;
+    font-family: 'Pretendard', sans-serif;
+  }
+  input[type=text]::placeholder, textarea::placeholder { color: var(--paper-mute); opacity: 0.55; }
+  input[type=text]:focus, textarea:focus, select:focus {
+    outline: none;
+    border-color: var(--brass-dim);
+    box-shadow: 0 0 0 1px var(--brass-dim);
+  }
+  select { appearance: none; background-image: linear-gradient(45deg, transparent 50%, var(--paper-mute) 50%), linear-gradient(135deg, var(--paper-mute) 50%, transparent 50%); background-position: calc(100% - 18px) 50%, calc(100% - 13px) 50%; background-size: 5px 5px, 5px 5px; background-repeat: no-repeat; }
+
+  .segmented {
+    display: flex;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    padding: 3px;
+    gap: 3px;
+  }
+  .seg-btn {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: var(--paper-mute);
+    padding: 10px 10px;
+    border-radius: 2px;
+    font-size: 12.5px;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: 'Pretendard', sans-serif;
+    white-space: nowrap;
+  }
+  .seg-btn.active {
+    background: var(--brass-dim);
+    color: var(--brass);
+  }
+
+  .checkline {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px 14px;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    margin-bottom: 18px;
+  }
+  .checkline input { margin-top: 2px; accent-color: var(--brass); }
+  .checkline .txt { font-size: 12.5px; color: var(--paper-dim); line-height: 1.6; }
+  .checkline .txt b { color: var(--paper); }
+
+  button.generate {
+    width: 100%;
+    background: var(--brass);
+    color: #1a1204;
+    border: none;
+    border-radius: 3px;
+    padding: 14px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: 'Pretendard', sans-serif;
+    letter-spacing: 0.01em;
+    margin-top: 6px;
+  }
+  button.generate:disabled { opacity: 0.45; cursor: default; }
+  button.generate:not(:disabled):hover { filter: brightness(1.08); }
+
+  #progressWrap { margin-top: 14px; }
+  #progressWrap .track { height: 3px; background: var(--panel-2); border-radius: 2px; overflow: hidden; }
+  #progressWrap .bar { height: 100%; width: 0%; background: var(--brass); transition: width .3s; }
+  #progressWrap .txt { font-size: 11.5px; color: var(--paper-mute); margin: 9px 0 0; text-align: center; font-family: monospace; letter-spacing: 0.02em; }
+
+  /* Result */
+  .result-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 18px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--line);
+  }
+  .result-head-left { display: flex; align-items: center; gap: 10px; }
+  .result-head-left .panel-title { border: none; padding: 0; margin: 0; }
+  .charcount { font-family: monospace; font-size: 11.5px; color: var(--paper-mute); }
+  .charcount b { color: var(--brass); }
+  .copy-btn {
+    background: transparent;
+    border: 1px solid var(--line);
+    color: var(--paper-dim);
+    border-radius: 3px;
+    padding: 7px 14px;
+    font-size: 12px;
+    cursor: pointer;
+    font-family: 'Pretendard', sans-serif;
+  }
+  .copy-btn:hover { border-color: var(--brass-dim); color: var(--brass); }
+
+  .stamp {
+    width: 46px; height: 46px;
+    border: 2px solid var(--seal);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--seal);
+    font-family: 'Noto Serif KR', serif;
+    font-size: 9.5px;
+    font-weight: 700;
+    text-align: center;
+    line-height: 1.2;
+    transform: rotate(-8deg);
+    opacity: 0.9;
+    flex-shrink: 0;
+    background: var(--seal-dim);
+  }
+
+  .script-body {
+    white-space: pre-wrap;
+    line-height: 1.9;
+    font-size: 15px;
+    color: var(--paper);
+    min-height: 60px;
+  }
+  .cite-tag {
+    color: var(--seal);
+    font-size: 12px;
+    font-weight: 500;
+  }
+
+  .error-box {
+    background: #2a1a1a;
+    border: 1px solid #4a2a2a;
+    color: #e0a3a3;
+    border-radius: 3px;
+    padding: 12px 14px;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+
+  /* Bundle cards */
+  .bundle-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+  @media (max-width: 640px) { .bundle-grid { grid-template-columns: 1fr; } }
+  .bcard {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    padding: 16px 18px;
+  }
+  .bcard.full { grid-column: 1 / -1; }
+  .bcard h4 {
+    font-family: 'Pretendard', sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    color: var(--brass);
+    text-transform: uppercase;
+    margin: 0 0 10px;
+    font-weight: 600;
+  }
+  .bcard .content { font-size: 13.5px; line-height: 1.7; color: var(--paper); white-space: pre-wrap; }
+  .bcard ul { margin: 0; padding-left: 18px; }
+  .bcard li { margin-bottom: 6px; }
+  .tag-pill {
+    display: inline-block;
+    background: var(--brass-dim);
+    color: var(--brass);
+    border-radius: 12px;
+    padding: 3px 10px;
+    font-size: 11.5px;
+    margin: 0 5px 5px 0;
+  }
+
+  .footnote { color: var(--paper-mute); font-size: 11.5px; text-align: center; margin-top: 28px; line-height: 1.7; }
+  .footnote a { color: var(--paper-dim); }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    color: var(--paper-dim);
+    border-radius: 20px;
+    padding: 5px 8px 5px 14px;
+    font-size: 12.5px;
+    margin: 0 6px 6px 0;
+  }
+  .chip .x { cursor: pointer; color: var(--paper-mute); font-weight: bold; padding: 0 4px; }
+  .chip .x:hover { color: var(--seal); }
+  .chip.default-chip { opacity: 0.65; }
+
+  .lib-item, .hist-item {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    padding: 12px 14px;
+    margin-bottom: 8px;
+  }
+  .lib-item-head, .hist-item-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  .lib-item-title, .hist-item-title { font-size: 13.5px; color: var(--paper); font-weight: 500; }
+  .lib-item-meta, .hist-item-meta { font-size: 11px; color: var(--paper-mute); margin-top: 2px; }
+  .lib-item-actions, .hist-item-actions { display: flex; gap: 6px; flex-shrink: 0; }
+  .mini-btn {
+    background: transparent; border: 1px solid var(--line); color: var(--paper-dim);
+    border-radius: 3px; padding: 4px 10px; font-size: 11.5px; cursor: pointer; font-family: 'Pretendard', sans-serif;
+  }
+  .mini-btn:hover { border-color: var(--brass-dim); color: var(--brass); }
+  .mini-btn.danger:hover { border-color: var(--seal); color: var(--seal); }
+
+  .warn-box {
+    background: #2e2410; border: 1px solid #5a4718; color: #e0c088;
+    border-radius: 3px; padding: 12px 14px; font-size: 12.5px; line-height: 1.7; margin-top: 14px;
+  }
+  .warn-box b { color: #f0d090; }
+</style>
+</head>
+<body>
+
+<div id="authGate" style="position:fixed; inset:0; background:var(--ink); z-index:999; display:flex; align-items:center; justify-content:center;">
+  <div style="width:100%; max-width:340px; padding:30px; background:var(--panel); border:1px solid var(--line); border-radius:6px;">
+    <p class="eyebrow" style="margin-bottom:14px;">INSURANCE CONTENT STUDIO</p>
+    <p style="font-size:14px; color:var(--paper-dim); margin:0 0 18px;">비밀번호를 입력하세요</p>
+    <input type="password" id="authPasswordInput" placeholder="비밀번호" style="width:100%; background:var(--panel-2); border:1px solid var(--line); border-radius:4px; color:var(--paper); padding:11px 13px; font-size:14px; margin-bottom:12px;">
+    <button class="generate" id="authSubmitBtn" style="width:100%;">입장하기</button>
+    <p id="authError" style="color:var(--seal); font-size:12.5px; margin-top:10px; display:none;">비밀번호가 틀렸어요.</p>
+  </div>
+</div>
+
+<div class="wrap" id="mainWrap" style="display:none;">
+  <p class="eyebrow">INSURANCE CONTENT STUDIO</p>
+  <h1>보험 콘텐츠 제작실</h1>
+  <p class="sub">주제 하나로 근거 있는 롱폼·숏폼 대본과, 업로드에 필요한 부가 콘텐츠(제목·썸네일·캡션·해시태그)까지 한 번에 준비합니다.</p>
+
+  <div class="segmented" style="margin-bottom:24px;">
+    <button type="button" class="seg-btn active" id="tabBtnScript" style="padding:11px;">대본 생성기</button>
+    <button type="button" class="seg-btn" id="tabBtnCafe" style="padding:11px;">카페 답변</button>
+    <button type="button" class="seg-btn" id="tabBtnBlog" style="padding:11px;">블로그 포스팅</button>
+  </div>
+
+  <div id="scriptTab">
+
+  <div class="panel" id="resumeBanner" style="display:none; border-color:var(--brass-dim);">
+    <p class="panel-title" style="border:none; padding:0; margin:0 0 10px;">이어서 쓰다 만 대본이 있어요</p>
+    <p id="resumeInfo" style="font-size:13px; color:var(--paper-dim); margin:0 0 14px;"></p>
+    <div style="display:flex; gap:10px;">
+      <button class="generate" id="resumeContinueBtn" style="flex:1;">이어서 계속 쓰기</button>
+      <button class="copy-btn" id="resumeDismissBtn" style="flex:1;">새로 시작하기 (이전 것 지움)</button>
+    </div>
+  </div>
+
+  <div class="panel" id="historyPanel" style="display:none;">
+    <div class="result-head" style="cursor:pointer;" id="historyToggle">
+      <p class="panel-title" style="border:none; padding:0; margin:0;">이전 작업 목록 <span style="color:var(--paper-mute); font-weight:400; font-size:12px;" id="historyCount"></span></p>
+      <span class="copy-btn" id="historyToggleBtn">펼치기</span>
+    </div>
+    <div id="historyList" style="display:none; margin-top:14px;"></div>
+  </div>
+
+  <div class="panel">
+    <div class="result-head" style="cursor:pointer;" id="complianceToggle">
+      <p class="panel-title" style="border:none; padding:0; margin:0;">심의 안전 표현 관리 <span style="color:var(--paper-mute); font-weight:400; font-size:12px;">— 반려 사례가 생기면 여기에 계속 추가하세요</span></p>
+      <span class="copy-btn" id="complianceToggleBtn">펼치기</span>
+    </div>
+    <div id="complianceBody" style="display:none; margin-top:14px;">
+      <p style="font-size:12.5px; color:var(--paper-dim); line-height:1.7; margin:0 0 12px;">
+        여기 등록된 단어·표현은 대본 생성 시 자동으로 피하도록 지시하고, 생성 후에도 한 번 더 검사해서 남아있으면 화면에 경고로 표시해요.
+      </p>
+      <div class="row">
+        <div class="field">
+          <input type="text" id="banWordInput" placeholder="예: 골든타임">
+        </div>
+        <button class="copy-btn" id="banWordAddBtn" style="padding:0 20px;">추가</button>
+      </div>
+      <div id="banWordList" style="margin-top:10px;"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="result-head" style="cursor:pointer;" id="libraryToggle">
+      <p class="panel-title" style="border:none; padding:0; margin:0;">내 출처자료 라이브러리 <span style="color:var(--paper-mute); font-weight:400; font-size:12px;">— 자주 쓰는 근거자료를 저장해두면 다음부터 자동으로 먼저 찾아써요</span></p>
+      <span class="copy-btn" id="libraryToggleBtn">펼치기</span>
+    </div>
+    <div id="libraryBody" style="display:none; margin-top:14px;">
+      <p style="font-size:12.5px; color:var(--paper-dim); line-height:1.7; margin:0 0 12px;">
+        예를 들어 "1세대 실비 조건", "일상생활배상책임 자기부담금" 같은 자료를 여기 저장해두시면, 나중에 관련 주제로 대본 만들 때 이 라이브러리를 먼저 찾아본 뒤에만 웹 검색으로 넘어가요.
+      </p>
+      <div class="row">
+        <div class="field">
+          <label>제목/태그</label>
+          <input type="text" id="libTitleInput" placeholder="예: 1세대 실비 조건">
+        </div>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label>내용</label>
+          <textarea id="libContentInput" rows="4" placeholder="저장할 근거자료 원문을 붙여넣으세요"></textarea>
+        </div>
+      </div>
+      <button class="copy-btn" id="libAddBtn" style="width:100%; padding:10px;">라이브러리에 저장</button>
+      <div id="libraryList" style="margin-top:14px;"></div>
+
+      <div style="margin-top:22px; padding-top:18px; border-top:1px solid var(--line);">
+        <p style="font-size:12.5px; color:var(--brass); font-weight:600; margin:0 0 8px;">8,000페이지 대용량 출처자료 업로드 (관리자용, 최초 1회)</p>
+        <p style="font-size:12px; color:var(--paper-mute); line-height:1.7; margin:0 0 10px;">
+          미리 뽑아드린 .txt 원문 파일을 선택하면, 페이지 단위로 쪼개서 데이터베이스에 저장해요. 파일이 커서 시간이 좀 걸려요.
+        </p>
+        <input type="file" id="corpusFileInput" accept=".txt" multiple style="font-size:12px; color:var(--paper-dim);">
+        <button class="mini-btn" id="corpusUploadBtn" style="margin-left:8px;">업로드 시작</button>
+        <p id="corpusUploadStatus" style="font-size:11.5px; color:var(--paper-mute); margin-top:8px;"></p>
+        <p id="corpusCurrentCount" style="font-size:12px; color:var(--brass); margin-top:10px; font-weight:600;">확인 중...</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <p class="panel-title">제작 설정</p>
+
+    <div class="row">
+      <div class="field">
+        <label>형식</label>
+        <div class="segmented" id="formatSeg">
+          <button type="button" class="seg-btn active" data-val="short">숏폼 (30~60초)</button>
+          <button type="button" class="seg-btn" data-val="long">롱폼 상세 (대본 1만자↑)</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label>보험 분야</label>
+        <select id="category">
+          <option>암·3대질병보험</option>
+          <option>실손의료보험</option>
+          <option>자동차보험</option>
+          <option>연금·저축성보험</option>
+          <option>종신·정기보험</option>
+          <option>어린이보험</option>
+          <option>운전자보험</option>
+          <option>기타</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>진행자 호칭 <span class="opt">(선택, 실명 대신 역할명 권장)</span></label>
+        <input type="text" id="host" placeholder="예: 보험 전문가, OO지점장">
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label>영상 주제 / 키워드</label>
+        <input type="text" id="topic" placeholder="예: 죽어도 해지하면 안 되는 보험 4가지">
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label>타겟 고객 <span class="opt">(선택)</span></label>
+        <input type="text" id="target" placeholder="예: 30대 초보 부모">
+      </div>
+      <div class="field">
+        <label>톤</label>
+        <select id="tone">
+          <option value="친근하고 공감형">친근하고 공감형</option>
+          <option value="전문적이고 신뢰감 있는">전문적이고 신뢰감 있는</option>
+          <option value="긴장감 있고 후킹 강한">긴장감 있고 후킹 강한</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label>영업 강도 <span class="opt">(세일즈 화법은 항상 반영되고, 강도만 조절돼요)</span></label>
+        <div class="segmented" id="intensitySeg">
+          <button type="button" class="seg-btn" data-val="soft">부드럽게 · 정보 위주</button>
+          <button type="button" class="seg-btn active" data-val="normal">보통 · 정보+상담유도</button>
+          <button type="button" class="seg-btn" data-val="strong">강하게 · 문의전환 집중</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label>추가로 꼭 넣고 싶은 내용 <span class="opt">(선택)</span></label>
+        <textarea id="extra" rows="2" placeholder="예: 최근 개정된 자동차부상치료비 내용 강조하고 싶어요 / 특정 사례 넣어줘"></textarea>
+      </div>
+    </div>
+
+    <div class="row" id="sourceRow" style="display:none;">
+      <div class="field">
+        <label>출처자료 <span class="opt">(근거로 삼을 자료 원문 — 약관, 통계, 기사, 자막 등)</span></label>
+        <textarea id="source" rows="6" placeholder="여기에 근거 자료를 붙여넣거나, 아래에서 PPT/PDF 파일을 첨부하면 텍스트(이미지 속 글자 포함)가 자동으로 채워져요."></textarea>
+        <p id="sourceCounter" style="font-size:11.5px; color:var(--paper-mute); margin:6px 0 0;"></p>
+        <div style="display:flex; align-items:center; gap:10px; margin-top:8px; flex-wrap:wrap;">
+          <label for="fileInput" class="copy-btn" style="cursor:pointer; display:inline-block;">+ PPT / PDF 파일 첨부</label>
+          <input type="file" id="fileInput" accept=".pptx,.pdf" style="display:none;">
+          <span id="fileStatus" style="font-size:12px; color:var(--paper-mute);"></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="checkline" id="citeRow" style="display:none;">
+      <input type="checkbox" id="citeToggle" checked>
+      <div class="txt"><b>출처 표시 켜기</b> — 첨부자료 안에 있으면 그 위치를, 없으면 실제 웹 검색으로 찾은 출처(사이트명+링크)를 문장마다 표시해줘요. 근거를 못 찾은 수치는 대본에 넣지 않고 안전하게 우회합니다. (심의 제출용 증빙 대비용)</div>
+    </div>
+
+    <button class="generate" id="genBtn">대본 생성하기</button>
+    <div id="progressWrap" style="display:none;">
+      <div class="track"><div class="bar" id="progressBar"></div></div>
+      <p class="txt" id="progressText"></p>
+    </div>
+  </div>
+
+  <div class="panel" id="resultPanel" style="display:none;">
+    <div class="result-head">
+      <div class="result-head-left">
+        <p class="panel-title" id="resultLabel">생성된 대본</p>
+        <span class="charcount" id="charcount"></span>
+      </div>
+      <button class="copy-btn" id="copyBtn">대본 복사</button>
+    </div>
+    <div id="resultBody"></div>
+  </div>
+
+  <div class="panel" id="bundlePanel" style="display:none;">
+    <p class="panel-title">부가 콘텐츠 <span style="color:var(--paper-mute); font-weight:400; font-size:12px;">— 업로드용 제목·캡션·해시태그 자동 생성</span></p>
+    <div id="bundleBody"><p class="footnote">대본을 기반으로 자동 생성 중입니다...</p></div>
+  </div>
+
+  <p class="footnote">서버 상태: <a href="/api/health" target="_blank">/api/health</a> · 글자 수는 대본 본문만 집계하며, 출처자료·부가 콘텐츠는 포함되지 않습니다.</p>
+
+  </div>
+
+  <div id="cafeTab" style="display:none;">
+
+  <div class="panel" id="cafeHistoryPanel" style="display:none;">
+    <div class="result-head" style="cursor:pointer;" id="cafeHistoryToggle">
+      <p class="panel-title" style="border:none; padding:0; margin:0;">이전 카페 답변 목록 <span style="color:var(--paper-mute); font-weight:400; font-size:12px;" id="cafeHistoryCount"></span></p>
+      <span class="copy-btn" id="cafeHistoryToggleBtn">펼치기</span>
+    </div>
+    <div id="cafeHistoryList" style="display:none; margin-top:14px;"></div>
+  </div>
+
+  <div class="panel">
+    <p class="panel-title">카페 답변 생성 <span style="color:var(--paper-mute); font-weight:400; font-size:12px;">— 실제 카페에 올라온 질문에 본인 계정으로 답변할 초안을 만들어요</span></p>
+
+    <div class="row">
+      <div class="field">
+        <label>질문 원문 <span class="opt">(카페에서 그대로 복사해온 실제 질문)</span></label>
+        <textarea id="cafeQuestion" rows="5" placeholder="예: 안녕하세요! 태아보험 알아보고 있는데 현대해상이랑 메리츠 중에 뭐가 나을까요? 처음이라 하나도 모르겠어요ㅠㅠ"></textarea>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label>질문자 닉네임 <span class="opt">(선택, 있으면 답변 첫머리에서 불러드려요)</span></label>
+        <input type="text" id="cafeAskerName" placeholder="예: euniya93">
+      </div>
+      <div class="field">
+        <label>보험 분야</label>
+        <select id="cafeCategory">
+          <option>태아·어린이보험</option>
+          <option>암·3대질병보험</option>
+          <option>실손의료보험</option>
+          <option>자동차보험</option>
+          <option>연금·저축성보험</option>
+          <option>종신·정기보험</option>
+          <option>운전자보험</option>
+          <option>기타</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label>답변자 호칭 <span class="opt">(실명 대신 역할명 권장, 예: OO팀장)</span></label>
+        <input type="text" id="cafeHost" placeholder="예: 보험 전문가, OO팀장">
+      </div>
+      <div class="field">
+        <label>톤</label>
+        <select id="cafeTone">
+          <option value="친근하고 공감형">친근하고 공감형</option>
+          <option value="전문적이고 신뢰감 있는">전문적이고 신뢰감 있는</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label>영업 강도 <span class="opt">(세일즈 화법은 항상 반영되고, 강도만 조절돼요)</span></label>
+        <div class="segmented" id="cafeIntensitySeg">
+          <button type="button" class="seg-btn" data-val="soft">부드럽게 · 정보 위주</button>
+          <button type="button" class="seg-btn active" data-val="normal">보통 · 정보+상담유도</button>
+          <button type="button" class="seg-btn" data-val="strong">강하게 · 문의전환 집중</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label>상담 연락 링크 <span class="opt">(선택, 카톡 오픈채팅 등)</span></label>
+        <input type="text" id="cafeContactLink" placeholder="예: https://open.kakao.com/o/xxxxxxx">
+      </div>
+      <div class="field">
+        <label>연락처 <span class="opt">(선택)</span></label>
+        <input type="text" id="cafeContactPhone" placeholder="예: 010-0000-0000">
+      </div>
+    </div>
+
+    <button class="generate" id="cafeGenBtn">답변 생성하기</button>
+  </div>
+
+  <div class="panel" id="cafeResultPanel" style="display:none;">
+    <div class="result-head">
+      <div class="result-head-left">
+        <p class="panel-title" id="cafeResultLabel" style="border:none; padding:0; margin:0;">생성된 답변</p>
+      </div>
+      <button class="copy-btn" id="cafeCopyBtn">답변 복사</button>
+    </div>
+    <div id="cafeResultBody"></div>
+  </div>
+
+  </div>
+
+  <div id="blogTab" style="display:none;">
+
+  <div class="panel" id="blogHistoryPanel" style="display:none;">
+    <div class="result-head" style="cursor:pointer;" id="blogHistoryToggle">
+      <p class="panel-title" style="border:none; padding:0; margin:0;">이전 블로그 글 목록 <span style="color:var(--paper-mute); font-weight:400; font-size:12px;" id="blogHistoryCount"></span></p>
+      <span class="copy-btn" id="blogHistoryToggleBtn">펼치기</span>
+    </div>
+    <div id="blogHistoryList" style="display:none; margin-top:14px;"></div>
+  </div>
+
+  <div class="panel">
+    <p class="panel-title">키워드 추천 <span style="color:var(--paper-mute); font-weight:400; font-size:12px;">— 검색량 대비 경쟁이 낮은 "황금 키워드"를 찾아드려요</span></p>
+    <div class="row">
+      <div class="field">
+        <label>키워드 검색 <span class="opt">(예: 태아, 실비, 자동차보험)</span></label>
+        <input type="text" id="kwSearchInput" placeholder="키워드에 포함될 단어를 입력하세요">
+      </div>
+      <div class="field">
+        <label>경쟁도</label>
+        <select id="kwMaxCompetition">
+          <option value="전체">전체</option>
+          <option value="낮음">낮음만</option>
+          <option value="중간">낮음+중간</option>
+        </select>
+      </div>
+    </div>
+    <button class="copy-btn" id="kwSearchBtn" style="width:100%; padding:10px;">키워드 찾기</button>
+    <div id="kwResultList" style="margin-top:14px;"></div>
+    <p id="kwStatus" style="font-size:11.5px; color:var(--paper-mute); margin-top:8px;"></p>
+
+    <div style="margin-top:22px; padding-top:18px; border-top:1px solid var(--line);">
+      <p style="font-size:12.5px; color:var(--brass); font-weight:600; margin:0 0 8px;">키워드 데이터 업로드 (관리자용, 최초 1회)</p>
+      <input type="file" id="kwFileInput" accept=".json" style="font-size:12px; color:var(--paper-dim);">
+      <button class="mini-btn" id="kwUploadBtn" style="margin-left:8px;">업로드 시작</button>
+      <p id="kwUploadStatus" style="font-size:11.5px; color:var(--paper-mute); margin-top:8px;"></p>
+      <p id="kwCurrentCount" style="font-size:12px; color:var(--brass); margin-top:10px; font-weight:600;">확인 중...</p>
+    </div>
+  </div>
+
+  <div class="panel">
+    <p class="panel-title">블로그 글 생성</p>
+
+    <div class="row">
+      <div class="field">
+        <label>타겟 키워드 <span class="opt">(위에서 고르거나 직접 입력)</span></label>
+        <input type="text" id="blogKeyword" placeholder="예: 태아보험순위비교">
+      </div>
+      <div class="field">
+        <label>보험 분야</label>
+        <select id="blogCategory">
+          <option>태아·어린이보험</option>
+          <option>암·3대질병보험</option>
+          <option>실손의료보험</option>
+          <option>자동차보험</option>
+          <option>연금·저축성보험</option>
+          <option>종신·정기보험</option>
+          <option>운전자보험</option>
+          <option>기타</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label>작성자 호칭 <span class="opt">(선택)</span></label>
+        <input type="text" id="blogHost" placeholder="예: 보험 전문가, OO팀장">
+      </div>
+      <div class="field">
+        <label>톤</label>
+        <select id="blogTone">
+          <option value="친근하고 공감형">친근하고 공감형</option>
+          <option value="전문적이고 신뢰감 있는">전문적이고 신뢰감 있는</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label>상담 연락 링크 <span class="opt">(선택, 설계안 문의 유도용)</span></label>
+        <input type="text" id="blogContactLink" placeholder="예: https://open.kakao.com/o/xxxxxxx">
+      </div>
+      <div class="field">
+        <label>연락처 <span class="opt">(선택)</span></label>
+        <input type="text" id="blogContactPhone" placeholder="예: 010-0000-0000">
+      </div>
+    </div>
+
+    <div class="checkline">
+      <input type="checkbox" id="blogAnalyzeToggle" checked>
+      <div class="txt"><b>상위 노출 글 패턴 분석 켜기</b> — 이 키워드로 검색했을 때 상위 노출된 글 2~3개를 찾아서, 평균 분량·구조·후킹 방식을 참고해 글을 씁니다 (내용은 그대로 베끼지 않고 새로 작성).</div>
+    </div>
+
+    <div class="checkline">
+      <input type="checkbox" id="blogImageToggle">
+      <div class="txt"><b>이미지 자동 삽입</b> — Unsplash 무료 스톡사진을 글 중간중간 자동으로 찾아서 넣어줘요. 체크 안 하면 텍스트만 생성돼요.</div>
+    </div>
+
+    <button class="generate" id="blogGenBtn">블로그 글 생성하기</button>
+    <div id="blogProgressWrap" style="display:none;">
+      <div class="track"><div class="bar" id="blogProgressBar"></div></div>
+      <p class="txt" id="blogProgressText"></p>
+    </div>
+  </div>
+
+  <div class="panel" id="blogAnalysisPanel" style="display:none;">
+    <p class="panel-title">상위 노출 글 분석 결과 <span style="color:var(--paper-mute); font-weight:400; font-size:12px;">— 실제로 참고한 글과 링크예요</span></p>
+    <div id="blogAnalysisBody" class="script-body"></div>
+  </div>
+
+  <div class="panel" id="blogResultPanel" style="display:none;">
+    <div class="result-head">
+      <div class="result-head-left">
+        <p class="panel-title" id="blogResultLabel" style="border:none; padding:0; margin:0;">생성된 블로그 글</p>
+        <span class="charcount" id="blogCharcount"></span>
+      </div>
+      <button class="copy-btn" id="blogCopyBtn">글 복사</button>
+    </div>
+    <div id="blogResultBody"></div>
+  </div>
+
+  </div>
+
+</div>
+
+<script>
+/* ===================== 접속 비밀번호 게이트 ===================== */
+let appPassword = localStorage.getItem('ins_app_pw') || '';
+
+function authHeaders() {
+  return appPassword ? { 'x-app-password': appPassword } : {};
+}
+
+async function tryEnter(pw) {
+  const errEl = document.getElementById('authError');
+  try {
+    const res = await fetch('/api/auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: pw })
+    });
+    const data = await res.json();
+    if (res.ok && data.ok) {
+      appPassword = pw;
+      localStorage.setItem('ins_app_pw', pw);
+      document.getElementById('authGate').style.display = 'none';
+      document.getElementById('mainWrap').style.display = 'block';
+      return true;
+    }
+    errEl.style.display = 'block';
+    return false;
+  } catch (e) {
+    errEl.textContent = '연결 오류: ' + e.message;
+    errEl.style.display = 'block';
+    return false;
+  }
+}
+
+document.getElementById('authSubmitBtn').addEventListener('click', () => {
+  tryEnter(document.getElementById('authPasswordInput').value);
+});
+document.getElementById('authPasswordInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') tryEnter(document.getElementById('authPasswordInput').value);
+});
+// auto-try with a stored password (or empty, in case no password is configured server-side)
+tryEnter(appPassword);
+
+let format = 'short';
+let intensity = 'normal';
+let cafeIntensity = 'normal';
+
+document.getElementById('tabBtnScript').addEventListener('click', () => setActiveTab('script'));
+document.getElementById('tabBtnCafe').addEventListener('click', () => setActiveTab('cafe'));
+document.getElementById('tabBtnBlog').addEventListener('click', () => setActiveTab('blog'));
+function setActiveTab(name) {
+  document.getElementById('tabBtnScript').classList.toggle('active', name === 'script');
+  document.getElementById('tabBtnCafe').classList.toggle('active', name === 'cafe');
+  document.getElementById('tabBtnBlog').classList.toggle('active', name === 'blog');
+  document.getElementById('scriptTab').style.display = name === 'script' ? 'block' : 'none';
+  document.getElementById('cafeTab').style.display = name === 'cafe' ? 'block' : 'none';
+  document.getElementById('blogTab').style.display = name === 'blog' ? 'block' : 'none';
+}
+document.querySelectorAll('#cafeIntensitySeg .seg-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#cafeIntensitySeg .seg-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    cafeIntensity = btn.dataset.val;
+  });
+});
+
+/* ===================== 심의 안전 표현 관리 (Supabase, 팀 공유) ===================== */
+const DEFAULT_BAN_WORDS = ['골든타임', '무조건', '100%', '반드시', '확정적으로', '지금 안 하면', '큰일', '압도적', '절대로', '우수인증설계사'];
+let cachedBanWords = []; // [{id, word}]
+
+async function apiGet(path) {
+  const res = await fetch(path, { headers: { ...authHeaders() } });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || '요청 실패');
+  return data;
+}
+async function apiPost(path, body) {
+  const res = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeaders() }, body: JSON.stringify(body) });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || '요청 실패');
+  return data;
+}
+async function apiDelete(path, body) {
+  const res = await fetch(path, { method: 'DELETE', headers: { 'Content-Type': 'application/json', ...authHeaders() }, body: JSON.stringify(body) });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || '요청 실패');
+  return data;
+}
+
+async function refreshBanWords() {
+  try {
+    const { items } = await apiGet('/api/banned-words');
+    cachedBanWords = items || [];
+  } catch (e) {
+    cachedBanWords = [];
+  }
+  renderBanWordList();
+}
+function getAllBanWords() {
+  return [...DEFAULT_BAN_WORDS, ...cachedBanWords.map(w => w.word)];
+}
+function renderBanWordList() {
+  const el = document.getElementById('banWordList');
+  el.innerHTML = '';
+  DEFAULT_BAN_WORDS.forEach(w => {
+    const chip = document.createElement('span');
+    chip.className = 'chip default-chip';
+    chip.innerHTML = `${escapeHtml(w)} <span style="font-size:10px;">(기본)</span>`;
+    el.appendChild(chip);
+  });
+  cachedBanWords.forEach(item => {
+    const chip = document.createElement('span');
+    chip.className = 'chip';
+    chip.innerHTML = `${escapeHtml(item.word)} <span class="x" data-id="${item.id}">×</span>`;
+    chip.querySelector('.x').addEventListener('click', async () => {
+      try { await apiDelete('/api/banned-words', { id: item.id }); await refreshBanWords(); }
+      catch (e) { alert('삭제 실패: ' + e.message); }
+    });
+    el.appendChild(chip);
+  });
+}
+document.getElementById('banWordAddBtn').addEventListener('click', async () => {
+  const input = document.getElementById('banWordInput');
+  const val = input.value.trim();
+  if (!val) return;
+  try {
+    await apiPost('/api/banned-words', { word: val });
+    input.value = '';
+    await refreshBanWords();
+  } catch (e) { alert('추가 실패: ' + e.message); }
+});
+document.getElementById('banWordInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') document.getElementById('banWordAddBtn').click();
+});
+document.getElementById('complianceToggle').addEventListener('click', () => {
+  const body = document.getElementById('complianceBody');
+  const btn = document.getElementById('complianceToggleBtn');
+  const show = body.style.display === 'none';
+  body.style.display = show ? 'block' : 'none';
+  btn.textContent = show ? '접기' : '펼치기';
+});
+refreshBanWords();
+
+function complianceSystemBlock() {
+  const words = getAllBanWords();
+  return `\n[심의 안전 표현 — 반드시 지킬 것]
+- 확정적/단정적 표현 금지: "무조건", "100%", "반드시 받는다" 등 보장이 확실하지 않은 것을 단정하는 표현을 쓰지 않는다.
+- 불안감·다급함 조성 금지: "지금 안 하면 큰일난다", "골든타임" 같이 심리적 압박이나 공포를 주는 표현 대신, 사실만 담담하게 전달한다. 예: "꼭 기억하셔야 할 골든타임, 바로 임신 22주 6일이에요" 대신 "꼭 기억하셔야 할 임신 22주 6일이에요" 처럼 사실만 남기고 압박 표현은 뺀다.
+- 타 설계사·타사 비방 금지: 다른 설계사나 보험사를 깎아내리거나 비교 비방하지 않는다.
+- 공격적·강압적 어조 금지: 명령조나 몰아붙이는 어투 대신 정보 제공 중심의 차분한 어조를 쓴다.
+- 다음 단어·표현은 절대 사용하지 않는다: ${words.join(', ')}
+- 같은 의미를 전달해야 한다면, 사실 위주로 순화해서 표현한다.`;
+}
+
+/* ===================== 이전 작업 기록 (Supabase, 팀 공유) ===================== */
+async function addToHistory(entry) {
+  try {
+    await apiPost('/api/history', entry);
+    await renderHistory();
+    await renderBlogHistory();
+    await renderCafeHistory();
+  } catch (e) {
+    console.error('history save failed', e);
+  }
+}
+async function deleteFromHistory(id) {
+  try {
+    await apiDelete('/api/history', { id });
+    await renderHistory();
+    await renderBlogHistory();
+    await renderCafeHistory();
+  } catch (e) {
+    alert('삭제 실패: ' + e.message);
+  }
+}
+async function fetchAllHistory() {
+  try {
+    const { items } = await apiGet('/api/history');
+    return items || [];
+  } catch (e) {
+    return [];
+  }
+}
+async function renderHistory() {
+  const all = await fetchAllHistory();
+  const list = all.filter(h => h.format !== 'blog' && h.format !== 'cafe');
+
+  document.getElementById('historyPanel').style.display = list.length ? 'block' : 'none';
+  document.getElementById('historyCount').textContent = `(${list.length}개)`;
+  const el = document.getElementById('historyList');
+  el.innerHTML = list.map(h => `
+    <div class="hist-item">
+      <div class="hist-item-head">
+        <div>
+          <div class="hist-item-title">${escapeHtml(h.topic || '(제목 없음)')}</div>
+          <div class="hist-item-meta">${h.format === 'long' ? '롱폼' : '숏폼'} · ${h.category || ''} · ${new Date(h.created_at || h.id).toLocaleString('ko-KR')} · ${(h.script||'').length.toLocaleString()}자</div>
+        </div>
+        <div class="hist-item-actions">
+          <button class="mini-btn" data-action="view" data-id="${h.id}">보기</button>
+          ${h.format === 'long' ? `<button class="mini-btn" data-action="continue" data-id="${h.id}">이어서 쓰기</button>` : ''}
+          <button class="mini-btn danger" data-action="del" data-id="${h.id}">삭제</button>
+        </div>
+      </div>
+    </div>
+  `).join('');
+  el.querySelectorAll('[data-action="view"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const h = list.find(x => String(x.id) === btn.dataset.id);
+      if (!h) return;
+      document.getElementById('resultPanel').style.display = 'block';
+      document.getElementById('bundlePanel').style.display = 'none';
+      document.getElementById('resultLabel').textContent = (h.format === 'long' ? '롱폼 상세 대본' : '숏폼 대본') + ' (기록 불러옴)';
+      const resultBody = document.getElementById('resultBody');
+      resultBody.innerHTML = '';
+      const div = document.createElement('div');
+      div.className = 'script-body';
+      div.textContent = h.script;
+      resultBody.appendChild(div);
+      document.getElementById('charcount').innerHTML = `대본 <b>${(h.script||'').length.toLocaleString()}</b>자`;
+      window.scrollTo({ top: resultBody.getBoundingClientRect().top + window.scrollY - 20, behavior: 'smooth' });
+    });
+  });
+  el.querySelectorAll('[data-action="continue"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const h = list.find(x => String(x.id) === btn.dataset.id);
+      if (!h) return;
+      resumeFromHistoryEntry(h);
+    });
+  });
+  el.querySelectorAll('[data-action="del"]').forEach(btn => {
+    btn.addEventListener('click', () => deleteFromHistory(Number(btn.dataset.id)));
+  });
+}
+document.getElementById('historyToggle').addEventListener('click', () => {
+  const list = document.getElementById('historyList');
+  const btn = document.getElementById('historyToggleBtn');
+  const show = list.style.display === 'none';
+  list.style.display = show ? 'block' : 'none';
+  btn.textContent = show ? '접기' : '펼치기';
+});
+renderHistory();
+
+async function renderBlogHistory() {
+  const all = await fetchAllHistory();
+  const list = all.filter(h => h.format === 'blog');
+
+  const panel = document.getElementById('blogHistoryPanel');
+  if (!panel) return;
+  panel.style.display = list.length ? 'block' : 'none';
+  document.getElementById('blogHistoryCount').textContent = `(${list.length}개)`;
+  const el = document.getElementById('blogHistoryList');
+  el.innerHTML = list.map(h => `
+    <div class="hist-item">
+      <div class="hist-item-head">
+        <div>
+          <div class="hist-item-title">${escapeHtml(h.topic || '(제목 없음)')}</div>
+          <div class="hist-item-meta">${h.category || ''} · ${new Date(h.created_at || h.id).toLocaleString('ko-KR')} · ${(h.script||'').length.toLocaleString()}자</div>
+        </div>
+        <div class="hist-item-actions">
+          <button class="mini-btn" data-action="view" data-id="${h.id}">보기</button>
+          <button class="mini-btn danger" data-action="del" data-id="${h.id}">삭제</button>
+        </div>
+      </div>
+    </div>
+  `).join('');
+  el.querySelectorAll('[data-action="view"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const h = list.find(x => String(x.id) === btn.dataset.id);
+      if (!h) return;
+      document.getElementById('blogResultPanel').style.display = 'block';
+      document.getElementById('blogAnalysisPanel').style.display = 'none';
+      document.getElementById('blogResultLabel').textContent = '생성된 블로그 글 (기록 불러옴)';
+      const resultBody = document.getElementById('blogResultBody');
+      resultBody.innerHTML = '';
+      const div = document.createElement('div');
+      div.className = 'script-body';
+      div.textContent = h.script;
+      resultBody.appendChild(div);
+      document.getElementById('blogCharcount').innerHTML = `본문 <b>${(h.script||'').length.toLocaleString()}</b>자`;
+      window.scrollTo({ top: resultBody.getBoundingClientRect().top + window.scrollY - 20, behavior: 'smooth' });
+    });
+  });
+  el.querySelectorAll('[data-action="del"]').forEach(btn => {
+    btn.addEventListener('click', () => deleteFromHistory(Number(btn.dataset.id)));
+  });
+}
+document.getElementById('blogHistoryToggle').addEventListener('click', () => {
+  const list = document.getElementById('blogHistoryList');
+  const btn = document.getElementById('blogHistoryToggleBtn');
+  const show = list.style.display === 'none';
+  list.style.display = show ? 'block' : 'none';
+  btn.textContent = show ? '접기' : '펼치기';
+});
+renderBlogHistory();
+
+async function renderCafeHistory() {
+  const all = await fetchAllHistory();
+  const list = all.filter(h => h.format === 'cafe');
+
+  const panel = document.getElementById('cafeHistoryPanel');
+  if (!panel) return;
+  panel.style.display = list.length ? 'block' : 'none';
+  document.getElementById('cafeHistoryCount').textContent = `(${list.length}개)`;
+  const el = document.getElementById('cafeHistoryList');
+  el.innerHTML = list.map(h => `
+    <div class="hist-item">
+      <div class="hist-item-head">
+        <div>
+          <div class="hist-item-title">${escapeHtml(h.topic || '(질문 없음)')}</div>
+          <div class="hist-item-meta">${h.category || ''} · ${new Date(h.created_at || h.id).toLocaleString('ko-KR')} · ${(h.script||'').length.toLocaleString()}자</div>
+        </div>
+        <div class="hist-item-actions">
+          <button class="mini-btn" data-action="view" data-id="${h.id}">보기</button>
+          <button class="mini-btn danger" data-action="del" data-id="${h.id}">삭제</button>
+        </div>
+      </div>
+    </div>
+  `).join('');
+  el.querySelectorAll('[data-action="view"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const h = list.find(x => String(x.id) === btn.dataset.id);
+      if (!h) return;
+      document.getElementById('cafeResultPanel').style.display = 'block';
+      const resultBody = document.getElementById('cafeResultBody');
+      resultBody.innerHTML = '';
+      const div = document.createElement('div');
+      div.className = 'script-body';
+      div.textContent = h.script;
+      resultBody.appendChild(div);
+      cafeState = { system: cafeSystem(cafeIntensity), text: h.script, historyId: h.id, topic: h.topic, category: h.category };
+      addCafeContinueButton();
+      window.scrollTo({ top: resultBody.getBoundingClientRect().top + window.scrollY - 20, behavior: 'smooth' });
+    });
+  });
+  el.querySelectorAll('[data-action="del"]').forEach(btn => {
+    btn.addEventListener('click', () => deleteFromHistory(Number(btn.dataset.id)));
+  });
+}
+document.getElementById('cafeHistoryToggle').addEventListener('click', () => {
+  const list = document.getElementById('cafeHistoryList');
+  const btn = document.getElementById('cafeHistoryToggleBtn');
+  const show = list.style.display === 'none';
+  list.style.display = show ? 'block' : 'none';
+  btn.textContent = show ? '접기' : '펼치기';
+});
+renderCafeHistory();
+
+/* ===================== 진행 중 초안 자동 저장 (오류로 날아가는 것 방지) ===================== */
+function saveDraft(state) {
+  try {
+    localStorage.setItem('ins_draft', JSON.stringify({
+      savedAt: Date.now(),
+      topic: state.topic || document.getElementById('topic').value,
+      category: state.category,
+      host: state.host,
+      citeOn: state.citeOn,
+      fullScript: state.fullScript,
+      coveredTopics: state.coveredTopics,
+      chunkIndex: state.chunkIndex,
+      historyId: state.historyId
+    }));
+  } catch (e) {}
+}
+function clearDraft() {
+  localStorage.removeItem('ins_draft');
+  document.getElementById('resumeBanner').style.display = 'none';
+}
+function checkForDraft() {
+  try {
+    const raw = localStorage.getItem('ins_draft');
+    if (!raw) return;
+    const draft = JSON.parse(raw);
+    if (!draft.fullScript || draft.fullScript.length < 20) { clearDraft(); return; }
+    document.getElementById('resumeBanner').style.display = 'block';
+    document.getElementById('resumeInfo').textContent = `"${draft.topic}" — ${draft.fullScript.length.toLocaleString()}자까지 써져 있어요. (${new Date(draft.savedAt).toLocaleString('ko-KR')} 저장됨)`;
+  } catch (e) {}
+}
+checkForDraft();
+document.getElementById('resumeDismissBtn').addEventListener('click', clearDraft);
+document.getElementById('resumeContinueBtn').addEventListener('click', resumeFromDraft);
+
+async function resumeFromDraft() {
+  const raw = localStorage.getItem('ins_draft');
+  if (!raw) return;
+  const draft = JSON.parse(raw);
+
+  document.getElementById('topic').value = draft.topic || '';
+  document.getElementById('category').value = draft.category || document.getElementById('category').value;
+  document.getElementById('host').value = draft.host || '';
+  format = 'long';
+  document.querySelectorAll('#formatSeg .seg-btn').forEach(b => b.classList.toggle('active', b.dataset.val === 'long'));
+  document.getElementById('sourceRow').style.display = 'flex';
+  document.getElementById('citeRow').style.display = 'flex';
+  document.getElementById('citeToggle').checked = !!draft.citeOn;
+
+  document.getElementById('resumeBanner').style.display = 'none';
+  document.getElementById('resultPanel').style.display = 'block';
+  document.getElementById('bundlePanel').style.display = 'none';
+  const resultBody = document.getElementById('resultBody');
+  resultBody.innerHTML = '';
+  const scriptDiv = document.createElement('div');
+  scriptDiv.className = 'script-body';
+  scriptDiv.textContent = draft.fullScript;
+  resultBody.appendChild(scriptDiv);
+  document.getElementById('resultLabel').textContent = '롱폼 상세 대본 (이어서 진행 중)';
+  document.getElementById('charcount').innerHTML = `대본 <b>${draft.fullScript.length.toLocaleString()}</b>자`;
+  document.getElementById('progressWrap').style.display = 'block';
+
+  const target = document.getElementById('target').value.trim();
+  const tone = document.getElementById('tone').value;
+  const extra = document.getElementById('extra').value.trim();
+  const contextLine = `보험 분야: ${draft.category}\n주제: ${draft.topic}\n${draft.host ? '진행자 호칭: ' + draft.host : ''}\n${target ? '타겟 고객: ' + target : ''}\n톤앤매너: ${tone}\n${extra ? '추가 반영 사항: ' + extra : ''}`;
+
+  const longSystem = baseSystem(draft.citeOn) + `\n- 최종 대본 본문이 1만자 이상이어야 한다. 요약하지 말고 상세히 설명한다.
+- 지금은 전체 대본 중 한 부분만 이어서 쓴다. 이미 다룬 소제목/항목은 절대 반복하지 않는다.
+- 이번 청크는 문장이 중간에 끊기지 않게 완결된 단락으로 마무리한다.`;
+
+  lfState = {
+    fullScript: draft.fullScript,
+    chunkIndex: draft.chunkIndex || 0,
+    coveredTopics: draft.coveredTopics || [],
+    contextLine, longSystem, citeOn: draft.citeOn, category: draft.category, host: draft.host, topic: draft.topic,
+    TARGET_CHARS: 10500,
+    MAX_CHUNKS: (draft.chunkIndex || 0) + 10,
+    scriptDiv,
+    historyId: draft.historyId || Date.now()
+  };
+
+  await runLongFormChunks(lfState);
+}
+
+async function resumeFromHistoryEntry(h) {
+  document.getElementById('topic').value = h.topic || '';
+  if (h.category) document.getElementById('category').value = h.category;
+  format = 'long';
+  document.querySelectorAll('#formatSeg .seg-btn').forEach(b => b.classList.toggle('active', b.dataset.val === 'long'));
+  document.getElementById('sourceRow').style.display = 'flex';
+  document.getElementById('citeRow').style.display = 'flex';
+  const citeOn = document.getElementById('citeToggle').checked;
+  const host = document.getElementById('host').value.trim();
+
+  document.getElementById('resultPanel').style.display = 'block';
+  document.getElementById('bundlePanel').style.display = 'none';
+  const resultBody = document.getElementById('resultBody');
+  resultBody.innerHTML = '';
+  const scriptDiv = document.createElement('div');
+  scriptDiv.className = 'script-body';
+  scriptDiv.textContent = h.script;
+  resultBody.appendChild(scriptDiv);
+  document.getElementById('resultLabel').textContent = '롱폼 상세 대본 (이어서 진행 중)';
+  document.getElementById('charcount').innerHTML = `대본 <b>${h.script.length.toLocaleString()}</b>자`;
+  document.getElementById('progressWrap').style.display = 'block';
+  window.scrollTo({ top: resultBody.getBoundingClientRect().top + window.scrollY - 20, behavior: 'smooth' });
+
+  const target = document.getElementById('target').value.trim();
+  const tone = document.getElementById('tone').value;
+  const extra = document.getElementById('extra').value.trim();
+  const contextLine = `보험 분야: ${h.category || ''}\n주제: ${h.topic}\n${host ? '진행자 호칭: ' + host : ''}\n${target ? '타겟 고객: ' + target : ''}\n톤앤매너: ${tone}\n${extra ? '추가 반영 사항: ' + extra : ''}`;
+
+  const longSystem = baseSystem(citeOn) + `\n- 최종 대본 본문이 1만자 이상이어야 한다. 요약하지 말고 상세히 설명한다.
+- 지금은 전체 대본 중 한 부분만 이어서 쓴다. 이미 다룬 소제목/항목은 절대 반복하지 않는다.
+- 이번 청크는 문장이 중간에 끊기지 않게 완결된 단락으로 마무리한다.`;
+
+  // rebuild the "already covered" topic list from bold headers already present in the saved script
+  const coveredTopics = [];
+  const headerMatches = (h.script || '').match(/\*\*([^*]{2,40})\*\*/g) || [];
+  headerMatches.forEach(m => {
+    const clean = m.replace(/\*\*/g, '').trim();
+    if (clean && !coveredTopics.includes(clean)) coveredTopics.push(clean);
+  });
+  const estimatedChunks = Math.max(1, Math.ceil((h.script || '').length / 1200));
+
+  lfState = {
+    fullScript: h.script,
+    chunkIndex: estimatedChunks,
+    coveredTopics,
+    contextLine, longSystem, citeOn, category: h.category, host, topic: h.topic,
+    TARGET_CHARS: h.script.length + 2500,
+    MAX_CHUNKS: estimatedChunks + 10,
+    scriptDiv,
+    historyId: h.id
+  };
+
+  await runLongFormChunks(lfState);
+}
+
+/* ===================== 출처자료 라이브러리 (Supabase, 팀 공유) ===================== */
+let cachedLibrary = [];
+
+async function refreshLibrary() {
+  try {
+    const { items } = await apiGet('/api/library');
+    cachedLibrary = items || [];
+  } catch (e) {
+    cachedLibrary = [];
+  }
+  renderLibrary();
+}
+document.getElementById('libAddBtn').addEventListener('click', async () => {
+  const title = document.getElementById('libTitleInput').value.trim();
+  const content = document.getElementById('libContentInput').value.trim();
+  if (!title || !content) { alert('제목과 내용을 둘 다 입력해주세요.'); return; }
+  try {
+    await apiPost('/api/library', { title, content });
+    document.getElementById('libTitleInput').value = '';
+    document.getElementById('libContentInput').value = '';
+    await refreshLibrary();
+  } catch (e) { alert('저장 실패: ' + e.message); }
+});
+function renderLibrary() {
+  const el = document.getElementById('libraryList');
+  el.innerHTML = cachedLibrary.map(item => `
+    <div class="lib-item">
+      <div class="lib-item-head">
+        <div>
+          <div class="lib-item-title">${escapeHtml(item.title)}</div>
+          <div class="lib-item-meta">${item.content.length.toLocaleString()}자</div>
+        </div>
+        <div class="lib-item-actions">
+          <button class="mini-btn danger" data-id="${item.id}">삭제</button>
+        </div>
+      </div>
+    </div>
+  `).join('') || '<p style="font-size:12.5px; color:var(--paper-mute);">아직 저장된 자료가 없어요.</p>';
+  el.querySelectorAll('.mini-btn.danger').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      try { await apiDelete('/api/library', { id: Number(btn.dataset.id) }); await refreshLibrary(); }
+      catch (e) { alert('삭제 실패: ' + e.message); }
+    });
+  });
+}
+document.getElementById('libraryToggle').addEventListener('click', () => {
+  const body = document.getElementById('libraryBody');
+  const btn = document.getElementById('libraryToggleBtn');
+  const show = body.style.display === 'none';
+  body.style.display = show ? 'block' : 'none';
+  btn.textContent = show ? '접기' : '펼치기';
+});
+refreshLibrary();
+
+// simple keyword-overlap search over the (already-fetched) shared library
+function searchLibrary(topic, extra) {
+  const query = (topic + ' ' + (extra || '')).toLowerCase();
+  const keywords = query.split(/[\s,·・/]+/).filter(w => w.length >= 2);
+  return cachedLibrary.filter(item => {
+    const hay = (item.title + ' ' + item.content).toLowerCase();
+    return keywords.some(k => hay.includes(k));
+  });
+}
+
+// searches the 8,000-page corpus stored in Supabase (server-side full-text search)
+async function searchCorpus(topic, extra) {
+  const q = encodeURIComponent((topic + ' ' + (extra || '')).trim());
+  if (!q) return [];
+  try {
+    const { items } = await apiGet('/api/corpus?q=' + q);
+    return items || [];
+  } catch (e) {
+    return [];
+  }
+}
+
+async function refreshKeywordCount() {
+  const el = document.getElementById('kwCurrentCount');
+  try {
+    const probe = await apiGet('/api/keywords?q=보험&limit=1');
+    el.textContent = (probe.items && probe.items.length)
+      ? `✔ 키워드 데이터가 등록되어 있어요.`
+      : '아직 키워드 데이터가 없어요.';
+  } catch (e) {
+    el.textContent = '확인할 수 없어요 (Supabase 연결 확인 필요)';
+  }
+}
+refreshKeywordCount();
+
+document.getElementById('kwUploadBtn').addEventListener('click', async () => {
+  const file = document.getElementById('kwFileInput').files[0];
+  const statusEl = document.getElementById('kwUploadStatus');
+  if (!file) { alert('.json 파일을 먼저 선택해주세요.'); return; }
+
+  statusEl.textContent = '파일 읽는 중...';
+  try {
+    const text = await file.text();
+    const rows = JSON.parse(text);
+    if (!Array.isArray(rows)) throw new Error('올바른 키워드 JSON 파일이 아니에요.');
+
+    const BATCH_SIZE = 200;
+    let done = 0;
+    for (let i = 0; i < rows.length; i += BATCH_SIZE) {
+      const batch = rows.slice(i, i + BATCH_SIZE);
+      statusEl.textContent = `업로드 중... (${Math.min(i + BATCH_SIZE, rows.length)}/${rows.length})`;
+      await apiPost('/api/keywords', { rows: batch });
+      done += batch.length;
+      await new Promise(r => setTimeout(r, 100));
+    }
+    statusEl.textContent = `완료 — 총 ${done.toLocaleString()}개 키워드 업로드됐어요.`;
+    await refreshKeywordCount();
+  } catch (e) {
+    statusEl.textContent = '오류: ' + e.message;
+  }
+});
+
+document.getElementById('kwSearchBtn').addEventListener('click', async () => {
+  const q = document.getElementById('kwSearchInput').value.trim();
+  const maxCompetition = document.getElementById('kwMaxCompetition').value;
+  const listEl = document.getElementById('kwResultList');
+  const statusEl = document.getElementById('kwStatus');
+  if (!q) { alert('검색할 단어를 입력해주세요.'); return; }
+
+  statusEl.textContent = '검색 중...';
+  listEl.innerHTML = '';
+  try {
+    const params = new URLSearchParams({ q, limit: '15' });
+    if (maxCompetition !== '전체') params.set('maxCompetition', maxCompetition);
+    const { items } = await apiGet('/api/keywords?' + params.toString());
+    if (!items || items.length === 0) {
+      statusEl.textContent = '결과가 없어요.';
+      return;
+    }
+    statusEl.textContent = `${items.length}개 찾음 (황금점수 높은 순)`;
+    listEl.innerHTML = items.map(k => `
+      <div class="lib-item">
+        <div class="lib-item-head">
+          <div>
+            <div class="lib-item-title">${escapeHtml(k.keyword)}</div>
+            <div class="lib-item-meta">검색량 ${Number(k.total_search).toLocaleString()} · 경쟁도 ${k.competition || '-'} · 황금점수 ${k.golden_score}</div>
+          </div>
+          <div class="lib-item-actions">
+            <button class="mini-btn" data-kw="${escapeHtml(k.keyword)}">이 키워드로 쓰기</button>
+          </div>
+        </div>
+      </div>
+    `).join('');
+    listEl.querySelectorAll('[data-kw]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.getElementById('blogKeyword').value = btn.dataset.kw;
+        window.scrollTo({ top: document.getElementById('blogKeyword').getBoundingClientRect().top + window.scrollY - 100, behavior: 'smooth' });
+      });
+    });
+  } catch (e) {
+    statusEl.textContent = '오류: ' + e.message;
+  }
+});
+
+async function refreshCorpusCount() {
+  const el = document.getElementById('corpusCurrentCount');
+  try {
+    const { count } = await apiGet('/api/corpus?count=1');
+    el.textContent = count > 0
+      ? `✔ 현재 데이터베이스에 ${count.toLocaleString()}페이지 저장되어 있어요.`
+      : '아직 업로드된 페이지가 없어요.';
+  } catch (e) {
+    el.textContent = '저장 개수를 확인할 수 없어요 (Supabase 연결 확인 필요)';
+  }
+}
+refreshCorpusCount();
+
+document.getElementById('corpusUploadBtn').addEventListener('click', async () => {
+  const files = document.getElementById('corpusFileInput').files;
+  const statusEl = document.getElementById('corpusUploadStatus');
+  if (!files || files.length === 0) { alert('.txt 파일을 먼저 선택해주세요.'); return; }
+
+  const BATCH_SIZE = 40; // rows per request, keeps each request well under Vercel's body limit
+  let totalRows = 0, totalBatches = 0, doneBatches = 0;
+  const allBatches = [];
+
+  for (const file of files) {
+    statusEl.textContent = `"${file.name}" 읽는 중...`;
+    const text = await file.text();
+    // pdftotext inserts \f (form feed) between pages
+    const pages = text.split('\f');
+    const rows = pages
+      .map((content, i) => ({ source_file: file.name, page_number: i + 1, content: content.trim() }))
+      .filter(r => r.content.length > 10);
+
+    for (let i = 0; i < rows.length; i += BATCH_SIZE) {
+      allBatches.push(rows.slice(i, i + BATCH_SIZE));
+    }
+    totalRows += rows.length;
+  }
+  totalBatches = allBatches.length;
+
+  if (totalBatches === 0) {
+    statusEl.textContent = '업로드할 내용이 없어요 (빈 파일이거나 페이지 구분을 찾지 못했어요).';
+    return;
+  }
+
+  for (const batch of allBatches) {
+    doneBatches++;
+    statusEl.textContent = `업로드 중... (${doneBatches}/${totalBatches} 구간, 총 ${totalRows.toLocaleString()}페이지 중)`;
+    try {
+      await apiPost('/api/corpus', { rows: batch });
+    } catch (e) {
+      statusEl.textContent = `${doneBatches}번째 구간에서 오류: ${e.message} — 잠시 후 다시 시도해주세요.`;
+      await new Promise(r => setTimeout(r, 2000));
+    }
+    await new Promise(r => setTimeout(r, 150));
+  }
+
+  statusEl.textContent = `완료 — 총 ${totalRows.toLocaleString()}페이지 업로드됐어요.`;
+  await refreshCorpusCount();
+});
+
+
+document.querySelectorAll('#formatSeg .seg-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#formatSeg .seg-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    format = btn.dataset.val;
+    const showSource = format === 'long';
+    document.getElementById('sourceRow').style.display = showSource ? 'flex' : 'none';
+    document.getElementById('citeRow').style.display = showSource ? 'flex' : 'none';
+  });
+});
+
+document.querySelectorAll('#intensitySeg .seg-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#intensitySeg .seg-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    intensity = btn.dataset.val;
+  });
+});
+
+document.getElementById('copyBtn').addEventListener('click', () => {
+  const scriptEl = document.querySelector('#resultBody .script-body');
+  const text = scriptEl ? scriptEl.innerText : document.getElementById('resultBody').innerText;
+  navigator.clipboard.writeText(text);
+  const btn = document.getElementById('copyBtn');
+  const old = btn.textContent;
+  btn.textContent = '복사됨';
+  setTimeout(() => btn.textContent = old, 1200);
+});
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+document.getElementById('fileInput').addEventListener('change', handleFileUpload);
+
+document.getElementById('source').addEventListener('input', updateSourceCounter);
+function updateSourceCounter() {
+  const val = document.getElementById('source').value;
+  const el = document.getElementById('sourceCounter');
+  const len = val.length;
+  if (len > 6000) {
+    el.innerHTML = `출처자료 ${len.toLocaleString()}자 — <span style="color:var(--seal);">6,000자를 넘으면 생성 시 앞부분만 반영돼요. 꼭 필요한 부분만 남겨주세요.</span>`;
+  } else if (len > 0) {
+    el.textContent = `출처자료 ${len.toLocaleString()}자`;
+  } else {
+    el.textContent = '';
+  }
+}
+
+async function resizeImageToBase64(rawBase64, mediaType, maxWidth = 1000, quality = 0.82) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      let w = img.width, h = img.height;
+      if (w > maxWidth) { h = Math.round(h * maxWidth / w); w = maxWidth; }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, w, h);
+      const dataUrl = canvas.toDataURL('image/jpeg', quality);
+      resolve(dataUrl.split(',')[1]);
+    };
+    img.onerror = () => reject(new Error('이미지 디코딩 실패'));
+    img.src = `data:${mediaType};base64,${rawBase64}`;
+  });
+}
+
+async function extractTextFromImageBase64(base64, mediaType) {
+  const messages = [{
+    role: 'user',
+    content: [
+      { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
+      { type: 'text', text: '이 이미지에 있는 텍스트를 빠짐없이 그대로 추출해줘. 표 형태라면 줄바꿈과 항목 구분을 살려서 옮겨줘. 이미지 안에 텍스트가 전혀 없으면 "텍스트 없음" 이라고만 답하고, 다른 설명은 절대 하지 마.' }
+    ]
+  }];
+  const text = await callClaude(undefined, messages);
+  return (text || '').trim();
+}
+
+async function handleFileUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const ext = file.name.toLowerCase().split('.').pop();
+  if (ext === 'pptx') {
+    await handlePptxUpload(file);
+  } else if (ext === 'pdf') {
+    await handlePdfUpload(file);
+  } else {
+    document.getElementById('fileStatus').textContent = 'pptx 또는 pdf 파일만 지원해요.';
+  }
+}
+
+async function handlePptxUpload(file) {
+  const statusEl = document.getElementById('fileStatus');
+  const sourceEl = document.getElementById('source');
+
+  statusEl.textContent = '슬라이드 텍스트 읽는 중...';
+  try {
+    const buffer = await file.arrayBuffer();
+    const zip = await JSZip.loadAsync(buffer);
+
+    const slideFiles = Object.keys(zip.files)
+      .filter(name => /^ppt\/slides\/slide\d+\.xml$/.test(name))
+      .sort((a, b) => parseInt(a.match(/slide(\d+)/)[1], 10) - parseInt(b.match(/slide(\d+)/)[1], 10));
+
+    const parser = new DOMParser();
+    let extracted = '';
+
+    for (let i = 0; i < slideFiles.length; i++) {
+      const xmlText = await zip.files[slideFiles[i]].async('text');
+      const xmlDoc = parser.parseFromString(xmlText, 'application/xml');
+      const textNodes = xmlDoc.getElementsByTagName('a:t');
+      const lines = [];
+      for (let j = 0; j < textNodes.length; j++) {
+        const t = textNodes[j].textContent.trim();
+        if (t) lines.push(t);
+      }
+      if (lines.length) extracted += `[슬라이드 ${i + 1} 텍스트]\n${lines.join(' ')}\n\n`;
+    }
+
+    const mediaFiles = Object.keys(zip.files)
+      .filter(name => /^ppt\/media\/image\d+\.(png|jpe?g)$/i.test(name));
+
+    const MAX_IMAGES = 20;
+    const toProcess = mediaFiles.slice(0, MAX_IMAGES);
+
+    for (let i = 0; i < toProcess.length; i++) {
+      statusEl.textContent = `이미지에서 텍스트 읽는 중... (${i + 1}/${toProcess.length})`;
+      const name = toProcess[i];
+      const rawBase64 = await zip.files[name].async('base64');
+      const mediaType = /\.png$/i.test(name) ? 'image/png' : 'image/jpeg';
+      try {
+        const resized = await resizeImageToBase64(rawBase64, mediaType);
+        const ocrText = await extractTextFromImageBase64(resized, 'image/jpeg');
+        if (ocrText && !/^텍스트\s*없음/.test(ocrText)) {
+          extracted += `[이미지 ${i + 1} 인식 텍스트]\n${ocrText}\n\n`;
+        }
+      } catch (imgErr) {
+        extracted += `[이미지 ${i + 1} 처리 실패: ${imgErr.message}]\n\n`;
+      }
+    }
+
+    if (mediaFiles.length > MAX_IMAGES) {
+      extracted += `(※ 이미지가 ${mediaFiles.length}장이라 앞의 ${MAX_IMAGES}장만 처리했어요.)\n\n`;
+    }
+
+    if (!extracted.trim()) {
+      statusEl.textContent = '텍스트/이미지를 찾지 못했어요.';
+      return;
+    }
+
+    const prefix = sourceEl.value.trim() ? sourceEl.value.trim() + '\n\n' : '';
+    sourceEl.value = prefix + `--- ${file.name} 추출 내용 ---\n` + extracted.trim();
+    statusEl.textContent = `"${file.name}" 처리 완료 (슬라이드 텍스트 + 이미지 ${toProcess.length}장 인식)`;
+    updateSourceCounter();
+  } catch (err) {
+    statusEl.textContent = 'PPT 처리 중 오류: ' + err.message;
+  }
+}
+
+async function handlePdfUpload(file) {
+  const statusEl = document.getElementById('fileStatus');
+  const sourceEl = document.getElementById('source');
+  const MAX_PAGES = 30;
+
+  statusEl.textContent = 'PDF 여는 중...';
+  try {
+    const buffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
+    const totalPages = pdf.numPages;
+    const pagesToRead = Math.min(totalPages, MAX_PAGES);
+    let extracted = '';
+
+    for (let p = 1; p <= pagesToRead; p++) {
+      statusEl.textContent = `PDF 페이지 처리 중... (${p}/${pagesToRead})`;
+      const page = await pdf.getPage(p);
+      const textContent = await page.getTextContent();
+      const pageText = textContent.items.map(it => it.str).join(' ').trim();
+
+      if (pageText.length > 20) {
+        extracted += `[p.${p}]\n${pageText}\n\n`;
+      } else {
+        try {
+          const viewport = page.getViewport({ scale: 1.4 });
+          const canvas = document.createElement('canvas');
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
+          const ctx = canvas.getContext('2d');
+          await page.render({ canvasContext: ctx, viewport }).promise;
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+          const base64 = dataUrl.split(',')[1];
+          const ocrText = await extractTextFromImageBase64(base64, 'image/jpeg');
+          if (ocrText && !/^텍스트\s*없음/.test(ocrText)) {
+            extracted += `[p.${p} - 이미지 인식]\n${ocrText}\n\n`;
+          }
+        } catch (pageErr) {
+          extracted += `[p.${p} 처리 실패: ${pageErr.message}]\n\n`;
+        }
+      }
+    }
+
+    if (totalPages > MAX_PAGES) {
+      extracted += `(※ 전체 ${totalPages}페이지 중 앞의 ${MAX_PAGES}페이지만 처리했어요. 필요한 부분만 발췌해서 올리시는 걸 추천드려요.)\n\n`;
+    }
+
+    if (!extracted.trim()) {
+      statusEl.textContent = 'PDF에서 텍스트를 찾지 못했어요.';
+      return;
+    }
+
+    const prefix = sourceEl.value.trim() ? sourceEl.value.trim() + '\n\n' : '';
+    sourceEl.value = prefix + `--- ${file.name} 추출 내용 (${pagesToRead}페이지) ---\n` + extracted.trim();
+    statusEl.textContent = `"${file.name}" 처리 완료 (${pagesToRead}/${totalPages}페이지)`;
+    updateSourceCounter();
+  } catch (err) {
+    statusEl.textContent = 'PDF 처리 중 오류: ' + err.message;
+  }
+}
+
+document.getElementById('genBtn').addEventListener('click', generateScript);
+
+async function callClaude(system, messages, retries = 2, tools = null, maxTokens = 2048) {
+  let lastErr;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 120000);
+    let retryable = true;
+    try {
+      const response = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ system, messages, tools: tools || undefined, max_tokens: maxTokens }),
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+
+      let data;
+      try {
+        data = await response.json();
+      } catch (parseErr) {
+        // Server crashed/timed out and returned an HTML error page instead of JSON.
+        // Retrying would just resend the same large prompt and burn tokens again — don't.
+        retryable = false;
+        throw new Error('서버 응답이 비정상이었어요 (타임아웃/서버 오류 가능성). 재시도하지 않았어요 — 같은 요청을 반복하면 비용만 더 나가요.');
+      }
+
+      if (!response.ok) throw new Error(data.error || ('오류 ' + response.status));
+      return data.text || '';
+    } catch (err) {
+      clearTimeout(timeoutId);
+      if (err.name === 'AbortError') {
+        retryable = false;
+        lastErr = new Error('응답이 2분 넘게 없어 시간 초과됐어요. 재시도하지 않았어요 — 같은 요청을 반복하면 비용만 더 나가요.');
+      } else {
+        lastErr = err;
+      }
+      if (retryable && attempt < retries) {
+        await new Promise(r => setTimeout(r, 1200 * (attempt + 1)));
+        continue;
+      }
+      break;
+    }
+  }
+  throw lastErr;
+}
+
+function intensityGuide(level) {
+  const lvl = level || intensity;
+  if (lvl === 'soft') {
+    return '정보 전달이 중심이고, 세일즈는 은은하게 녹여서 넣는다. CTA는 끝에 1회, 부드러운 제안 형태로.';
+  }
+  if (lvl === 'strong') {
+    return '정보 전달과 함께 상담·문의 전환을 적극적으로 유도한다. 중간중간 예고 화법("이거 아셔야 하는 이유가 있어요")을 여러 번 배치하고, CTA를 최소 2회 이상, 마지막엔 강하게 마무리한다.';
+  }
+  return '정보 전달 위주로 가되, 중간에 한 번, 마지막에 한 번 자연스럽게 상담 유도를 넣는다.';
+}
+
+function salesSystemBlock(level) {
+  return `\n[세일즈 화법 — 항상 반드시 지켜야 하는 핵심 규칙, 생략 불가]
+- 직접적인 지시("전화하세요") 대신, 문장 안에 자연스럽게 행동 명령을 심는다. 예: "이런 상황이면, 지금 증권부터 한번 확인해보세요" 처럼 구체적 행동을 문장 속에 스리슬쩍 넣는다.
+- 민감한 질문(자산, 병력 등)을 하기 전에는 반드시 "왜 이걸 여쭤보는지" 이유부터 설명해서 신뢰를 먼저 쌓는다.
+- 제안이나 추천 전에는 짧은 예고를 던져서 궁금증을 유발한다 (예: "이거 하나만 아시면 상황이 달라져요").
+- 영업 강도: ${intensityGuide(level)}
+- 과장이나 확인되지 않은 사실은 절대 포함하지 않는다. 세일즈 화법은 신뢰를 기반으로 해야 하며, 없는 사실을 지어내 설득하지 않는다.`;
+}
+
+function baseSystem(citeOn) {
+  return `당신은 한국 보험 영업/마케팅 콘텐츠 전문 대본 작가입니다.
+- 전문 용어는 쉬운 비유로 풀어서 설명한다.
+- 실제 사람이 카메라 앞에서 말하듯 자연스러운 구어체로 작성한다.
+- 후킹(강한 도입)과 기승전결이 명확한 구조로 작성한다.
+${citeOn ? `- 통계·수치·사실관계를 언급할 때는 반드시 문장 뒤에 출처를 표시한다. 아래 순서로 확인한다:
+  1) [내 라이브러리에 저장된 관련 자료], [내 출처자료 8천페이지 안에서 찾은 관련 내용], [출처자료] 중 어디든 있는 내용이면: "(출처: 첨부자료 - 해당 위치, 예: p.12)" 형식으로 표시한다. 이 세 가지가 최우선이다.
+  2) 위 자료에 없지만 [웹 검색으로 찾은 관련 자료]에 있는 내용이면: 그 안의 수치를 그대로 쓰고 "(출처: 기관/사이트명, URL)" 형식으로 표시한다. URL은 [웹 검색으로 찾은 관련 자료]에 적힌 전체 주소를 한 글자도 빠짐없이 그대로 복사해서 쓴다 — 절대 도메인만 남기거나 줄여 쓰지 않는다. 절대 새로운 수치를 지어내지 않는다.
+  3) 어디에도 없는 통계는 절대 언급하지 않는다. "정확한 수치는 확인해주세요" 같은 회피 문구도 쓰지 않는다 — 그냥 수치 없이 자연스럽게 서술한다 (예: "많은 가정에서 예상보다 큰 지출 부담을 느낀다").` : '- 확인되지 않은 통계·수치는 단정적으로 말하지 않는다.'}
+- 결과는 대본 본문만 출력하고 다른 설명은 붙이지 않는다.` + complianceSystemBlock() + salesSystemBlock();
+}
+
+const WEB_SEARCH_TOOL = [{ type: 'web_search_20250305', name: 'web_search' }];
+
+let lfState = null;
+
+async function generateScript() {
+  const topic = document.getElementById('topic').value.trim();
+  const category = document.getElementById('category').value;
+  const host = document.getElementById('host').value.trim();
+  const target = document.getElementById('target').value.trim();
+  const tone = document.getElementById('tone').value;
+  const extra = document.getElementById('extra').value.trim();
+  const source = document.getElementById('source').value.trim();
+  const citeOn = document.getElementById('citeToggle').checked && format === 'long';
+
+  const genBtn = document.getElementById('genBtn');
+  const resultPanel = document.getElementById('resultPanel');
+  const bundlePanel = document.getElementById('bundlePanel');
+  const resultBody = document.getElementById('resultBody');
+  const resultLabel = document.getElementById('resultLabel');
+  const charcount = document.getElementById('charcount');
+  const progressWrap = document.getElementById('progressWrap');
+
+  if (!topic) { alert('영상 주제를 입력해주세요.'); return; }
+
+  genBtn.disabled = true;
+  genBtn.textContent = '생성 중...';
+  resultPanel.style.display = 'block';
+  bundlePanel.style.display = 'none';
+  resultBody.innerHTML = '';
+  charcount.textContent = '';
+  const scriptDiv = document.createElement('div');
+  scriptDiv.className = 'script-body';
+  resultBody.appendChild(scriptDiv);
+
+  const libMatches = searchLibrary(topic, extra).slice(0, 3);
+  const libBlock = libMatches.length
+    ? `\n\n[내 라이브러리에 저장된 관련 자료 — 이 안에 있는 내용이면 최우선으로 이걸 근거로 쓰고, 여기 없을 때만 다른 출처를 찾으세요]\n${libMatches.map(m => `■ ${m.title}\n${(m.content||'').slice(0, 1500)}`).join('\n\n')}`
+    : '';
+
+  let corpusBlock = '';
+  if (citeOn) {
+    progressWrap.style.display = 'block';
+    progressText.textContent = '내 출처자료(8천 페이지) 안에서 관련 내용 찾는 중...';
+    const corpusMatches = await searchCorpus(topic, extra);
+    if (corpusMatches.length) {
+      corpusBlock = `\n\n[내 출처자료 8천페이지 안에서 찾은 관련 내용 — 페이지 번호와 함께 정확히 인용하세요]\n${corpusMatches.map(m => `■ [${m.source_file || '자료'} p.${m.page_number || '?'}]\n${(m.content||'').slice(0, 1500)}`).join('\n\n')}`;
+    }
+  }
+
+  const MAX_SOURCE_CHARS = 6000;
+  let sourceForPrompt = source;
+  let sourceTruncated = false;
+  if (source.length > MAX_SOURCE_CHARS) {
+    sourceForPrompt = source.slice(0, MAX_SOURCE_CHARS);
+    sourceTruncated = true;
+  }
+  const sourceBlock = (source ? `\n\n[출처자료 — 이 내용을 근거로 구체적으로 설명하세요]\n${sourceForPrompt}${sourceTruncated ? '\n\n(※ 출처자료가 길어 앞부분만 반영됩니다. 특정 부분을 꼭 반영해야 하면 그 부분만 따로 붙여넣어주세요.)' : ''}` : '') + libBlock + corpusBlock;
+  const contextLine = `보험 분야: ${category}\n주제: ${topic}\n${host ? '진행자 호칭: ' + host : ''}\n${target ? '타겟 고객: ' + target : ''}\n톤앤매너: ${tone}\n${extra ? '추가 반영 사항: ' + extra : ''}`;
+
+  try {
+    if (format === 'short') {
+      resultLabel.textContent = '숏폼 대본 (30~60초)';
+      const system = baseSystem(false) + `\n- 30~60초 숏폼 대본. 3초 안에 시선을 잡는 강한 훅으로 시작, 핵심 정보 1~2개, 마지막은 "왜 지금 댓글/DM/문의를 해야 하는지" 이유가 담긴 힘있는 CTA로 마무리 (단순 "궁금하면 문의하세요"가 아니라 지금 행동해야 하는 이유 포함). 분량 200~350자.`;
+      const userPrompt = `${contextLine}\n\n위 조건에 맞는 숏폼 대본을 작성해줘.`;
+      const script = await callClaude(system, [{ role: 'user', content: userPrompt }]);
+      resultBody.innerHTML = '';
+      const div = document.createElement('div');
+      div.className = 'script-body';
+      div.textContent = script || '대본을 받아오지 못했어요. 다시 시도해주세요.';
+      resultBody.appendChild(div);
+      charcount.innerHTML = `대본 <b>${(script||'').length.toLocaleString()}</b>자`;
+      renderComplianceCheck(script, resultBody);
+      if (script) addToHistory({ topic, category, format: 'short', script });
+      await generateBundle(script, contextLine, category);
+    } else {
+      resultLabel.textContent = '롱폼 상세 대본';
+      progressWrap.style.display = 'block';
+
+      let researchBlock = '';
+      if (citeOn) {
+        progressText.textContent = '관련 통계·근거자료 검색 중... (최대 1분 정도 걸려요)';
+        try {
+          const researchSystem = `당신은 리서치 보조원입니다. 주어진 주제와 관련된 보험/금융 관련 실제 통계나 사실을 web_search 도구로 찾아서, 아래 형식으로만 정리해 출력하세요. 다른 설명 없이 목록만 출력합니다.
+형식: - [찾은 사실/수치 한 문장] (출처: 기관/사이트명, 정확한 전체 URL)
+신뢰할 수 있는 출처(정부기관, 공공데이터, 주요 언론사 등)만 사용하고, 3~6개 정도만 찾아서 정리하세요.
+
+중요 1 - 원출처 우선 원칙: 뉴스 기사는 대부분 정부기관·공공데이터의 통계를 가져다 쓴 것입니다. 뉴스 기사에서 "국민건강보험공단", "통계청", "금융감독원" 같은 원 출처 기관명이 언급되어 있으면, 그 뉴스 링크를 그대로 쓰지 말고 그 기관명 + 통계 이름으로 다시 검색해서 원본 통계 자료(공식 보고서, 통계연보, 보도자료 페이지)를 직접 찾아 그 링크를 쓰세요.
+
+중요 2 - 링크는 최대한 구체적으로: 그 기관의 대표 홈페이지 주소(예: nhis.or.kr)로 뭉뚱그리지 말고, 가능한 한 아래 우선순위로 더 깊이 찾으세요.
+  1순위: 그 통계가 실린 보고서/통계연보 원문 PDF 다운로드 링크
+  2순위: 국가통계포털(KOSIS, kosis.kr) 등에서 해당 표를 바로 보여주는 페이지 링크
+  3순위: 그 기관의 보도자료/통계 발표 페이지 링크
+  이 중 어느 것도 못 찾으면, URL은 기관 대표 페이지로 하되, 반드시 "(정확한 문서명: 'OOOO년 OOO 통계연보' 또는 'OOO 보도자료, OOOO년 O월)"처럼 그 자료의 정확한 제목·발표 시기를 같이 적어서, 나중에 그 기관 홈페이지에서 검색만 하면 바로 찾을 수 있게 하세요.
+
+정말 여러 번 검색해도 원출처를 못 찾겠으면, 그때만 뉴스 링크를 쓰되 "(출처: OO뉴스 보도, 원자료: OO기관 OO통계)" 형식으로 원출처 기관명을 같이 밝히세요.
+
+중요 3 - URL은 검색 결과에 나온 그 정보가 실제로 있는 구체적인 페이지의 전체 주소를 정확히 그대로 적으세요. 홈페이지 도메인만 적거나 줄여 쓰지 마세요.`;
+          const researchPrompt = `${contextLine}\n\n위 주제로 대본을 쓸 때 근거로 쓸 수 있는 실제 통계나 사실을 검색해서 찾아줘.`;
+          const researchResult = await callClaude(researchSystem, [{ role: 'user', content: researchPrompt }], 1, WEB_SEARCH_TOOL, 1800);
+          if (researchResult && researchResult.trim()) {
+            researchBlock = `\n\n[웹 검색으로 찾은 관련 자료 — 필요할 때 이 안의 수치와 출처를 인용하세요]\n${researchResult.trim()}`;
+          }
+        } catch (researchErr) {
+          progressText.textContent = '검색 자료를 못 가져왔어요 (첨부자료만으로 계속 진행할게요)';
+        }
+      }
+
+      const longSystem = baseSystem(citeOn) + `\n- 최종 대본 본문이 1만자 이상이어야 한다. 요약하지 말고 상세히 설명한다.
+- 지금은 전체 대본 중 한 부분만 이어서 쓴다. 이미 다룬 소제목/항목은 절대 반복하지 않는다.
+- 이번 청크는 문장이 중간에 끊기지 않게 완결된 단락으로 마무리한다.` + sourceBlock + researchBlock;
+
+      lfState = {
+        fullScript: '',
+        chunkIndex: 0,
+        coveredTopics: [],
+        contextLine, longSystem, citeOn, category, host, topic,
+        TARGET_CHARS: 10500,
+        MAX_CHUNKS: 10,
+        scriptDiv,
+        historyId: Date.now()
+      };
+
+      await runLongFormChunks(lfState);
+    }
+  } catch (err) {
+    resultBody.innerHTML = '<div class="error-box">오류가 발생했어요: ' + err.message + '</div>';
+  } finally {
+    genBtn.disabled = false;
+    genBtn.textContent = '대본 생성하기';
+  }
+}
+
+async function runLongFormChunks(state) {
+  const resultBody = document.getElementById('resultBody');
+  const charcount = document.getElementById('charcount');
+  const progressBar = document.getElementById('progressBar');
+  const progressText = document.getElementById('progressText');
+
+  const existingContinueBtn = document.getElementById('continueBtn');
+  if (existingContinueBtn) existingContinueBtn.remove();
+  const existingErr = resultBody.querySelector('.error-box');
+  if (existingErr) existingErr.remove();
+
+  while (state.fullScript.length < state.TARGET_CHARS && state.chunkIndex < state.MAX_CHUNKS) {
+    state.chunkIndex++;
+    progressText.textContent = `작성 중 (${state.fullScript.length.toLocaleString()} / ${state.TARGET_CHARS.toLocaleString()}자) · ${state.chunkIndex}번째 구간`;
+    progressBar.style.width = Math.min(100, Math.round((state.fullScript.length / state.TARGET_CHARS) * 100)) + '%';
+
+    const topicsNote = state.coveredTopics.length
+      ? `\n\n[이미 다룬 소제목 — 절대 반복 금지]\n${state.coveredTopics.map((t,i)=>`${i+1}. ${t}`).join('\n')}`
+      : '';
+
+    let stagePrompt;
+    if (state.chunkIndex === 1) {
+      stagePrompt = `${state.contextLine}\n\n상세 롱폼 대본의 도입부(강한 훅 + 문제 제기)를 써줘. 본론은 아직 시작하지 마.`;
+    } else if (state.fullScript.length < state.TARGET_CHARS * 0.85) {
+      stagePrompt = `${state.contextLine}\n\n지금까지 작성된 대본의 마지막 부분:\n"""\n${state.fullScript.slice(-1200)}\n"""${topicsNote}\n\n위에 자연스럽게 이어서, 아직 다루지 않은 새로운 소제목(항목)으로 본론을 계속 써줘. 새 소제목을 시작할 땐 굵게(**소제목**) 표시해줘. 아직 마무리하지 말고. 이 구간은 반드시 문장을 끝까지 완결해서 마무리해줘 (중간에 끊기지 않게).`;
+    } else {
+      stagePrompt = `${state.contextLine}\n\n지금까지 작성된 대본의 마지막 부분:\n"""\n${state.fullScript.slice(-1200)}\n"""${topicsNote}\n\n위에 자연스럽게 이어서, 대본을 마무리해줘. 마무리에는 반드시 아래 요소가 순서대로 다 들어가야 한다 (하나라도 빠지면 안 됨):\n1) 내용 요약 정리\n2) 왜 "지금" 문의/상담해야 하는지 구체적인 이유 (예: 시간이 지나면 조건이 바뀔 수 있다, 지금 확인 안 하면 놓치는 게 있다 등 — 단순히 "궁금하면 문의하세요"가 아니라 지금 행동해야 하는 이유를 설득력 있게)\n3) 진행자 소개(PR) 한두 문장 — ${state.host ? `진행자 호칭 "${state.host}"을 활용해서 신뢰를 주는 짧은 자기소개` : '실명 없이 전문성을 어필하는 짧은 소개'}\n4) 힘있는 클로징 문장 (절대 "오늘 영상 어떠셨나요", "도움이 되셨길 바라요" 같은 밋밋한 소감형으로 끝내지 말 것)\n문장을 반드시 끝까지 완결해줘.`;
+    }
+
+    let chunk;
+    try {
+      const maxTok = state.citeOn ? 4096 : 3500;
+      chunk = await callClaude(state.longSystem, [{ role: 'user', content: stagePrompt }], 3, null, maxTok);
+    } catch (chunkErr) {
+      state.chunkIndex--; // this attempt failed, don't count it as done — retry will redo this same stage
+      progressText.textContent = `${state.chunkIndex + 1}번째 구간에서 오류 — 지금까지 ${state.fullScript.length.toLocaleString()}자는 남아있어요. 이어서 쓰기를 누르면 여기서부터 계속돼요.`;
+      const errDiv = document.createElement('div');
+      errDiv.className = 'error-box';
+      errDiv.style.marginTop = '14px';
+      errDiv.textContent = '오류: ' + chunkErr.message;
+      resultBody.appendChild(errDiv);
+      addContinueButton(state, '이어서 쓰기', false);
+      return;
+    }
+    if (!chunk) break;
+    state.fullScript += (state.fullScript ? '\n\n' : '') + chunk.trim();
+    state.scriptDiv.textContent = state.fullScript;
+    charcount.innerHTML = `대본 <b>${state.fullScript.length.toLocaleString()}</b>자`;
+    saveDraft(state);
+
+    const headerMatches = chunk.match(/\*\*([^*]{2,40})\*\*/g) || [];
+    headerMatches.forEach(h => {
+      const clean = h.replace(/\*\*/g, '').trim();
+      if (clean && !state.coveredTopics.includes(clean)) state.coveredTopics.push(clean);
+    });
+
+    if (state.chunkIndex > 2 && state.fullScript.length >= state.TARGET_CHARS * 0.85 &&
+        /(문의|상담|신청|연락|가입).{0,15}(주세요|드립니다|바랍니다)?[.!]?\s*$/.test(chunk.trim().slice(-60))) {
+      break;
+    }
+    await new Promise(r => setTimeout(r, 300));
+  }
+
+  progressText.textContent = `완료 — 대본 ${state.fullScript.length.toLocaleString()}자`;
+  progressBar.style.width = '100%';
+
+  try {
+    const existingStamp = document.getElementById('citeStamp');
+    if (existingStamp) existingStamp.remove();
+    if (state.citeOn) {
+      const stamp = document.createElement('div');
+      stamp.id = 'citeStamp';
+      stamp.style.cssText = 'display:flex; align-items:center; gap:10px; margin-top:16px; padding-top:14px; border-top:1px solid var(--line);';
+      stamp.innerHTML = `<div class="stamp">출처<br>확인</div><span style="font-size:12px; color:var(--paper-mute);">통계·수치 문장마다 출처(첨부자료 위치 또는 실제 검색된 링크)가 표시되었어요. 심의 제출 전 원문과 다시 한번 대조해주세요.</span>`;
+      resultBody.appendChild(stamp);
+    }
+    renderComplianceCheck(state.fullScript, resultBody);
+  } catch (e) {
+    console.error('마무리 표시 중 오류(무시하고 계속):', e);
+  }
+
+  // history save is fire-and-forget and already has its own internal try/catch
+  addToHistory({ id: state.historyId, topic: state.topic, category: state.category, format: 'long', script: state.fullScript });
+  try { clearDraft(); } catch (e) {}
+
+  // these two MUST always appear, no matter what happened above
+  addContinueButton(state, '더 길게 이어쓰기', true);
+  if (!document.getElementById('bundleBtn')) {
+    addBundleButton(state);
+  }
+}
+
+function addContinueButton(state, label, isExtend) {
+  const resultBody = document.getElementById('resultBody');
+  const btn = document.createElement('button');
+  btn.id = 'continueBtn';
+  btn.className = 'copy-btn';
+  btn.style.cssText = 'margin-top:14px; width:100%; padding:11px;';
+  btn.textContent = label;
+  btn.onclick = async () => {
+    btn.disabled = true;
+    btn.textContent = '이어서 생성 중...';
+    if (isExtend) {
+      // force the loop to run further even if target was already reached
+      state.TARGET_CHARS = state.fullScript.length + 2500;
+    } else {
+      // resuming after an error — make sure we still aim for at least the original target
+      state.TARGET_CHARS = Math.max(state.TARGET_CHARS, 10500);
+    }
+    if (state.chunkIndex >= state.MAX_CHUNKS) state.MAX_CHUNKS += 4;
+    await runLongFormChunks(state);
+  };
+  resultBody.appendChild(btn);
+}
+
+function addBundleButton(state) {
+  const resultBody = document.getElementById('resultBody');
+  const btn = document.createElement('button');
+  btn.id = 'bundleBtn';
+  btn.className = 'generate';
+  btn.style.cssText = 'margin-top:10px; width:100%;';
+  btn.textContent = '부가 콘텐츠 생성 (제목·캡션·해시태그 등)';
+  btn.onclick = async () => {
+    btn.disabled = true;
+    btn.textContent = '생성 중...';
+    await generateBundle(state.fullScript, state.contextLine, state.category);
+    btn.textContent = '부가 콘텐츠 다시 생성';
+    btn.disabled = false;
+  };
+  resultBody.appendChild(btn);
+}
+
+const COMPLIANCE_PATTERNS = [
+  { label: '확정적 표현', re: /무조건|100%|반드시\s*[가-힣]{0,6}됩니다|틀림없이/g },
+  { label: '불안감·공포 조성', re: /골든\s*타임|지금\s*안\s*하면|놓치면\s*후회|큰일\s*납니다|늦으면\s*후회/g },
+  { label: '다급함 조성', re: /지금\s*당장|마지막\s*기회|오늘까지만|서두르세요/g },
+  { label: '타 설계사·타사 비방/비교', re: /타\s*설계사|다른\s*보험사보다|경쟁사/g },
+];
+
+function scanCompliance(text) {
+  const hits = [];
+  COMPLIANCE_PATTERNS.forEach(({ label, re }) => {
+    const matches = text.match(re);
+    if (matches) {
+      [...new Set(matches)].forEach(m => hits.push({ label, phrase: m }));
+    }
+  });
+  cachedBanWords.forEach(({ word }) => {
+    if (word && text.includes(word)) hits.push({ label: '사용자 지정 금지어', phrase: word });
+  });
+  return hits;
+}
+
+function renderComplianceCheck(text, container) {
+  const hits = scanCompliance(text);
+  const box = document.createElement('div');
+  box.style.cssText = 'margin-top:16px; padding-top:14px; border-top:1px solid var(--line);';
+  if (hits.length === 0) {
+    box.innerHTML = `<div style="display:flex; align-items:center; gap:8px; font-size:12.5px; color:#8fae8f;">✓ 심의 위험 표현(확정적 문구, 불안감 조성, 다급함, 타사 비방 등) 자동 검사 — 발견된 것 없음</div>`;
+  } else {
+    const list = hits.map(h => `<li><b>${escapeHtml(h.phrase)}</b> — ${escapeHtml(h.label)}</li>`).join('');
+    box.innerHTML = `<div class="error-box" style="border-color:#4a3a1a; background:#2a2214; color:#e0c37a;">
+      ⚠ 심의 위험 표현이 남아있을 수 있어요, 직접 확인해주세요:
+      <ul style="margin:8px 0 0; padding-left:20px;">${list}</ul>
+    </div>`;
+  }
+  container.appendChild(box);
+}
+
+async function generateBundle(script, contextLine, category) {
+  const bundlePanel = document.getElementById('bundlePanel');
+  const bundleBody = document.getElementById('bundleBody');
+  bundlePanel.style.display = 'block';
+  bundleBody.innerHTML = '<p class="footnote">부가 콘텐츠 생성 중...</p>';
+
+  const system = `당신은 보험 콘텐츠 채널 운영 전문가입니다. 완성된 대본을 보고, 업로드에 필요한 부가 콘텐츠를 JSON으로만 출력하세요. 다른 설명, 코드블록 표시(백틱) 없이 순수 JSON만 출력합니다.
+형식:
+{
+  "titles": ["유튜브용 제목 후보 3개"],
+  "thumbnails": ["썸네일에 들어갈 임팩트 짧은 문구 3개, 각 10자 내외"],
+  "description": "유튜브 설명란(더보기)에 들어갈 3~4문장 요약 + 관련 키워드 자연스럽게 포함",
+  "captionInstagram": "인스타 릴스용 캡션 (짧고 후킹있게, 이모지 1~2개 가능)",
+  "captionTiktok": "틱톡용 캡션 (해시태그 제외 본문만)",
+  "hashtags": ["해시태그 8~10개, # 포함"],
+  "subtitleKeywords": ["영상 자막에서 강조(색상/굵게) 표시하면 좋을 핵심 단어 6~8개"],
+  "nextEpisodeIdeas": ["같은 시리즈로 이어갈 다음 편 주제 아이디어 3개"]
+}`;
+  const userPrompt = `${contextLine}\n\n[완성된 대본]\n${script}\n\n위 대본을 기반으로 부가 콘텐츠 JSON을 만들어줘.`;
+
+  try {
+    const raw = await callClaude(system, [{ role: 'user', content: userPrompt }]);
+    const cleaned = raw.replace(/```json|```/g, '').trim();
+    const data = JSON.parse(cleaned);
+    renderBundle(data);
+  } catch (err) {
+    bundleBody.innerHTML = '<div class="error-box">부가 콘텐츠 생성에 실패했어요 (대본 자체는 정상 생성됐어요): ' + err.message + '</div>';
+  }
+}
+
+function renderBundle(data) {
+  const bundleBody = document.getElementById('bundleBody');
+  const listHtml = (arr) => '<ul>' + (arr||[]).map(x => `<li>${escapeHtml(x)}</li>`).join('') + '</ul>';
+  const tagsHtml = (arr) => (arr||[]).map(x => `<span class="tag-pill">${escapeHtml(x)}</span>`).join('');
+
+  bundleBody.innerHTML = `
+    <div class="bundle-grid">
+      <div class="bcard"><h4>제목 후보</h4><div class="content">${listHtml(data.titles)}</div></div>
+      <div class="bcard"><h4>썸네일 문구</h4><div class="content">${listHtml(data.thumbnails)}</div></div>
+      <div class="bcard full"><h4>설명란 (더보기)</h4><div class="content">${escapeHtml(data.description||'')}</div></div>
+      <div class="bcard"><h4>인스타 캡션</h4><div class="content">${escapeHtml(data.captionInstagram||'')}</div></div>
+      <div class="bcard"><h4>틱톡 캡션</h4><div class="content">${escapeHtml(data.captionTiktok||'')}</div></div>
+      <div class="bcard full"><h4>해시태그</h4><div class="content">${tagsHtml(data.hashtags)}</div></div>
+      <div class="bcard"><h4>자막 강조 키워드</h4><div class="content">${tagsHtml(data.subtitleKeywords)}</div></div>
+      <div class="bcard"><h4>다음 편 아이디어</h4><div class="content">${listHtml(data.nextEpisodeIdeas)}</div></div>
+    </div>
+  `;
+}
+
+function cafeSystem(intensityLevel) {
+  return `당신은 네이버 카페에서 실제 질문에 답변하는 보험 설계사입니다.
+- 질문자의 닉네임이 주어지면 답변 첫머리에서 이름을 불러 인사한다.
+- "●" 같은 불릿 기호로 정보를 구조화해서, 이유를 하나씩 짚어가며 설명한다.
+- 답변 구조는 이렇게 간다: 1) 결론(또는 추천 방향)을 먼저 명확히 제시 2) 그 결론의 이유를 조목조목 설명 3) 판단 기준이 있다면 구체적인 조건·수치로 설명한다 (예: "몇 세부터 보장 시작", "어떤 등급/기준을 충족해야 하는지") 4) 필요하면 대안을 제시한다 5) 부드러운 마무리와 CTA.
+- "다른 분들도 비슷한 걸 많이 물어보세요" 같이 공감대를 형성하는 도입을 활용해도 좋다.
+- 정성스럽고 친근한 톤으로, 실제 사람이 정성껏 답 다는 것처럼 자연스럽게 쓴다.
+- 절대 경쟁사나 다른 설계사를 실명으로 언급하며 비교·비방하지 않는다. 본인이 추천하는 상품/방향의 장점을 사실 기반으로 구체적으로 설명하는 방식으로만 신뢰를 준다.
+- "1위", "압도적", "최고" 같이 객관적으로 증명할 수 없는 절대적 우위 주장이나, 검증되지 않은 자격·인증("우수인증설계사" 등)을 내세우지 않는다.
+- 마지막에는 자연스럽게 상담 연락(카톡/전화)으로 이어지는 CTA를 넣는다. 연락처 정보가 주어지면 마지막에 포함한다.
+- 절대 문장이 중간에 끊기지 않게, 답변을 끝까지 완결해서 마무리한다. 분량이 길어질 것 같으면 설명을 조금 압축하더라도 CTA까지 반드시 도달한다.
+- 결과는 답변 본문만 출력하고 다른 설명은 붙이지 않는다.` + complianceSystemBlock() + salesSystemBlock(intensityLevel);
+}
+
+let cafeState = null;
+
+document.getElementById('cafeGenBtn').addEventListener('click', async () => {
+  const question = document.getElementById('cafeQuestion').value.trim();
+  const askerName = document.getElementById('cafeAskerName').value.trim();
+  const category = document.getElementById('cafeCategory').value;
+  const host = document.getElementById('cafeHost').value.trim();
+  const tone = document.getElementById('cafeTone').value;
+  const contactLink = document.getElementById('cafeContactLink').value.trim();
+  const contactPhone = document.getElementById('cafeContactPhone').value.trim();
+
+  const genBtn = document.getElementById('cafeGenBtn');
+  const resultPanel = document.getElementById('cafeResultPanel');
+  const resultBody = document.getElementById('cafeResultBody');
+
+  if (!question) { alert('질문 원문을 입력해주세요.'); return; }
+
+  genBtn.disabled = true;
+  genBtn.textContent = '생성 중...';
+  resultPanel.style.display = 'block';
+  resultBody.innerHTML = '<div class="script-body">생성 중...</div>';
+
+  const contactBlock = (contactLink || contactPhone)
+    ? `\n연락처 정보: ${contactLink ? '카톡 상담 링크 ' + contactLink : ''} ${contactPhone ? '전화 ' + contactPhone : ''}`
+    : '\n연락처 정보가 없으니, 구체적 링크나 번호 없이 "편하게 문의 주세요" 정도로만 자연스럽게 마무리한다.';
+
+  const system = cafeSystem(cafeIntensity);
+  const userPrompt = `보험 분야: ${category}
+${host ? '답변자 호칭: ' + host : ''}
+톤앤매너: ${tone}
+${askerName ? '질문자 닉네임: ' + askerName : ''}${contactBlock}
+
+[카페에 올라온 실제 질문]
+${question}
+
+위 질문에 대한 답변을 작성해줘.`;
+
+  try {
+    const answer = await callClaude(system, [{ role: 'user', content: userPrompt }], 2, null, 3200);
+    resultBody.innerHTML = '';
+    const qDiv = document.createElement('div');
+    qDiv.style.cssText = 'background:var(--panel-2); border:1px solid var(--line); border-left:3px solid var(--brass-dim); border-radius:3px; padding:14px 16px; margin-bottom:16px;';
+    qDiv.innerHTML = `<div style="font-size:11px; color:var(--brass); font-weight:600; letter-spacing:0.04em; margin-bottom:6px;">질문 원문${askerName ? ' — ' + escapeHtml(askerName) : ''}</div><div style="font-size:13.5px; color:var(--paper-dim); white-space:pre-wrap; line-height:1.6;">${escapeHtml(question)}</div>`;
+    resultBody.appendChild(qDiv);
+    const div = document.createElement('div');
+    div.className = 'script-body';
+    div.textContent = answer || '답변을 받아오지 못했어요. 다시 시도해주세요.';
+    resultBody.appendChild(div);
+    renderComplianceCheck(answer || '', resultBody);
+    cafeState = { system, text: answer || '', historyId: Date.now(), topic: question.slice(0, 60), category };
+    if (answer) addToHistory({ id: cafeState.historyId, topic: cafeState.topic, category, format: 'cafe', script: answer });
+    addCafeContinueButton();
+  } catch (err) {
+    resultBody.innerHTML = '<div class="error-box">오류가 발생했어요: ' + err.message + '</div>';
+  } finally {
+    genBtn.disabled = false;
+    genBtn.textContent = '답변 생성하기';
+  }
+});
+
+function addCafeContinueButton() {
+  const resultBody = document.getElementById('cafeResultBody');
+  const old = document.getElementById('cafeContinueBtn');
+  if (old) old.remove();
+  const btn = document.createElement('button');
+  btn.id = 'cafeContinueBtn';
+  btn.className = 'copy-btn';
+  btn.style.cssText = 'margin-top:14px; width:100%; padding:11px;';
+  btn.textContent = '이어서 쓰기 (끊긴 것 같으면 눌러주세요)';
+  btn.onclick = async () => {
+    if (!cafeState) return;
+    btn.disabled = true;
+    btn.textContent = '이어서 생성 중...';
+    try {
+      const followUp = `지금까지 작성된 답변의 마지막 부분:\n"""\n${cafeState.text.slice(-800)}\n"""\n\n위에 자연스럽게 이어서 계속 써줘. 아직 상담 CTA(연락처 안내)가 없으면 마무리까지 포함해서 완결해줘. 이미 마무리가 되어 있었다면 자연스럽게 추가 설명을 덧붙이고 다시 완결해줘.`;
+      const more = await callClaude(cafeState.system, [{ role: 'user', content: followUp }], 2, null, 3200);
+      cafeState.text += '\n\n' + (more || '').trim();
+      const div = resultBody.querySelector('.script-body');
+      if (div) div.textContent = cafeState.text;
+      renderComplianceCheck(cafeState.text, resultBody);
+      addToHistory({ id: cafeState.historyId, topic: cafeState.topic, category: cafeState.category, format: 'cafe', script: cafeState.text });
+      addCafeContinueButton();
+    } catch (e) {
+      const errDiv = document.createElement('div');
+      errDiv.className = 'error-box';
+      errDiv.style.marginTop = '10px';
+      errDiv.textContent = '이어쓰기 오류: ' + e.message;
+      resultBody.appendChild(errDiv);
+      btn.disabled = false;
+      btn.textContent = '이어서 쓰기 (끊긴 것 같으면 눌러주세요)';
+    }
+  };
+  resultBody.appendChild(btn);
+}
+
+document.getElementById('cafeCopyBtn').addEventListener('click', () => {
+  const el = document.querySelector('#cafeResultBody .script-body');
+  const text = el ? el.innerText : '';
+  navigator.clipboard.writeText(text);
+  const btn = document.getElementById('cafeCopyBtn');
+  const old = btn.textContent;
+  btn.textContent = '복사됨';
+  setTimeout(() => btn.textContent = old, 1200);
+});
+
+let blogState = null;
+let lastBlogAnalysis = null;
+
+document.getElementById('blogGenBtn').addEventListener('click', async () => {
+  const keyword = document.getElementById('blogKeyword').value.trim();
+  const category = document.getElementById('blogCategory').value;
+  const host = document.getElementById('blogHost').value.trim();
+  const tone = document.getElementById('blogTone').value;
+  const contactLink = document.getElementById('blogContactLink').value.trim();
+  const contactPhone = document.getElementById('blogContactPhone').value.trim();
+  const analyzeOn = document.getElementById('blogAnalyzeToggle').checked;
+  const imageOn = document.getElementById('blogImageToggle').checked;
+
+  const genBtn = document.getElementById('blogGenBtn');
+  const resultPanel = document.getElementById('blogResultPanel');
+  const resultBody = document.getElementById('blogResultBody');
+  const charcount = document.getElementById('blogCharcount');
+  const progressWrap = document.getElementById('blogProgressWrap');
+  const progressText = document.getElementById('blogProgressText');
+  const progressBar = document.getElementById('blogProgressBar');
+  const analysisPanel = document.getElementById('blogAnalysisPanel');
+  const analysisBody = document.getElementById('blogAnalysisBody');
+
+  if (!keyword) { alert('타겟 키워드를 입력해주세요.'); return; }
+
+  genBtn.disabled = true;
+  genBtn.textContent = '생성 중...';
+  resultPanel.style.display = 'block';
+  resultBody.innerHTML = '<div class="script-body">준비 중...</div>';
+  charcount.textContent = '';
+  analysisPanel.style.display = 'none';
+
+  let patternBlock = '';
+  if (analyzeOn) {
+    if (lastBlogAnalysis && lastBlogAnalysis.keyword === keyword) {
+      patternBlock = lastBlogAnalysis.patternBlock;
+      analysisPanel.style.display = 'block';
+      analysisBody.innerHTML = lastBlogAnalysis.html;
+      progressWrap.style.display = 'block';
+      progressText.textContent = '이전 분석 결과 재사용 중... (같은 키워드라 검색은 다시 안 해요)';
+      progressBar.style.width = '50%';
+    } else {
+    progressWrap.style.display = 'block';
+    progressText.textContent = '"' + keyword + '" 네이버 블로그 상위노출 글 가져오는 중...';
+    progressBar.style.width = '30%';
+    try {
+      const naverRes = await apiGet('/api/naver-search?type=blog&display=5&query=' + encodeURIComponent(keyword));
+      const items = naverRes.items || [];
+      if (items.length) {
+        patternBlock = `\n\n[네이버 블로그 실제 상위노출 글 목록 — 이 글들이 다루는 주제/각도를 참고하되 절대 그대로 베끼지 마세요]\n${items.map((it, i) => `${i+1}. ${it.title}\n요약: ${(it.description||'').slice(0, 150)}`).join('\n\n')}`;
+        analysisPanel.style.display = 'block';
+        const html = items.map((it, i) => `<div style="margin-bottom:10px;"><a href="${it.link}" target="_blank" style="color:var(--brass);">${i+1}. ${escapeHtml(it.title)}</a><div style="color:var(--paper-mute); font-size:12.5px; margin-top:2px;">${escapeHtml(it.description)}</div></div>`).join('');
+        analysisBody.innerHTML = html;
+        lastBlogAnalysis = { keyword, patternBlock, html };
+      } else {
+        progressText.textContent = '네이버 검색 결과가 없어요 — 기본 구조로 계속 진행할게요.';
+      }
+    } catch (e) {
+      progressText.textContent = '네이버 검색 실패 — 기본 구조로 계속 진행할게요. (' + e.message + ')';
+    }
+    }
+  }
+
+  progressText.textContent = '블로그 글 작성 중...';
+  progressBar.style.width = '70%';
+
+  const contactBlock = (contactLink || contactPhone)
+    ? `\n연락처 정보: ${contactLink ? '상담 링크 ' + contactLink : ''} ${contactPhone ? '전화 ' + contactPhone : ''}`
+    : '\n연락처 정보가 없으니, 구체적 링크나 번호 없이 "편하게 문의 주세요" 정도로만 자연스럽게 마무리한다.';
+
+  const system = `당신은 보험 블로그 콘텐츠 작가입니다.
+- 타겟 키워드를 제목에 자연스럽게 포함하고, 본문 전체에 걸쳐 3~6회 정도 자연스럽게 반복해서 SEO에 도움이 되게 쓴다 (억지로 욱여넣지 않는다).
+- 후킹 있는 도입부로 시작하고, 소제목으로 구조화된 본문(기승전결)을 거쳐, 반드시 아래의 클로징으로 완결한다.
+- 실제 블로그처럼 문단을 짧게 끊어서 가독성 있게 쓴다.
+${imageOn ? `- 사진을 넣을 만한 지점에는 "[이미지: 한글설명 / 영어검색키워드]" 형태로 표시해준다. 영어검색키워드는 스톡 사진 검색에 쓸 2~3단어로, 구체적이고 일반적인 장면 위주로 쓴다 (예: [이미지: 임신부가 서류를 검토하는 모습 / pregnant woman reading documents]). 보험 상품 화면이나 특정 수치가 들어간 이미지는 스톡사진으로 찾을 수 없으니, 사람·상황·분위기를 나타내는 장면 위주로만 이미지 자리를 표시한다.` : '- 이미지 자리 표시는 하지 않는다. 텍스트만으로 글을 완성한다.'}
+- 절대 문장이 중간에 끊기지 않게, 글 전체를 끝까지 완결해서 마무리한다. 분량이 길어질 것 같으면 본문 설명을 조금 더 압축하더라도 클로징까지 반드시 도달한다.
+
+[클로징(마무리) 필수 요소 — 생략 불가, 반드시 이 순서로 포함]
+1) 본문 내용 자연스럽게 정리
+2) 아래 두 갈래를 모두 자연스럽게 언급하는 상담 유도 문단:
+   - "이미 다른 곳에서 설계안(견적서)을 받아보셨다면, 그 설계안 그대로 보내주시면 무료로 검토해드리겠다"
+   - "아직 설계를 못 받아보셨다면, 말씀만 주시면 직접 맞춤 설계안을 만들어서 보내드리겠다"
+3) 연락 링크/연락처를 자연스럽게 포함 (아래 제공된 정보 사용)
+4) 힘있는 클로징 문장 (절대 "도움이 되셨길 바라요" 같은 밋밋한 소감형으로 끝내지 않는다)${contactBlock}${patternBlock}
+- 결과는 제목과 본문만 출력하고 다른 설명은 붙이지 않는다.` + complianceSystemBlock() + salesSystemBlock('normal');
+
+  const userPrompt = `타겟 키워드: ${keyword}
+보험 분야: ${category}
+${host ? '작성자 호칭: ' + host : ''}
+톤앤매너: ${tone}
+
+위 키워드에 최적화된 블로그 글을 작성해줘. 클로징(설계안 검토/제작 안내 + 연락처)까지 반드시 완결해서 써줘.`;
+
+  try {
+    const article = await callClaude(system, [{ role: 'user', content: userPrompt }], 2, null, 4096);
+    progressText.textContent = imageOn ? '이미지 찾는 중...' : '완료';
+    progressBar.style.width = '90%';
+    resultBody.innerHTML = '';
+    const div = document.createElement('div');
+    div.className = 'script-body';
+    resultBody.appendChild(div);
+    if (article) {
+      if (imageOn) {
+        await renderArticleWithImages(article, div);
+      } else {
+        div.textContent = article;
+      }
+    } else {
+      div.textContent = '글을 받아오지 못했어요. 다시 시도해주세요.';
+    }
+    progressText.textContent = '완료';
+    progressBar.style.width = '100%';
+    charcount.innerHTML = `본문 <b>${(article||'').length.toLocaleString()}</b>자`;
+    renderComplianceCheck(article || '', resultBody);
+    blogState = { system, text: article || '', historyId: Date.now(), topic: keyword, category, imageOn };
+    if (article) addToHistory({ id: blogState.historyId, topic: keyword, category, format: 'blog', script: article });
+    addBlogContinueButton();
+  } catch (err) {
+    resultBody.innerHTML = '<div class="error-box">오류가 발생했어요: ' + err.message + '</div>';
+  } finally {
+    genBtn.disabled = false;
+    genBtn.textContent = '블로그 글 생성하기';
+  }
+});
+
+// parses [이미지: 한글 / english keywords] markers, fetches a free stock photo for each, and renders inline
+async function renderArticleWithImages(article, container) {
+  const re = /\[이미지:\s*([^\/\]]+?)\s*\/\s*([^\]]+?)\]/g;
+  const parts = [];
+  let lastIndex = 0;
+  let match;
+  const matches = [];
+  while ((match = re.exec(article)) !== null) {
+    matches.push({ full: match[0], koLabel: match[1].trim(), enQuery: match[2].trim(), index: match.index });
+  }
+
+  if (matches.length === 0) {
+    container.textContent = article;
+    return;
+  }
+
+  for (const m of matches) {
+    parts.push({ type: 'text', content: article.slice(lastIndex, m.index) });
+    parts.push({ type: 'image', koLabel: m.koLabel, enQuery: m.enQuery });
+    lastIndex = m.index + m.full.length;
+  }
+  parts.push({ type: 'text', content: article.slice(lastIndex) });
+
+  container.innerHTML = '';
+  for (const part of parts) {
+    if (part.type === 'text') {
+      if (!part.content) continue;
+      const span = document.createElement('span');
+      span.style.whiteSpace = 'pre-wrap';
+      span.textContent = part.content;
+      container.appendChild(span);
+    } else {
+      const wrap = document.createElement('div');
+      wrap.style.cssText = 'margin: 14px 0;';
+      wrap.innerHTML = `<div style="color:var(--paper-mute); font-size:12px;">이미지 찾는 중: ${escapeHtml(part.koLabel)}...</div>`;
+      container.appendChild(wrap);
+      try {
+        const result = await apiGet('/api/unsplash?query=' + encodeURIComponent(part.enQuery));
+        if (result.found) {
+          wrap.innerHTML = `
+            <img src="${result.url}" alt="${escapeHtml(part.koLabel)}" style="width:100%; border-radius:6px; display:block;">
+            <div style="font-size:10.5px; color:var(--paper-mute); margin-top:4px;">
+              사진: ${escapeHtml(part.koLabel)} · <a href="${result.photographerLink}" target="_blank" style="color:var(--paper-mute);">${escapeHtml(result.photographer)}</a> on <a href="${result.unsplashLink}" target="_blank" style="color:var(--paper-mute);">Unsplash</a>
+            </div>`;
+        } else {
+          wrap.innerHTML = `<div class="error-box" style="font-size:12px;">이미지를 못 찾았어요: ${escapeHtml(part.koLabel)} (검색어: ${escapeHtml(part.enQuery)})</div>`;
+        }
+      } catch (e) {
+        wrap.innerHTML = `<div class="error-box" style="font-size:12px;">이미지 로드 실패: ${escapeHtml(part.koLabel)}</div>`;
+      }
+    }
+  }
+}
+
+function addBlogContinueButton() {
+  const resultBody = document.getElementById('blogResultBody');
+  const charcount = document.getElementById('blogCharcount');
+  const old = document.getElementById('blogContinueBtn');
+  if (old) old.remove();
+  const btn = document.createElement('button');
+  btn.id = 'blogContinueBtn';
+  btn.className = 'copy-btn';
+  btn.style.cssText = 'margin-top:14px; width:100%; padding:11px;';
+  btn.textContent = '이어서 쓰기 (끊긴 것 같으면 눌러주세요)';
+  btn.onclick = async () => {
+    if (!blogState) return;
+    btn.disabled = true;
+    btn.textContent = '이어서 생성 중...';
+    try {
+      const followUp = `지금까지 작성된 글의 마지막 부분:\n"""\n${blogState.text.slice(-900)}\n"""\n\n위에 자연스럽게 이어서 계속 써줘. 아직 클로징(설계안 검토/제작 안내 + 연락처 CTA)이 없으면 마무리까지 포함해서 완결해줘. 이미 마무리가 되어 있었다면 자연스럽게 내용을 보강하고 다시 완결해줘.`;
+      const more = await callClaude(blogState.system, [{ role: 'user', content: followUp }], 2, null, 3600);
+      blogState.text += '\n\n' + (more || '').trim();
+      const div = resultBody.querySelector('.script-body');
+      if (div) {
+        if (blogState.imageOn) await renderArticleWithImages(blogState.text, div);
+        else div.textContent = blogState.text;
+      }
+      charcount.innerHTML = `본문 <b>${blogState.text.length.toLocaleString()}</b>자`;
+      renderComplianceCheck(blogState.text, resultBody);
+      addToHistory({ id: blogState.historyId, topic: blogState.topic, category: blogState.category, format: 'blog', script: blogState.text });
+      addBlogContinueButton();
+    } catch (e) {
+      const errDiv = document.createElement('div');
+      errDiv.className = 'error-box';
+      errDiv.style.marginTop = '10px';
+      errDiv.textContent = '이어쓰기 오류: ' + e.message;
+      resultBody.appendChild(errDiv);
+      btn.disabled = false;
+      btn.textContent = '이어서 쓰기 (끊긴 것 같으면 눌러주세요)';
+    }
+  };
+  resultBody.appendChild(btn);
+}
+
+document.getElementById('blogCopyBtn').addEventListener('click', () => {
+  let text = '';
+  if (blogState && blogState.text) {
+    text = blogState.text;
+  } else {
+    const el = document.querySelector('#blogResultBody .script-body');
+    text = el ? el.innerText : '';
+  }
+  navigator.clipboard.writeText(text);
+  const btn = document.getElementById('blogCopyBtn');
+  const old = btn.textContent;
+  btn.textContent = '복사됨';
+  setTimeout(() => btn.textContent = old, 1200);
+});
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str || '';
+  return div.innerHTML;
+}
+</script>
+</body>
+</html>
