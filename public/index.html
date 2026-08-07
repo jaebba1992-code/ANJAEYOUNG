@@ -775,14 +775,18 @@
   </div>
 
   <div class="panel">
-    <div class="result-head">
+    <div class="result-head" style="cursor:pointer;" id="recoListToggle">
       <p class="panel-title" style="border:none; padding:0; margin:0;">저장된 추천 상품 목록 <span style="color:var(--paper-mute); font-weight:400; font-size:12px;" id="recoCount"></span></p>
+      <span class="copy-btn" id="recoListToggleBtn">펼치기</span>
     </div>
-    <div id="recoList" style="margin-top:10px;"></div>
+    <div id="recoListBody" style="display:none; margin-top:14px;">
+      <div id="recoList"></div>
+    </div>
   </div>
 
   <div class="panel">
     <p class="panel-title">추천 상품 답변/설명 생성 <span style="color:var(--paper-mute); font-weight:400; font-size:12px;">— 저장된 목록을 근거로 자연스러운 안내 글을 만들어요</span></p>
+    <div id="recoQuickButtons" style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px;"></div>
     <div class="row">
       <div class="field">
         <label>보험 분야 (선택)</label>
@@ -2598,6 +2602,7 @@ function renderRecoList() {
   const el = document.getElementById('recoList');
   const countEl = document.getElementById('recoCount');
   countEl.textContent = cachedReco.length ? `(${cachedReco.length}건)` : '';
+  renderRecoQuickButtons();
   el.innerHTML = cachedReco.map(item => `
     <div class="lib-item">
       <div class="lib-item-head">
@@ -2655,7 +2660,7 @@ document.getElementById('recoFormat').addEventListener('change', () => {
   document.getElementById('recoCustomerRow').style.display = document.getElementById('recoFormat').value === 'kakao' ? 'flex' : 'none';
 });
 
-document.getElementById('recoGenBtn').addEventListener('click', async () => {
+async function generateRecoOutput() {
   const category = document.getElementById('recoCategory').value.trim();
   const fmt = document.getElementById('recoFormat').value;
   const customerContext = document.getElementById('recoCustomerContext').value.trim();
@@ -2758,7 +2763,37 @@ document.getElementById('recoGenBtn').addEventListener('click', async () => {
     btn.disabled = false;
     btn.textContent = '추천 상품 안내 생성하기';
   }
+}
+document.getElementById('recoGenBtn').addEventListener('click', generateRecoOutput);
+document.getElementById('recoListToggle').addEventListener('click', () => {
+  const body = document.getElementById('recoListBody');
+  const btn = document.getElementById('recoListToggleBtn');
+  const show = body.style.display === 'none';
+  body.style.display = show ? 'block' : 'none';
+  btn.textContent = show ? '접기' : '펼치기';
 });
+
+function renderRecoQuickButtons() {
+  const wrap = document.getElementById('recoQuickButtons');
+  if (!wrap) return;
+  const categories = [...new Set(cachedReco.map(it => (it.category || '').trim()).filter(Boolean))];
+  if (!categories.length) {
+    wrap.innerHTML = '';
+    return;
+  }
+  wrap.innerHTML = categories.map(cat =>
+    `<button type="button" class="copy-btn reco-quick-btn" data-cat="${escapeHtml(cat)}">${escapeHtml(cat)} 카톡 멘트 바로 만들기</button>`
+  ).join('');
+  wrap.querySelectorAll('.reco-quick-btn').forEach(b => {
+    b.addEventListener('click', () => {
+      document.getElementById('recoCategory').value = b.dataset.cat;
+      document.getElementById('recoFormat').value = 'kakao';
+      document.getElementById('recoCustomerRow').style.display = 'flex';
+      document.getElementById('recoTab').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      generateRecoOutput();
+    });
+  });
+}
 </script>
 </body>
 </html>
