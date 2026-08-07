@@ -758,6 +758,31 @@
 
   <div id="recoTab" style="display:none;">
 
+  <div class="panel" id="recoHistoryPanel" style="display:none;">
+    <div class="result-head" style="cursor:pointer;" id="recoHistoryToggle">
+      <p class="panel-title" style="border:none; padding:0; margin:0;">이전 추천 상품 안내 목록 <span style="color:var(--paper-mute); font-weight:400; font-size:12px;" id="recoHistoryCount"></span></p>
+      <span class="copy-btn" id="recoHistoryToggleBtn">펼치기</span>
+    </div>
+    <div id="recoHistoryList" style="display:none; margin-top:14px;"></div>
+  </div>
+
+  <div class="panel">
+    <p class="panel-title">기존 보장분석 제안 <span style="color:var(--paper-mute); font-weight:400; font-size:12px;">— "지금 가입된 보험, 한번 점검해드릴게요" 카톡 대화를 바로 만들어요</span></p>
+    <p style="font-size:12.5px; color:var(--paper-dim); line-height:1.7; margin:0 0 14px;">
+      특정 추천 상품이 아니라, 고객이 갖고 있는 기존 보험을 점검받아야겠다고 느끼게 만드는 대화예요. 세대별 실손 변화, 오래된 상품의 재가입/보험료 인상 구조 같은 걸 근거로 자연스럽게 필요성을 짚어줘요. 라이브러리·8천페이지 자료에 관련 내용이 있으면 그걸 우선 활용해요.
+    </p>
+    <div class="row">
+      <div class="field">
+        <label>고객 상황 (선택) <span class="opt">예: 40대 남성, 2세대 실손 10년 이상 유지 중</span></label>
+        <textarea id="coverageCustomerContext" rows="2" placeholder="예: 40대 남성, 2세대 실손 10년 이상 유지 중, 암보험 미가입"></textarea>
+      </div>
+    </div>
+    <button class="generate" id="coverageGenBtn">보장분석 제안 카톡 멘트 만들기</button>
+    <div class="panel" id="coverageResultPanel" style="display:none; margin-top:16px;">
+      <div id="coverageResultBody"></div>
+    </div>
+  </div>
+
   <div class="panel">
     <p class="panel-title">이번 달 추천 상품 자료 <span style="color:var(--paper-mute); font-weight:400; font-size:12px;">— 보험사 소식지를 붙여넣거나 PPT/PDF로 첨부하면 AI가 항목별로 정리해서 저장해요</span></p>
     <div class="row">
@@ -981,6 +1006,7 @@ async function addToHistory(entry) {
     await renderHistory();
     await renderBlogHistory();
     await renderCafeHistory();
+    await renderRecoHistory();
   } catch (e) {
     console.error('history save failed', e);
   }
@@ -991,6 +1017,7 @@ async function deleteFromHistory(id) {
     await renderHistory();
     await renderBlogHistory();
     await renderCafeHistory();
+    await renderRecoHistory();
   } catch (e) {
     alert('삭제 실패: ' + e.message);
   }
@@ -1816,12 +1843,52 @@ function intensityGuide(level) {
 }
 
 function salesSystemBlock(level) {
-  return `\n[세일즈 화법 — 항상 반드시 지켜야 하는 핵심 규칙, 생략 불가]
-- 직접적인 지시("전화하세요") 대신, 문장 안에 자연스럽게 행동 명령을 심는다. 예: "이런 상황이면, 지금 증권부터 한번 확인해보세요" 처럼 구체적 행동을 문장 속에 스리슬쩍 넣는다.
-- 민감한 질문(자산, 병력 등)을 하기 전에는 반드시 "왜 이걸 여쭤보는지" 이유부터 설명해서 신뢰를 먼저 쌓는다.
-- 제안이나 추천 전에는 짧은 예고를 던져서 궁금증을 유발한다 (예: "이거 하나만 아시면 상황이 달라져요").
+  return `\n[세일즈 화법 — 항상 반드시 지켜야 하는 핵심 규칙, 생략 불가. 실제 세일즈 강의 자료 3편에서 뽑은 검증된 기법들이다. 아래 목록에서 최소 6~8개 이상을 대화 곳곳에 자연스럽게 녹여서 쓴다. 한 기법만 반복하지 말고 다양하게 섞는다.]
+
+[A. 라포·신뢰 형성]
+- 민감한 질문(자산, 병력 등) 전에는 반드시 "왜 이걸 여쭤보는지" 이유부터 설명한다.
+- 상품 얘기 전에 상품보다 사람(가족 구성, 상황)부터 물어봐서 "사업자"가 아닌 "사람 냄새"를 준다.
+- 지적하지 않고 인정·지지한다. 고객의 선택이나 상황을 먼저 있는 그대로 존중해준다.
+- 소개로 온 고객이면 소개해준 사람에 대한 감사를 반드시 언급한다.
+- 행동에 대한 감사("가입해주셔서")보다 존재 자체에 대한 감사("고객님이라서 감사해요")가 더 깊은 인상을 남긴다.
+
+[B. 관심·욕구를 자극하는 화법]
+- 예고편 던지기: 바로 설명하지 않고 "이거 하나만 아시면 상황이 달라져요" 처럼 궁금증부터 유발한 뒤 나중에 풀어준다.
+- 상상화법: "~라면 어떠시겠어요? 한번 상상해보세요" 로 고객이 상황을 직접 그려보게 만든다.
+- 자각시키기: 상품 자랑 전에 고객이 몰랐던 정보·사실을 먼저 던져서 "아 몰랐네" 하고 스스로 문제를 자각하게 만든다 (예: 보장 축소, 재가입 구조 등).
+- 이율배반 화법: "A는 좋지만 B는 부담스러우시잖아요" 처럼 고객이 이미 아는 두 가지를 대비시켜 간극을 만들고, 그 사이에 상품을 끼워 넣는다.
+- 저울 비교법: "이거 하실 바에야 차라리 이거 하세요" 처럼 다른 지출과 비교해 상대적 가치를 보여준다.
+- "특별한 이유 있으세요?" 화법: 고객이 계속 망설이거나 부족한 보장을 유지하고 있다면, "혹시 ~하시는 특별한 이유가 있으세요?" 라고 자연스럽게 캐물어서 없는 이유를 스스로 깨닫게 한다.
+- 죄책감·책임감 살짝 자극: 가족을 위한 준비라는 프레임으로, 지금 안 하면 가족에게 부담이 갈 수 있다는 걸 담담하게 짚어준다 (공포 조성이 아니라 사실 전달 수준으로).
+
+[C. 신뢰도와 설득력을 높이는 표현법]
+- 딱 떨어지는 숫자보다 구체적인 숫자가 더 신뢰감을 준다 (예: "10년"보다 "3.10.5" 같은 정확한 조건).
+- 숫자는 체감되게 설명한다 (예: 장기납 부담은 "10년 전 그 영화 벌써 10년 됐어요, 생각보다 금방 가요"처럼 비유로 체감시킨다).
+- 청킹: 큰 금액은 기간 단위로 쪼개서 작게 느끼게 한다 (예: 연납 보험료를 "하루 커피 한 잔 값" 수준으로).
+- 트래킹: 지금 가입했을 때 당장의 가격만이 아니라, 시간이 지났을 때 얻게 될 이득까지 함께 짚어준다.
+- 이유+결과 조합법: 특징만 나열하지 않고 "이 특약 덕분에 ~한 상황에서도 부담이 줄어요"처럼 이유 뒤에 실제로 좋아지는 결과를 붙인다.
+- "왜 하필" 5가지에 스스로 답을 준비해서 자연스럽게 대화에 녹인다: 왜 이 상품인지 / 왜 이 회사인지 / 왜 나(설계사)에게인지 / 왜 이 가격인지 / 왜 지금인지.
+- 폭탄언어 대신 풍선언어: 부정적으로 들릴 수 있는 표현을 긍정적 프레임으로 바꾼다 (예: "약정"이 아니라 "약속", "보험료 낸다"가 아니라 "미래의 나에게 보내는 준비").
+
+[D. 사회적 증거와 개인화]
+- 통계·트렌드: "요즘 ~때문에 이런 케이스가 늘고 있어요" 처럼 최근 흐름을 먼저 던지고 상품으로 연결한다.
+- 또래 사회적 증거: "OO세 남성분들이 요즘 가장 많이 준비하시는 플랜이에요" 처럼 같은 조건의 사람들이 실제로 선택하는 흐름으로 프레이밍한다.
+- "저도" 화법: 설계사 본인도 비슷한 선택을 했다는 뉘앙스를 가끔 섞어서 결정 불안을 낮춘다.
+- 콕 찍어 타겟팅: "여러분 모두"가 아니라 "고객님처럼 ~하신 분들께" 처럼 구체적으로 짚어 말할수록 더 내 얘기처럼 느껴진다.
+- "너한테만" 프레이밍: 표준 안내문 톤이 아니라, 이 고객의 구체적 상황을 보고 따로 챙겨 연락한 것 같은 개인 맞춤 어투를 쓴다.
+
+[E. 클로징과 다음 행동 유도]
+- 명령어 스리슬쩍 심기: 직접 지시("전화하세요") 대신 문장 속에 자연스럽게 행동을 심는다 (예: "이런 상황이면 지금 증권부터 한번 확인해보세요").
+- 클로징은 동사로 끝낸다: 애매한 형용사("어떠세요?") 대신 명확한 다음 행동을 짧게 알려준다.
+- 크로스는 질문형으로 부담 없이 얹는다 ("~도 같이 확인해보시겠어요?").
+- 개인화된 긴급성: "지금 가입하세요"가 아니라 이 고객의 나이·조건을 근거로 "지금이 맞는 구체적 이유"를 짚어준다.
+- 답너정 화법: 답을 정해놓고 밀어붙이지 않는다. "1점부터 10점이라면 지금 몇 점 정도세요?" 같은 질문으로 고객이 스스로 장점을 말로 꺼내게 유도한다.
+- 거절을 받아도 한 번 더 자연스럽게 이어간다: 주눅들지 않고 "아 그러시군요, 그럼 궁금한 게 하나 있는데요"로 대화의 물꼬를 다시 튼다.
+- 답변 뒤엔 "혹시 더 궁금하신 거 없으세요? 같이 고민해드리고 싶어요"처럼 옆에서 같이 고민해주는 태도로 마무리한다.
+
+[F. 기본 원칙]
 - 영업 강도: ${intensityGuide(level)}
-- 과장이나 확인되지 않은 사실은 절대 포함하지 않는다. 세일즈 화법은 신뢰를 기반으로 해야 하며, 없는 사실을 지어내 설득하지 않는다.`;
+- 과장이나 확인되지 않은 사실은 절대 포함하지 않는다. 통계·수치는 근거자료에 있는 내용만 쓰고, 없으면 일반적으로 알려진 수준에서만 언급하며 구체적 수치를 지어내지 않는다.`;
 }
 
 function baseSystem(citeOn) {
@@ -2728,6 +2795,7 @@ async function generateRecoOutput() {
           setTimeout(() => b.textContent = old, 1000);
         });
       });
+      addToHistory({ id: Date.now(), topic: (category || '전체') + ' 카톡 대화', category: category || '전체', format: 'reco', script: JSON.stringify({ fmt: 'kakao', turns }) });
     } catch (err) {
       resultBody.innerHTML = '<div class="error-box">오류가 발생했어요: ' + err.message + '</div>';
     } finally {
@@ -2757,6 +2825,7 @@ async function generateRecoOutput() {
     div.className = 'script-body';
     div.textContent = answer || '생성에 실패했어요. 다시 시도해주세요.';
     resultBody.appendChild(div);
+    if (answer) addToHistory({ id: Date.now(), topic: (category || '전체') + ' ' + (fmt === 'answer' ? '질문 답변형' : '정리형'), category: category || '전체', format: 'reco', script: JSON.stringify({ fmt, text: answer }) });
   } catch (err) {
     resultBody.innerHTML = '<div class="error-box">오류가 발생했어요: ' + err.message + '</div>';
   } finally {
@@ -2771,6 +2840,171 @@ document.getElementById('recoListToggle').addEventListener('click', () => {
   const show = body.style.display === 'none';
   body.style.display = show ? 'block' : 'none';
   btn.textContent = show ? '접기' : '펼치기';
+});
+
+async function renderRecoHistory() {
+  const all = await fetchAllHistory();
+  const list = all.filter(h => h.format === 'reco');
+
+  const panel = document.getElementById('recoHistoryPanel');
+  if (!panel) return;
+  panel.style.display = list.length ? 'block' : 'none';
+  document.getElementById('recoHistoryCount').textContent = `(${list.length}개)`;
+  const el = document.getElementById('recoHistoryList');
+  el.innerHTML = list.map(h => `
+    <div class="hist-item">
+      <div class="hist-item-head">
+        <div>
+          <div class="hist-item-title">${escapeHtml(h.topic || '(제목 없음)')}</div>
+          <div class="hist-item-meta">${new Date(h.created_at || h.id).toLocaleString('ko-KR')}</div>
+        </div>
+        <div class="hist-item-actions">
+          <button class="mini-btn" data-action="view" data-id="${h.id}">보기</button>
+          <button class="mini-btn danger" data-action="del" data-id="${h.id}">삭제</button>
+        </div>
+      </div>
+    </div>
+  `).join('');
+  el.querySelectorAll('[data-action="view"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const h = list.find(x => String(x.id) === btn.dataset.id);
+      if (!h) return;
+      let parsed;
+      try { parsed = JSON.parse(h.script); } catch (e) { parsed = { fmt: 'answer', text: h.script }; }
+      const resultPanel = document.getElementById('recoResultPanel');
+      const resultBody = document.getElementById('recoResultBody');
+      resultPanel.style.display = 'block';
+      resultBody.innerHTML = '';
+      if (parsed.fmt === 'kakao' && parsed.turns) {
+        const wrap = document.createElement('div');
+        wrap.style.cssText = 'display:flex; flex-direction:column; gap:10px;';
+        parsed.turns.forEach((turn, idx) => {
+          const isAgent = (turn.speaker || '').includes('상담사');
+          const card = document.createElement('div');
+          card.style.cssText = `border:1px solid var(--line); border-left:3px solid ${isAgent ? 'var(--brass-dim)' : 'var(--paper-mute)'}; border-radius:3px; padding:12px 14px; background:${isAgent ? 'var(--panel-2)' : 'transparent'};`;
+          card.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+              <span style="font-size:11px; color:${isAgent ? 'var(--brass)' : 'var(--paper-mute)'}; font-weight:600; letter-spacing:0.04em;">${escapeHtml(turn.speaker || '')}</span>
+              ${isAgent ? `<button class="mini-btn" data-idx="${idx}">복사</button>` : ''}
+            </div>
+            <div style="font-size:13.5px; color:var(--paper-dim); white-space:pre-wrap; line-height:1.6;">${escapeHtml(turn.text || '')}</div>
+          `;
+          wrap.appendChild(card);
+        });
+        resultBody.appendChild(wrap);
+        wrap.querySelectorAll('.mini-btn').forEach(b => {
+          b.addEventListener('click', () => {
+            const idx = Number(b.dataset.idx);
+            navigator.clipboard.writeText(parsed.turns[idx].text || '');
+            const old = b.textContent;
+            b.textContent = '복사됨';
+            setTimeout(() => b.textContent = old, 1000);
+          });
+        });
+      } else {
+        const div = document.createElement('div');
+        div.className = 'script-body';
+        div.textContent = parsed.text || '';
+        resultBody.appendChild(div);
+      }
+      window.scrollTo({ top: resultBody.getBoundingClientRect().top + window.scrollY - 20, behavior: 'smooth' });
+    });
+  });
+  el.querySelectorAll('[data-action="del"]').forEach(btn => {
+    btn.addEventListener('click', () => deleteFromHistory(Number(btn.dataset.id)));
+  });
+}
+document.getElementById('recoHistoryToggle').addEventListener('click', () => {
+  const list = document.getElementById('recoHistoryList');
+  const btn = document.getElementById('recoHistoryToggleBtn');
+  const show = list.style.display === 'none';
+  list.style.display = show ? 'block' : 'none';
+  btn.textContent = show ? '접기' : '펼치기';
+});
+renderRecoHistory();
+
+/* ===================== 기존 보장분석 제안 ===================== */
+function renderKakaoTurns(turns, containerEl) {
+  containerEl.innerHTML = '';
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'display:flex; flex-direction:column; gap:10px;';
+  turns.forEach((turn, idx) => {
+    const isAgent = (turn.speaker || '').includes('상담사');
+    const card = document.createElement('div');
+    card.style.cssText = `border:1px solid var(--line); border-left:3px solid ${isAgent ? 'var(--brass-dim)' : 'var(--paper-mute)'}; border-radius:3px; padding:12px 14px; background:${isAgent ? 'var(--panel-2)' : 'transparent'};`;
+    card.innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+        <span style="font-size:11px; color:${isAgent ? 'var(--brass)' : 'var(--paper-mute)'}; font-weight:600; letter-spacing:0.04em;">${escapeHtml(turn.speaker || '')}</span>
+        ${isAgent ? `<button class="mini-btn" data-idx="${idx}">복사</button>` : ''}
+      </div>
+      <div style="font-size:13.5px; color:var(--paper-dim); white-space:pre-wrap; line-height:1.6;">${escapeHtml(turn.text || '')}</div>
+    `;
+    wrap.appendChild(card);
+  });
+  containerEl.appendChild(wrap);
+  wrap.querySelectorAll('.mini-btn').forEach(b => {
+    b.addEventListener('click', () => {
+      const idx = Number(b.dataset.idx);
+      navigator.clipboard.writeText(turns[idx].text || '');
+      const old = b.textContent;
+      b.textContent = '복사됨';
+      setTimeout(() => b.textContent = old, 1000);
+    });
+  });
+}
+
+document.getElementById('coverageGenBtn').addEventListener('click', async () => {
+  const customerContext = document.getElementById('coverageCustomerContext').value.trim();
+  const btn = document.getElementById('coverageGenBtn');
+  const resultPanel = document.getElementById('coverageResultPanel');
+  const resultBody = document.getElementById('coverageResultBody');
+
+  btn.disabled = true;
+  btn.textContent = '생성 중...';
+  resultPanel.style.display = 'block';
+  resultBody.innerHTML = '<div class="script-body">관련 자료 찾는 중...</div>';
+
+  const query = '실손보험 세대 변경 재가입 보험료 인상 보장 축소 오래된 상품 갱신 보장분석 ' + customerContext;
+  const libMatches = searchLibrary(query, '').slice(0, 3);
+  const libBlock = libMatches.length
+    ? `\n\n[내 라이브러리에 저장된 관련 자료]\n${libMatches.map(m => `■ ${m.title}\n${(m.content||'').slice(0, 1500)}`).join('\n\n')}`
+    : '';
+  const corpusMatches = await searchCorpus(query, '');
+  const corpusBlock = corpusMatches.length
+    ? `\n\n[내 출처자료 8천페이지 안에서 찾은 관련 내용]\n${corpusMatches.map(m => `■ [${m.source_file || '자료'} p.${m.page_number || '?'}]\n${(m.content||'').slice(0, 1500)}`).join('\n\n')}`
+    : '';
+  const knowledgeBlock = libBlock + corpusBlock;
+
+  const system = `당신은 보험 설계사입니다. 고객이 갖고 있는 기존 보험을 점검(보장분석)받아야겠다고 자연스럽게 느끼도록, 카카오톡 1:1 상담 대화를 작성합니다.
+
+[목적]
+특정 신상품을 파는 게 아니라, "지금 보험 한번 점검받아보시는 게 좋겠다"는 필요성을 느끼게 하는 게 목표다. 오래된 상품일수록 요즘 기준으로 보면 재가입 주기, 보험료 인상 구조, 보장 축소(예: 실손보험 세대 변화) 등에서 불리한 경우가 많다는 걸, 근거자료가 있으면 그 내용을 활용해서 구체적으로 설명한다.
+
+[대화 스타일]
+- 상담사가 긴 설명을 한번에 다 보내지 않는다. 실제 카톡처럼 짧게 끊어서 여러 번에 나눠 보내는 흐름으로 구성한다 (보통 5~8턴).
+- "상담사" 메시지 다음엔 반드시 자연스러운 "고객예상답변"이 온다.
+- 전문용어를 쓰지 않는다. 유치원생에게 설명해도 알아들을 수 있을 정도로 쉬운 말로, 친구랑 편하게 대화하듯 쓴다.
+- 근거자료 안의 사실이면 이걸 활용해서 고객이 실제로 겪을 수 있는 구체적 상황(예시 수술비, 보험료 인상 패턴 등)을 들어 설명한다. "고객님 ~ 아시죠?" 하는 식으로 공감대를 먼저 형성한다.
+- 근거자료에 없는 구체적 보험료·금액은 지어내지 않는다.
+- 대화 마지막은 "증권 사진 한 장만 보내주시면 제가 확인해드릴게요" 처럼, 점검을 시작하기 위한 아주 가벼운 다음 행동으로 자연스럽게 마무리한다. 무리하게 밀어붙이지 않는다.
+- 절대 경쟁사·타 설계사를 비방하거나 "1위"·"최고" 같은 증명 불가능한 표현을 쓰지 않는다.
+- 결과는 오직 JSON 배열만 출력한다. 다른 설명, 마크다운, 코드블록 기호는 절대 붙이지 않는다.
+- 형식: [{"speaker": "상담사", "text": "..."}, {"speaker": "고객예상답변", "text": "..."}, ...]` + complianceSystemBlock() + salesSystemBlock(cafeIntensity);
+
+  const userPrompt = `${customerContext ? '[고객 상황]\n' + customerContext + '\n\n' : ''}${knowledgeBlock}\n\n위 내용을 바탕으로, 기존 보험 점검(보장분석)을 자연스럽게 제안하는 카톡 1:1 상담 대화를 만들어줘.`;
+
+  try {
+    const raw = await callClaude(system, [{ role: 'user', content: userPrompt }], 2, null, 3200);
+    const cleaned = raw.replace(/```json|```/g, '').trim();
+    const turns = JSON.parse(cleaned);
+    renderKakaoTurns(turns, resultBody);
+    addToHistory({ id: Date.now(), topic: '보장분석 제안 카톡 대화', category: '보장분석', format: 'reco', script: JSON.stringify({ fmt: 'kakao', turns }) });
+  } catch (err) {
+    resultBody.innerHTML = '<div class="error-box">오류가 발생했어요: ' + err.message + '</div>';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '보장분석 제안 카톡 멘트 만들기';
+  }
 });
 
 function renderRecoQuickButtons() {
