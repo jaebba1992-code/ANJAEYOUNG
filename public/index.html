@@ -497,7 +497,7 @@
       </div>
     </div>
 
-    <div class="row" id="sourceRow" style="display:none;">
+    <div class="row" id="sourceRow" style="display:flex;">
       <div class="field">
         <label>출처자료 <span class="opt">(근거로 삼을 자료 원문 — 약관, 통계, 기사, 자막 등)</span></label>
         <textarea id="source" rows="6" placeholder="여기에 근거 자료를 붙여넣거나, 아래에서 PPT/PDF 파일을 첨부하면 텍스트(이미지 속 글자 포함)가 자동으로 채워져요."></textarea>
@@ -510,9 +510,9 @@
       </div>
     </div>
 
-    <div class="checkline" id="citeRow" style="display:none;">
+    <div class="checkline" id="citeRow" style="display:flex;">
       <input type="checkbox" id="citeToggle" checked>
-      <div class="txt"><b>출처 표시 켜기</b> — 첨부자료 안에 있으면 그 위치를, 없으면 실제 웹 검색으로 찾은 출처(사이트명+링크)를 문장마다 표시해줘요. 근거를 못 찾은 수치는 대본에 넣지 않고 안전하게 우회합니다. (심의 제출용 증빙 대비용)</div>
+      <div class="txt"><b>출처자료 반영 켜기</b> — 라이브러리·8천페이지 자료·첨부자료 안의 내용을 근거로 대본을 써요. 숏폼은 말하는 대본이라 문장마다 출처 표시는 넣지 않고, 자연스럽게 정보만 녹여냅니다. 근거 없는 통계는 넣지 않아요.</div>
     </div>
 
     <button class="generate" id="genBtn">대본 생성하기</button>
@@ -759,7 +759,7 @@
 
 <script>
 /* ===================== 접속 비밀번호 게이트 ===================== */
-let appPassword = sessionStorage.getItem('ins_app_pw') || '';
+let appPassword = localStorage.getItem('ins_app_pw') || '';
 
 function authHeaders() {
   return appPassword ? { 'x-app-password': appPassword } : {};
@@ -776,7 +776,7 @@ async function tryEnter(pw) {
     const data = await res.json();
     if (res.ok && data.ok) {
       appPassword = pw;
-      sessionStorage.setItem('ins_app_pw', pw);
+      localStorage.setItem('ins_app_pw', pw);
       document.getElementById('authGate').style.display = 'none';
       document.getElementById('mainWrap').style.display = 'block';
       return true;
@@ -1465,9 +1465,11 @@ document.querySelectorAll('#formatSeg .seg-btn').forEach(btn => {
     document.querySelectorAll('#formatSeg .seg-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     format = btn.dataset.val;
-    const showSource = format === 'long';
-    document.getElementById('sourceRow').style.display = showSource ? 'flex' : 'none';
-    document.getElementById('citeRow').style.display = showSource ? 'flex' : 'none';
+    document.getElementById('sourceRow').style.display = 'flex';
+    document.getElementById('citeRow').style.display = 'flex';
+    document.getElementById('citeRow').querySelector('.txt').innerHTML = format === 'long'
+      ? '<b>출처 표시 켜기</b> — 첨부자료 안에 있으면 그 위치를, 없으면 실제 웹 검색으로 찾은 출처(사이트명+링크)를 문장마다 표시해줘요. 근거를 못 찾은 수치는 대본에 넣지 않고 안전하게 우회합니다. (심의 제출용 증빙 대비용)'
+      : '<b>출처자료 반영 켜기</b> — 라이브러리·8천페이지 자료·첨부자료 안의 내용을 근거로 대본을 써요. 숏폼은 말하는 대본이라 문장마다 출처 표시는 넣지 않고, 자연스럽게 정보만 녹여냅니다. 근거 없는 통계는 넣지 않아요.';
   });
 });
 
@@ -1768,7 +1770,7 @@ async function generateScript() {
   const tone = document.getElementById('tone').value;
   const extra = document.getElementById('extra').value.trim();
   const source = document.getElementById('source').value.trim();
-  const citeOn = document.getElementById('citeToggle').checked && format === 'long';
+  const citeOn = document.getElementById('citeToggle').checked;
 
   const genBtn = document.getElementById('genBtn');
   const resultPanel = document.getElementById('resultPanel');
@@ -1818,8 +1820,27 @@ async function generateScript() {
   try {
     if (format === 'short') {
       resultLabel.textContent = '숏폼 대본 (30~60초)';
-      const system = baseSystem(false) + `\n- 30~60초 숏폼 대본. 3초 안에 시선을 잡는 강한 훅으로 시작, 핵심 정보 1~2개, 마지막은 "왜 지금 댓글/DM/문의를 해야 하는지" 이유가 담긴 힘있는 CTA로 마무리 (단순 "궁금하면 문의하세요"가 아니라 지금 행동해야 하는 이유 포함). 분량 200~350자.`;
-      const userPrompt = `${contextLine}\n\n위 조건에 맞는 숏폼 대본을 작성해줘.`;
+      const system = baseSystem(false) + `
+- 30~60초 숏폼 대본. 분량 200~350자.
+
+[훅 — 첫 3초, 가장 중요한 부분]
+아래 후킹 패턴 중 주제·타겟에 가장 잘 맞는 걸 하나 골라서 시작 문장을 쓴다. 뻔하고 밋밋한 도입("안녕하세요 오늘은~")은 금지.
+1) 손실회피형 — "이거 모르고 가입하면 나중에 못 받는 돈이 있어요"처럼, 안 하면 손해 보는 걸 먼저 던진다.
+2) 반전형 — 사람들이 당연하다고 믿는 걸 먼저 말한 뒤 뒤집는다. "다들 실비는 무조건 넣으라는데, 사실 이 경우엔 오히려 손해예요."
+3) 충격수치형 — 구체적 수치나 비교로 시작. "100명 중 87명이 이거 모르고 가입해요."
+4) 공감·상황이입형 — 타겟이 겪을 법한 구체적 상황을 1문장으로 던져서 "내 얘기다" 싶게 만든다.
+5) 질문형 — 답을 궁금하게 만드는 직설적 질문으로 시작. 단, "궁금하시죠?" 같은 상투적 질문은 금지, 구체적인 질문이어야 한다.
+훅 다음 1~2문장 안에 바로 핵심 정보로 들어간다 (곁가지 설명 금지).
+
+[본문 — 핵심 정보 1~2개]
+근거자료가 있으면(아래 참고자료 블록) 반드시 그 안의 사실·수치를 활용해서 구체적으로 설명한다. 근거자료에 없는 통계는 지어내지 않는다. 추상적인 조언("잘 확인해보세요")이 아니라 구체적 기준·금액·조건을 말한다.
+
+[CTA — 마지막 1~2문장]
+단순히 "궁금하면 문의하세요", "댓글 남겨주세요"로 끝내지 않는다. 아래 요소를 반드시 포함한다:
+- 지금 안 하면 놓치는 것 (기한, 조건 변경, 놓치는 혜택 등 이 주제에 실제로 맞는 이유)
+- 다음 행동을 구체적으로 지정 (예: "이 영상 저장해두고 증권 있으면 몇 조에 이 내용 있는지부터 확인해보세요", "댓글에 나이랑 지역만 남겨주시면 맞는 조건 바로 확인해드릴게요" 처럼, 시청자가 뭘 남기면 뭘 받는지 구체적으로)
+- 밋밋한 소감형 클로징("도움 되셨길 바라요", "오늘 영상 어떠셨나요") 금지`;
+      const userPrompt = `${contextLine}\n\n위 조건에 맞는 숏폼 대본을 작성해줘.` + (sourceBlock ? `\n${sourceBlock}\n\n(위 참고자료 안의 사실·수치를 자연스러운 구어체 문장 속에 녹여서 쓰고, 문장마다 "(출처: ~)" 표시는 넣지 않는다.)` : '');
       const script = await callClaude(system, [{ role: 'user', content: userPrompt }]);
       resultBody.innerHTML = '';
       const div = document.createElement('div');
