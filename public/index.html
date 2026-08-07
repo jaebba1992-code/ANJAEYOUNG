@@ -810,10 +810,17 @@
     <p style="font-size:12.5px; color:var(--paper-dim); line-height:1.7; margin:0 0 14px;">
       "지금 가입된 보험, 한번 점검해드릴게요" 하고 접근하는 대화예요. 한 번에 다 만들지 않고, 첫 멘트만 먼저 만들어드려요. 그걸 실제로 보내신 다음 고객이 뭐라고 답했는지 여기 붙여넣으시면, 그 대답을 보고 다음 멘트를 이어서 만들어드려요.
     </p>
-    <div class="row" id="coverageSetupRow">
-      <div class="field">
-        <label>고객 상황 <span class="opt">기존 고객이니 알고 계신 정보를 적어주세요 — 구체적일수록 좋아요</span></label>
-        <textarea id="coverageCustomerContext" rows="2" placeholder="예: 40대 남성, 2세대 실손 10년째 유지 중, 암보험 미가입 / 또는: 30대 여성, 종신보험 15년 전 가입, 갱신형"></textarea>
+    <div id="coverageSetupRow">
+      <div class="field" style="margin-bottom:14px;">
+        <label>보유 보험 항목 <span class="opt">알고 계신 만큼만 추가해주세요 — 여러 개 가능</span></label>
+        <div id="coveragePolicyList" style="display:flex; flex-direction:column; gap:8px; margin-top:8px;"></div>
+        <button type="button" class="copy-btn" id="coveragePolicyAddBtn" style="margin-top:8px;">+ 보험 항목 추가</button>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label>추가 메모 (선택) <span class="opt">예: 40대 남성, 자녀 있음 등</span></label>
+          <textarea id="coverageCustomerContext" rows="2" placeholder="예: 40대 남성, 자녀 있음"></textarea>
+        </div>
       </div>
     </div>
     <button class="generate" id="coverageStartBtn">대화 시작하기 (첫 멘트 만들기)</button>
@@ -3092,7 +3099,7 @@ function coverageSystemBase() {
   return `당신은 보험 설계사입니다. 상대는 이미 관계가 있는 기존 고객이고, 설계사는 이 고객이 어떤 보험을 갖고 있는지 이미 알고 있는 상태에서 카카오톡으로 먼저 연락하는 상황입니다. 오래된 보험을 그대로 두면 놓치고 있는 리스크가 있을 수 있다는 걸 심플하게 인지시키고, 바로 보장분석(점검)을 제안합니다.
 
 [목적]
-"지금 보험 한번 점검받아보시는 게 좋겠다"는 필요성을 짧고 직접적으로 느끼게 하는 게 목표다. 여러 질문을 던지며 탐색하지 않는다 — [고객 상황]에 이미 알고 있는 보험 정보가 주어지니, 그 정보를 바탕으로 바로 리스크를 짚고 점검을 제안한다. 보장분석은 실손보험에 국한되지 않는다 — 종신보험(재가입/전환 조건), 암보험(보장 범위·한도), 상해·운전자보험(갱신 구조), 치아·간병보험 등 고객이 실제로 가진 보험 종류에 맞춰 짚는다.
+"지금 보험 한번 점검받아보시는 게 좋겠다"는 필요성을 짧고 직접적으로 느끼게 하는 게 목표다. 여러 질문을 던지며 탐색하지 않는다 — [고객 상황]에 이미 알고 있는 보험 정보가 주어지니, 그 정보를 바탕으로 바로 리스크를 짚고 점검을 제안한다. [고객 상황]은 "[보장 종류] 총 납입기간 n년, 경과 n년, 남은 납입기간 약 n년, 만기 n세, 월 보험료 n원" 같은 구조화된 항목으로 주어질 수 있다 — 이 구체적 숫자를 자연스러운 말로 풀어서 활용한다 (예: "가입하신 지 15년째인 보험, 이제 5년만 더 내시면 끝나는데..." 처럼). 보장분석은 실손보험에 국한되지 않는다 — 종신보험(재가입/전환 조건), 암보험(보장 범위·한도), 상해·운전자보험(갱신 구조), 치아·간병보험 등 고객이 실제로 가진 보험 종류에 맞춰 짚는다.
 오래된 상품일수록 재가입 주기, 보험료 인상 구조, 보장 축소 등에서 불리한 경우가 많다는 걸(예: 실손보험 세대 변화, 암보험 보장 한도 변화, 종신보험 갱신형 전환 조건 등 — 보험 종류에 따라 다른 포인트), 근거자료가 있으면 그 내용을 활용해서 구체적으로 설명한다.
 
 [대화 방식 — 중요]
@@ -3108,6 +3115,75 @@ function coverageSystemBase() {
 - 이름·호칭이 주어지지 않았으면 "[이름]", "OOO" 같은 자리표시자를 절대 출력하지 않는다. 이름을 밝히는 자기소개 자체를 생략하고 바로 본론으로 들어간다.
 - 결과는 오직 JSON 객체 하나만 출력한다. 다른 설명, 마크다운, 코드블록 기호는 절대 붙이지 않는다.
 - 형식: {"text": "상담사가 보낼 메시지 하나"}` + complianceSystemBlock() + salesSystemBlock(cafeIntensity);
+}
+
+const COVERAGE_POLICY_TYPES = ['사망보험', '암', '유사암', '뇌출혈/뇌졸중/뇌혈관', '급성심근/허혈성/심혈관', '수술비', '치료비', '운전자보험', '화재보험', '간병인보험', '기타'];
+let coveragePolicyRowCount = 0;
+
+function addCoveragePolicyRow(prefill) {
+  const idx = coveragePolicyRowCount++;
+  const list = document.getElementById('coveragePolicyList');
+  const row = document.createElement('div');
+  row.className = 'coverage-policy-row';
+  row.dataset.idx = idx;
+  row.style.cssText = 'border:1px solid var(--line); border-radius:4px; padding:10px 12px; display:flex; flex-wrap:wrap; gap:8px; align-items:end;';
+  row.innerHTML = `
+    <div style="min-width:150px; flex:1.2;">
+      <label style="font-size:11px; color:var(--paper-mute); display:block; margin-bottom:4px;">보장 종류</label>
+      <select class="p-type" style="width:100%;">${COVERAGE_POLICY_TYPES.map(t => `<option value="${t}">${t}</option>`).join('')}</select>
+    </div>
+    <div style="min-width:90px; flex:1;">
+      <label style="font-size:11px; color:var(--paper-mute); display:block; margin-bottom:4px;">납입기간(년)</label>
+      <input class="p-paidyears" type="number" min="0" style="width:100%;">
+    </div>
+    <div style="min-width:90px; flex:1;">
+      <label style="font-size:11px; color:var(--paper-mute); display:block; margin-bottom:4px;">경과년수</label>
+      <input class="p-elapsed" type="number" min="0" style="width:100%;">
+    </div>
+    <div style="min-width:80px; flex:1;">
+      <label style="font-size:11px; color:var(--paper-mute); display:block; margin-bottom:4px;">만기(세)</label>
+      <input class="p-maturity" type="number" min="0" style="width:100%;">
+    </div>
+    <div style="min-width:100px; flex:1;">
+      <label style="font-size:11px; color:var(--paper-mute); display:block; margin-bottom:4px;">월 보험료(원)</label>
+      <input class="p-premium" type="number" min="0" style="width:100%;">
+    </div>
+    <button type="button" class="mini-btn danger p-del">삭제</button>
+  `;
+  list.appendChild(row);
+  row.querySelector('.p-del').addEventListener('click', () => row.remove());
+}
+
+document.getElementById('coveragePolicyAddBtn').addEventListener('click', () => addCoveragePolicyRow());
+addCoveragePolicyRow(); // 기본 1개 행 표시
+
+function collectCoveragePolicies() {
+  const rows = document.querySelectorAll('#coveragePolicyList .coverage-policy-row');
+  const items = [];
+  rows.forEach(row => {
+    const type = row.querySelector('.p-type').value;
+    const paidYears = row.querySelector('.p-paidyears').value;
+    const elapsed = row.querySelector('.p-elapsed').value;
+    const maturity = row.querySelector('.p-maturity').value;
+    const premium = row.querySelector('.p-premium').value;
+    if (!paidYears && !elapsed && !maturity && !premium) return; // 빈 행은 무시
+    const remainYears = (paidYears && elapsed) ? Math.max(0, Number(paidYears) - Number(elapsed)) : null;
+    items.push({ type, paidYears, elapsed, maturity, premium, remainYears });
+  });
+  return items;
+}
+
+function coveragePoliciesToText(items) {
+  if (!items.length) return '';
+  return items.map(it => {
+    const parts = [`[${it.type}]`];
+    if (it.paidYears) parts.push(`총 납입기간 ${it.paidYears}년`);
+    if (it.elapsed) parts.push(`경과 ${it.elapsed}년`);
+    if (it.remainYears !== null) parts.push(`남은 납입기간 약 ${it.remainYears}년`);
+    if (it.maturity) parts.push(`만기 ${it.maturity}세`);
+    if (it.premium) parts.push(`월 보험료 ${Number(it.premium).toLocaleString()}원`);
+    return parts.join(', ');
+  }).join('\n');
 }
 
 async function buildCoverageKnowledgeBlock(meta) {
@@ -3138,12 +3214,16 @@ const coverageEngine = createKakaoChatEngine({
 });
 
 document.getElementById('coverageStartBtn').addEventListener('click', async () => {
-  const customerContext = document.getElementById('coverageCustomerContext').value.trim();
+  const note = document.getElementById('coverageCustomerContext').value.trim();
+  const policies = collectCoveragePolicies();
+  const policiesText = coveragePoliciesToText(policies);
+  const customerContext = [policiesText, note].filter(Boolean).join('\n\n');
+  if (!customerContext) { alert('보험 항목을 최소 1개는 입력해주세요 (또는 추가 메모라도 적어주세요).'); return; }
   const btn = document.getElementById('coverageStartBtn');
   btn.disabled = true;
   btn.textContent = '생성 중...';
   try {
-    await coverageEngine.start({ customerContext });
+    await coverageEngine.start({ customerContext, policyCount: policies.length });
     await renderCoverageHistory();
   } catch (err) {
     alert('생성 실패: ' + err.message);
@@ -3173,6 +3253,9 @@ document.getElementById('coverageNextBtn').addEventListener('click', async () =>
 
 document.getElementById('coverageResetBtn').addEventListener('click', () => {
   coverageEngine.reset();
+  document.getElementById('coveragePolicyList').innerHTML = '';
+  document.getElementById('coverageCustomerContext').value = '';
+  addCoveragePolicyRow();
 });
 
 const renderCoverageHistory = renderChatHistoryPanel({
