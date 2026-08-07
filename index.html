@@ -497,7 +497,7 @@
       </div>
     </div>
 
-    <div class="row" id="sourceRow" style="display:none;">
+    <div class="row" id="sourceRow" style="display:flex;">
       <div class="field">
         <label>출처자료 <span class="opt">(근거로 삼을 자료 원문 — 약관, 통계, 기사, 자막 등)</span></label>
         <textarea id="source" rows="6" placeholder="여기에 근거 자료를 붙여넣거나, 아래에서 PPT/PDF 파일을 첨부하면 텍스트(이미지 속 글자 포함)가 자동으로 채워져요."></textarea>
@@ -510,9 +510,9 @@
       </div>
     </div>
 
-    <div class="checkline" id="citeRow" style="display:none;">
+    <div class="checkline" id="citeRow" style="display:flex;">
       <input type="checkbox" id="citeToggle" checked>
-      <div class="txt"><b>출처 표시 켜기</b> — 첨부자료 안에 있으면 그 위치를, 없으면 실제 웹 검색으로 찾은 출처(사이트명+링크)를 문장마다 표시해줘요. 근거를 못 찾은 수치는 대본에 넣지 않고 안전하게 우회합니다. (심의 제출용 증빙 대비용)</div>
+      <div class="txt"><b>출처자료 반영 켜기</b> — 라이브러리·8천페이지 자료·첨부자료 안의 내용을 근거로 대본을 써요. 숏폼은 말하는 대본이라 문장마다 출처 표시는 넣지 않고, 자연스럽게 정보만 녹여냅니다. 근거 없는 통계는 넣지 않아요.</div>
     </div>
 
     <button class="generate" id="genBtn">대본 생성하기</button>
