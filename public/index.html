@@ -347,6 +347,7 @@
     <button type="button" class="seg-btn active" id="tabBtnScript" style="padding:11px;">대본 생성기</button>
     <button type="button" class="seg-btn" id="tabBtnCafe" style="padding:11px;">카페 답변</button>
     <button type="button" class="seg-btn" id="tabBtnBlog" style="padding:11px;">블로그 포스팅</button>
+    <button type="button" class="seg-btn" id="tabBtnReco" style="padding:11px;">추천상품</button>
   </div>
 
   <div id="scriptTab">
@@ -755,6 +756,61 @@
 
   </div>
 
+  <div id="recoTab" style="display:none;">
+
+  <div class="panel">
+    <p class="panel-title">이번 달 추천 상품 자료 <span style="color:var(--paper-mute); font-weight:400; font-size:12px;">— 보험사 소식지를 붙여넣거나 PPT/PDF로 첨부하면 AI가 항목별로 정리해서 저장해요</span></p>
+    <div class="row">
+      <div class="field">
+        <label>소식지 원문 붙여넣기 <span class="opt">(또는 아래에서 PPT/PDF 첨부 시 자동으로 채워져요)</span></label>
+        <textarea id="recoSource" rows="8" placeholder="보험사 소식지, 이번 달 추천 상품 안내 등을 그대로 붙여넣어주세요."></textarea>
+        <div style="display:flex; align-items:center; gap:10px; margin-top:8px; flex-wrap:wrap;">
+          <label for="recoFileInput" class="copy-btn" style="cursor:pointer; display:inline-block;">+ PPT / PDF 파일 첨부</label>
+          <input type="file" id="recoFileInput" accept=".pptx,.pdf" style="display:none;">
+          <span id="recoFileStatus" style="font-size:12px; color:var(--paper-mute);"></span>
+        </div>
+      </div>
+    </div>
+    <button class="generate" id="recoExtractBtn">AI로 항목 정리해서 추가</button>
+  </div>
+
+  <div class="panel">
+    <div class="result-head">
+      <p class="panel-title" style="border:none; padding:0; margin:0;">저장된 추천 상품 목록 <span style="color:var(--paper-mute); font-weight:400; font-size:12px;" id="recoCount"></span></p>
+    </div>
+    <div id="recoList" style="margin-top:10px;"></div>
+  </div>
+
+  <div class="panel">
+    <p class="panel-title">추천 상품 답변/설명 생성 <span style="color:var(--paper-mute); font-weight:400; font-size:12px;">— 저장된 목록을 근거로 자연스러운 안내 글을 만들어요</span></p>
+    <div class="row">
+      <div class="field">
+        <label>보험 분야 (선택)</label>
+        <input type="text" id="recoCategory" placeholder="예: 암보험, 실손보험 — 비워두면 전체">
+      </div>
+      <div class="field">
+        <label>어떤 형태로 만들까요</label>
+        <select id="recoFormat">
+          <option value="answer">질문 답변형 (예: "요즘 뭐가 좋아요?")</option>
+          <option value="summary">한눈에 보는 정리형</option>
+          <option value="kakao">카톡 1:1 대화형 (상담사/고객예상답변, 낱장 복사용)</option>
+        </select>
+      </div>
+    </div>
+    <div class="row" id="recoCustomerRow" style="display:none;">
+      <div class="field">
+        <label>고객 상황 (선택) <span class="opt">예: 2세대 실비 유지 중인 40대, 암보험 없음 등 — 구체적일수록 접근이 자연스러워져요</span></label>
+        <textarea id="recoCustomerContext" rows="2" placeholder="예: 40대 남성, 2세대 실손 가입 중, 암보험 미가입"></textarea>
+      </div>
+    </div>
+    <button class="generate" id="recoGenBtn">추천 상품 안내 생성하기</button>
+    <div class="panel" id="recoResultPanel" style="display:none; margin-top:16px;">
+      <div id="recoResultBody"></div>
+    </div>
+  </div>
+
+  </div>
+
 </div>
 
 <script>
@@ -806,13 +862,17 @@ let cafeIntensity = 'normal';
 document.getElementById('tabBtnScript').addEventListener('click', () => setActiveTab('script'));
 document.getElementById('tabBtnCafe').addEventListener('click', () => setActiveTab('cafe'));
 document.getElementById('tabBtnBlog').addEventListener('click', () => setActiveTab('blog'));
+document.getElementById('tabBtnReco').addEventListener('click', () => setActiveTab('reco'));
 function setActiveTab(name) {
   document.getElementById('tabBtnScript').classList.toggle('active', name === 'script');
   document.getElementById('tabBtnCafe').classList.toggle('active', name === 'cafe');
   document.getElementById('tabBtnBlog').classList.toggle('active', name === 'blog');
+  document.getElementById('tabBtnReco').classList.toggle('active', name === 'reco');
   document.getElementById('scriptTab').style.display = name === 'script' ? 'block' : 'none';
   document.getElementById('cafeTab').style.display = name === 'cafe' ? 'block' : 'none';
   document.getElementById('blogTab').style.display = name === 'blog' ? 'block' : 'none';
+  document.getElementById('recoTab').style.display = name === 'reco' ? 'block' : 'none';
+  if (name === 'reco' && !recoLoaded) refreshRecoList();
 }
 document.querySelectorAll('#cafeIntensitySeg .seg-btn').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -1494,6 +1554,7 @@ document.getElementById('copyBtn').addEventListener('click', () => {
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
 document.getElementById('fileInput').addEventListener('change', handleFileUpload);
+document.getElementById('recoFileInput').addEventListener('change', handleRecoFileUpload);
 
 document.getElementById('source').addEventListener('input', updateSourceCounter);
 function updateSourceCounter() {
@@ -1544,17 +1605,30 @@ async function handleFileUpload(e) {
   if (!file) return;
   const ext = file.name.toLowerCase().split('.').pop();
   if (ext === 'pptx') {
-    await handlePptxUpload(file);
+    await handlePptxUpload(file, 'fileStatus', 'source', updateSourceCounter);
   } else if (ext === 'pdf') {
-    await handlePdfUpload(file);
+    await handlePdfUpload(file, 'fileStatus', 'source', updateSourceCounter);
   } else {
     document.getElementById('fileStatus').textContent = 'pptx 또는 pdf 파일만 지원해요.';
   }
 }
 
-async function handlePptxUpload(file) {
-  const statusEl = document.getElementById('fileStatus');
-  const sourceEl = document.getElementById('source');
+async function handleRecoFileUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const ext = file.name.toLowerCase().split('.').pop();
+  if (ext === 'pptx') {
+    await handlePptxUpload(file, 'recoFileStatus', 'recoSource', () => {});
+  } else if (ext === 'pdf') {
+    await handlePdfUpload(file, 'recoFileStatus', 'recoSource', () => {});
+  } else {
+    document.getElementById('recoFileStatus').textContent = 'pptx 또는 pdf 파일만 지원해요.';
+  }
+}
+
+async function handlePptxUpload(file, statusId, sourceId, afterUpdate) {
+  const statusEl = document.getElementById(statusId);
+  const sourceEl = document.getElementById(sourceId);
 
   statusEl.textContent = '슬라이드 텍스트 읽는 중...';
   try {
@@ -1614,15 +1688,15 @@ async function handlePptxUpload(file) {
     const prefix = sourceEl.value.trim() ? sourceEl.value.trim() + '\n\n' : '';
     sourceEl.value = prefix + `--- ${file.name} 추출 내용 ---\n` + extracted.trim();
     statusEl.textContent = `"${file.name}" 처리 완료 (슬라이드 텍스트 + 이미지 ${toProcess.length}장 인식)`;
-    updateSourceCounter();
+    afterUpdate();
   } catch (err) {
     statusEl.textContent = 'PPT 처리 중 오류: ' + err.message;
   }
 }
 
-async function handlePdfUpload(file) {
-  const statusEl = document.getElementById('fileStatus');
-  const sourceEl = document.getElementById('source');
+async function handlePdfUpload(file, statusId, sourceId, afterUpdate) {
+  const statusEl = document.getElementById(statusId);
+  const sourceEl = document.getElementById(sourceId);
   const MAX_PAGES = 30;
 
   statusEl.textContent = 'PDF 여는 중...';
@@ -1673,7 +1747,7 @@ async function handlePdfUpload(file) {
     const prefix = sourceEl.value.trim() ? sourceEl.value.trim() + '\n\n' : '';
     sourceEl.value = prefix + `--- ${file.name} 추출 내용 (${pagesToRead}페이지) ---\n` + extracted.trim();
     statusEl.textContent = `"${file.name}" 처리 완료 (${pagesToRead}/${totalPages}페이지)`;
-    updateSourceCounter();
+    afterUpdate();
   } catch (err) {
     statusEl.textContent = 'PDF 처리 중 오류: ' + err.message;
   }
@@ -2132,6 +2206,7 @@ function cafeSystem(intensityLevel) {
 - 질문자의 닉네임이 주어지면 답변 첫머리에서 이름을 불러 인사한다.
 - "●" 같은 불릿 기호로 정보를 구조화해서, 이유를 하나씩 짚어가며 설명한다.
 - 답변 구조는 이렇게 간다: 1) 결론(또는 추천 방향)을 먼저 명확히 제시 2) 그 결론의 이유를 조목조목 설명 3) 판단 기준이 있다면 구체적인 조건·수치로 설명한다 (예: "몇 세부터 보장 시작", "어떤 등급/기준을 충족해야 하는지") 4) 필요하면 대안을 제시한다 5) 부드러운 마무리와 CTA.
+- 근거자료(라이브러리·출처자료)가 주어지면 그 안의 보험사명·상품명·추천 이유·조건을 우선 활용해서 구체적으로 답한다. 근거자료에 없는 보험료·구체적 금액은 절대 지어내지 않는다.
 - "다른 분들도 비슷한 걸 많이 물어보세요" 같이 공감대를 형성하는 도입을 활용해도 좋다.
 - 정성스럽고 친근한 톤으로, 실제 사람이 정성껏 답 다는 것처럼 자연스럽게 쓴다.
 - 절대 경쟁사나 다른 설계사를 실명으로 언급하며 비교·비방하지 않는다. 본인이 추천하는 상품/방향의 장점을 사실 기반으로 구체적으로 설명하는 방식으로만 신뢰를 준다.
@@ -2161,7 +2236,25 @@ document.getElementById('cafeGenBtn').addEventListener('click', async () => {
   genBtn.disabled = true;
   genBtn.textContent = '생성 중...';
   resultPanel.style.display = 'block';
-  resultBody.innerHTML = '<div class="script-body">생성 중...</div>';
+  resultBody.innerHTML = '<div class="script-body">관련 자료 찾는 중...</div>';
+
+  const libMatches = searchLibrary(question, category).slice(0, 3);
+  const libBlock = libMatches.length
+    ? `\n\n[내 라이브러리에 저장된 관련 자료 — 이 안에 있는 내용이면 최우선으로 이걸 근거로 쓰고, 여기 없을 때만 다른 출처를 찾으세요]\n${libMatches.map(m => `■ ${m.title}\n${(m.content||'').slice(0, 1500)}`).join('\n\n')}`
+    : '';
+  let corpusBlock = '';
+  const corpusMatches = await searchCorpus(question, category);
+  if (corpusMatches.length) {
+    corpusBlock = `\n\n[내 출처자료 8천페이지 안에서 찾은 관련 내용 — 여기 있는 보험사명·상품명·추천 이유를 우선 활용하세요]\n${corpusMatches.map(m => `■ [${m.source_file || '자료'} p.${m.page_number || '?'}]\n${(m.content||'').slice(0, 1500)}`).join('\n\n')}`;
+  }
+  let recoBlock = '';
+  try {
+    const { items: recoItems } = await apiGet('/api/recommended');
+    if (recoItems && recoItems.length) {
+      recoBlock = `\n\n[내가 저장해둔 "요즘 추천 상품" 목록 — 추천 관련 질문이면 최우선으로 이 안의 보험사명·상품명·이유를 활용하세요]\n${recoItems.slice(0, 15).map(it => `■ [${it.insurer}${it.product_name ? ' - ' + it.product_name : ''}] (${it.category || '분야 미상'})\n${it.reason}`).join('\n\n')}`;
+    }
+  } catch (e) { /* 추천상품 목록이 없어도 계속 진행 */ }
+  const knowledgeBlock = libBlock + corpusBlock + recoBlock;
 
   const contactBlock = (contactLink || contactPhone)
     ? `\n연락처 정보: ${contactLink ? '카톡 상담 링크 ' + contactLink : ''} ${contactPhone ? '전화 ' + contactPhone : ''}`
@@ -2176,7 +2269,7 @@ ${askerName ? '질문자 닉네임: ' + askerName : ''}${contactBlock}
 [카페에 올라온 실제 질문]
 ${question}
 
-위 질문에 대한 답변을 작성해줘.`;
+위 질문에 대한 답변을 작성해줘.${knowledgeBlock}${knowledgeBlock ? '\n\n(위 자료에 있는 보험사명·상품명·추천 이유·조건은 그대로 활용하되, 자료에 없는 구체적 보험료·금액은 지어내지 말고 "정확한 보험료는 상담 시 안내드릴게요" 식으로 자연스럽게 넘어가세요.)' : ''}`;
 
   try {
     const answer = await callClaude(system, [{ role: 'user', content: userPrompt }], 2, null, 3200);
@@ -2485,6 +2578,187 @@ function escapeHtml(str) {
   div.textContent = str || '';
   return div.innerHTML;
 }
+
+/* ===================== 추천상품 탭 ===================== */
+let cachedReco = [];
+let recoLoaded = false;
+
+async function refreshRecoList() {
+  try {
+    const { items } = await apiGet('/api/recommended');
+    cachedReco = items || [];
+  } catch (e) {
+    cachedReco = [];
+  }
+  recoLoaded = true;
+  renderRecoList();
+}
+
+function renderRecoList() {
+  const el = document.getElementById('recoList');
+  const countEl = document.getElementById('recoCount');
+  countEl.textContent = cachedReco.length ? `(${cachedReco.length}건)` : '';
+  el.innerHTML = cachedReco.map(item => `
+    <div class="lib-item">
+      <div class="lib-item-head">
+        <div>
+          <div class="lib-item-title">${escapeHtml(item.insurer || '보험사 미상')}${item.product_name ? ' — ' + escapeHtml(item.product_name) : ''}</div>
+          <div class="lib-item-meta">${escapeHtml(item.category || '')}${item.category ? ' · ' : ''}${(item.reason || '').length.toLocaleString()}자 · ${item.created_at ? new Date(item.created_at).toLocaleDateString() : ''}</div>
+          <div style="font-size:12.5px; color:var(--paper-dim); margin-top:6px; white-space:pre-wrap;">${escapeHtml((item.reason || '').slice(0, 300))}${(item.reason || '').length > 300 ? '...' : ''}</div>
+        </div>
+        <div class="lib-item-actions">
+          <button class="mini-btn danger" data-id="${item.id}">삭제</button>
+        </div>
+      </div>
+    </div>
+  `).join('') || '<p style="font-size:12.5px; color:var(--paper-mute);">아직 저장된 추천 상품이 없어요. 위에서 소식지를 붙여넣거나 첨부해주세요.</p>';
+  el.querySelectorAll('.mini-btn.danger').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      try { await apiDelete('/api/recommended', { id: Number(btn.dataset.id) }); await refreshRecoList(); }
+      catch (e) { alert('삭제 실패: ' + e.message); }
+    });
+  });
+}
+
+document.getElementById('recoExtractBtn').addEventListener('click', async () => {
+  const raw = document.getElementById('recoSource').value.trim();
+  const btn = document.getElementById('recoExtractBtn');
+  if (!raw) { alert('소식지 내용을 붙여넣거나 파일을 첨부해주세요.'); return; }
+
+  btn.disabled = true;
+  btn.textContent = 'AI가 항목 정리 중...';
+  try {
+    const system = `당신은 보험사 소식지·안내자료에서 "추천 상품" 정보를 구조화해서 뽑아내는 어시스턴트입니다.
+- 입력된 텍스트 안에서 보험사명, 상품명(있으면), 추천하는 이유·특징을 항목별로 뽑아낸다.
+- 구체적인 보험료·금액은 절대 만들어내지 말고, 텍스트에 실제로 있는 경우에만 reason 안에 그대로 포함한다.
+- 결과는 오직 JSON 배열만 출력한다. 다른 설명, 마크다운, 코드블록 기호는 절대 붙이지 않는다.
+- 형식: [{"insurer": "보험사명", "product_name": "상품명 (없으면 빈 문자열)", "category": "보험 분야 (예: 암보험, 실손보험, 종신보험 등 텍스트에서 추론)", "reason": "추천 이유·특징을 자연스러운 문장 몇 개로 정리"}]
+- 항목을 구분할 수 없을 만큼 텍스트가 짧거나 모호하면, 전체를 하나의 항목으로 정리해서 반환한다.`;
+    const raw2 = await callClaude(system, [{ role: 'user', content: raw }], 2, null, 3000);
+    const cleaned = raw2.replace(/```json|```/g, '').trim();
+    const items = JSON.parse(cleaned);
+    if (!Array.isArray(items) || !items.length) throw new Error('항목을 찾지 못했어요.');
+    items.forEach(it => { it.raw_text = raw.slice(0, 3000); });
+    await apiPost('/api/recommended', { items });
+    document.getElementById('recoSource').value = '';
+    document.getElementById('recoFileStatus').textContent = '';
+    await refreshRecoList();
+  } catch (e) {
+    alert('정리 실패: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'AI로 항목 정리해서 추가';
+  }
+});
+
+document.getElementById('recoFormat').addEventListener('change', () => {
+  document.getElementById('recoCustomerRow').style.display = document.getElementById('recoFormat').value === 'kakao' ? 'flex' : 'none';
+});
+
+document.getElementById('recoGenBtn').addEventListener('click', async () => {
+  const category = document.getElementById('recoCategory').value.trim();
+  const fmt = document.getElementById('recoFormat').value;
+  const customerContext = document.getElementById('recoCustomerContext').value.trim();
+  const btn = document.getElementById('recoGenBtn');
+  const resultPanel = document.getElementById('recoResultPanel');
+  const resultBody = document.getElementById('recoResultBody');
+
+  const pool = category
+    ? cachedReco.filter(it => (it.category || '').includes(category))
+    : cachedReco;
+
+  if (!pool.length) { alert('해당 조건의 저장된 추천 상품이 없어요.'); return; }
+
+  btn.disabled = true;
+  btn.textContent = '생성 중...';
+  resultPanel.style.display = 'block';
+  resultBody.innerHTML = '<div class="script-body">생성 중...</div>';
+
+  const listBlock = pool.map(it => `■ [${it.insurer}${it.product_name ? ' - ' + it.product_name : ''}] (${it.category || '분야 미상'})\n${it.reason}`).join('\n\n');
+  const COMPLIANCE_NOTE = '\n\n(중요: 아래 목록은 보험사가 설계사 교육용으로만 배포한 내부 참고자료에서 뽑은 내용입니다. 소식지 특유의 이벤트성 문구·프로모션 표현을 그대로 인용하지 말고, 일반적으로 알려진 상품 특징 수준에서 설계사 본인의 말로 자연스럽게 풀어서 설명하세요.)';
+
+  if (fmt === 'kakao') {
+    const system = `당신은 보험 설계사입니다. 아래 [현재 추천 상품 목록]과 세일즈 화법을 반영해서, 카카오톡으로 고객 한 명 한 명에게 개별적으로 보내는 1:1 상담 대화를 작성합니다.
+
+[대화 스타일]
+- 상담사가 긴 설명을 한번에 다 보내지 않는다. 실제 카톡처럼 짧게 끊어서, 여러 번에 나눠 보내는 대화 흐름으로 구성한다.
+- "상담사" 메시지 하나 다음엔 반드시 그에 대한 자연스러운 "고객예상답변"이 온다. 이걸 반복해서 대화를 이어간다. 보통 5~8턴 정도의 대화로 구성한다.
+- 전문용어를 절대 쓰지 않는다. 유치원생에게 설명해도 알아들을 수 있을 정도로 쉬운 말로, 친구랑 편하게 대화하듯 쓴다. ("보장", "면책", "재가입주기" 같은 말도 필요하면 풀어서 설명한다.)
+- 근거자료(추천 상품 목록) 안에 있는 사실이면, 이걸 활용해서 고객이 실제로 겪을 수 있는 구체적 상황(구체적 수술비 예시, 지금 가진 보험과 비교했을 때 부담이 커지는 이유 등)을 들어 설명한다. 딱딱한 설명이 아니라 "고객님 ~ 아시죠?" 하는 식으로 공감대를 먼저 형성하고 들어간다.
+- 근거자료에 없는 구체적 보험료·금액은 지어내지 않는다.
+- 대화 마지막은 무리하게 밀어붙이지 않고, 자연스럽게 다음 상담(전화/방문 등)으로 이어지는 흐름으로 마무리한다.
+- 절대 경쟁사를 실명으로 비방하거나, "1위"·"최고" 같은 객관적으로 증명 불가능한 표현을 쓰지 않는다.
+- 결과는 오직 JSON 배열만 출력한다. 다른 설명, 마크다운, 코드블록 기호는 절대 붙이지 않는다.
+- 형식: [{"speaker": "상담사", "text": "..."}, {"speaker": "고객예상답변", "text": "..."}, ...]` + complianceSystemBlock() + salesSystemBlock(cafeIntensity);
+
+    const userPrompt = `[현재 추천 상품 목록]\n${listBlock}${COMPLIANCE_NOTE}\n\n${customerContext ? '[고객 상황]\n' + customerContext + '\n\n' : ''}위 내용을 바탕으로 카톡 1:1 상담 대화를 만들어줘.`;
+
+    try {
+      const raw = await callClaude(system, [{ role: 'user', content: userPrompt }], 2, null, 3200);
+      const cleaned = raw.replace(/```json|```/g, '').trim();
+      const turns = JSON.parse(cleaned);
+      resultBody.innerHTML = '';
+      const wrap = document.createElement('div');
+      wrap.style.cssText = 'display:flex; flex-direction:column; gap:10px;';
+      turns.forEach((turn, idx) => {
+        const isAgent = (turn.speaker || '').includes('상담사');
+        const card = document.createElement('div');
+        card.style.cssText = `border:1px solid var(--line); border-left:3px solid ${isAgent ? 'var(--brass-dim)' : 'var(--paper-mute)'}; border-radius:3px; padding:12px 14px; background:${isAgent ? 'var(--panel-2)' : 'transparent'};`;
+        card.innerHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <span style="font-size:11px; color:${isAgent ? 'var(--brass)' : 'var(--paper-mute)'}; font-weight:600; letter-spacing:0.04em;">${escapeHtml(turn.speaker || '')}</span>
+            ${isAgent ? `<button class="mini-btn" data-idx="${idx}">복사</button>` : ''}
+          </div>
+          <div style="font-size:13.5px; color:var(--paper-dim); white-space:pre-wrap; line-height:1.6;">${escapeHtml(turn.text || '')}</div>
+        `;
+        wrap.appendChild(card);
+      });
+      resultBody.appendChild(wrap);
+      wrap.querySelectorAll('.mini-btn').forEach(b => {
+        b.addEventListener('click', () => {
+          const idx = Number(b.dataset.idx);
+          navigator.clipboard.writeText(turns[idx].text || '');
+          const old = b.textContent;
+          b.textContent = '복사됨';
+          setTimeout(() => b.textContent = old, 1000);
+        });
+      });
+    } catch (err) {
+      resultBody.innerHTML = '<div class="error-box">오류가 발생했어요: ' + err.message + '</div>';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '추천 상품 안내 생성하기';
+    }
+    return;
+  }
+
+  const system = fmt === 'answer'
+    ? `당신은 보험 설계사입니다. "요즘 뭐가 좋아요?" 같은 질문에 답하듯, 아래 [현재 추천 상품 목록]을 근거로 자연스럽고 친근한 답변을 작성합니다.
+- 목록에 있는 보험사명·상품명·추천 이유를 그대로 활용해서 구체적으로 설명한다.
+- 목록에 없는 보험료·금액은 절대 지어내지 않는다. 필요하면 "정확한 보험료는 상담 시 안내"로 자연스럽게 넘어간다.
+- 결론(추천 방향) 먼저 제시하고, 이유를 조목조목 설명한 뒤, 자연스러운 상담 유도 CTA로 마무리한다.
+- 결과는 답변 본문만 출력한다.`
+    : `당신은 보험 콘텐츠 작가입니다. 아래 [현재 추천 상품 목록]을 "한눈에 보는 이번 달 추천 상품 정리" 형태로 정리합니다.
+- 보험사별로 항목을 나누고, 각 항목마다 추천 이유를 간결하게 정리한다.
+- 목록에 없는 보험료·금액은 절대 지어내지 않는다.
+- 결과는 정리된 본문만 출력한다.`;
+
+  const userPrompt = `[현재 추천 상품 목록]\n${listBlock}${COMPLIANCE_NOTE}\n\n위 자료를 바탕으로 작성해줘.`;
+
+  try {
+    const answer = await callClaude(system, [{ role: 'user', content: userPrompt }], 2, null, 3200);
+    resultBody.innerHTML = '';
+    const div = document.createElement('div');
+    div.className = 'script-body';
+    div.textContent = answer || '생성에 실패했어요. 다시 시도해주세요.';
+    resultBody.appendChild(div);
+  } catch (err) {
+    resultBody.innerHTML = '<div class="error-box">오류가 발생했어요: ' + err.message + '</div>';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '추천 상품 안내 생성하기';
+  }
+});
 </script>
 </body>
 </html>
