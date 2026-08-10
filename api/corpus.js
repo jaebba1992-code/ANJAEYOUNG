@@ -28,7 +28,7 @@ module.exports = async function handler(req, res) {
       const { data, error } = await supabase
         .from('source_corpus')
         .select('id, source_file, page_number, content')
-        .textSearch('search_vector', tsQuery, { type: 'plain', config: 'simple' })
+        .textSearch('search_vector', tsQuery, { config: 'simple' })
         .limit(4);
 
       if (error) throw error;
