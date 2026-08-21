@@ -37,7 +37,7 @@ module.exports = async function handler(req, res) {
         .map(t => t.replace(/[':&|!()]/g, ''))
         .map(stripJosa)
         .filter(t => t.length >= 2);
-      terms = [...new Set(terms)].sort((a, b) => b.length - a.length).slice(0, 12);
+      terms = [...new Set(terms)].sort((a, b) => b.length - a.length).slice(0, 20);
       if (terms.length === 0) return res.status(200).json({ items: [] });
       const tsQuery = terms.join(' | ');
 

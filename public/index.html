@@ -3701,18 +3701,20 @@ async function generateSearchAnswer() {
   const searchKeywords = await expandSearchKeywords(q);
   resultBody.innerHTML = '<div class="script-body" style="color:var(--paper-mute);">관련 자료 찾는 중...</div>';
 
-  const libMatches = searchLibrary(searchKeywords, '').slice(0, 3);
+  // AI가 다듬은 키워드 + 원래 질문 원문을 같이 써서, AI가 놓친 단어가 있어도 안전하게 찾는다
+  const combinedQuery = searchKeywords + ' ' + q;
+  const libMatches = searchLibrary(combinedQuery, '').slice(0, 3);
   const libBlock = libMatches.length
     ? `\n\n[내 라이브러리에 저장된 관련 자료]\n${libMatches.map(m => `■ ${m.title}\n${(m.content||'').slice(0, 1500)}`).join('\n\n')}`
     : '';
-  const corpusMatches = await searchCorpus(searchKeywords, '');
+  const corpusMatches = await searchCorpus(combinedQuery, '');
   const corpusBlock = corpusMatches.length
     ? `\n\n[8천페이지 자료 안에서 찾은 관련 내용]\n${corpusMatches.map(m => `■ [${m.source_file || '자료'} p.${m.page_number || '?'}]\n${(m.content||'').slice(0, 1500)}`).join('\n\n')}`
     : '';
   const knowledgeBlock = libBlock + corpusBlock;
 
   if (!knowledgeBlock) {
-    resultBody.innerHTML = '<div class="error-box">관련 자료를 찾지 못했어요. (검색에 사용한 키워드: ' + escapeHtml(searchKeywords) + ') 다른 표현으로 다시 물어보시거나, 관련 자료가 8천페이지/구글시트 자동연동에 등록되어 있는지 확인해주세요.</div>';
+    resultBody.innerHTML = '<div class="error-box">관련 자료를 찾지 못했어요. (검색에 사용한 키워드: ' + escapeHtml(combinedQuery) + ') 다른 표현으로 다시 물어보시거나, 관련 자료가 8천페이지/구글시트 자동연동에 등록되어 있는지 확인해주세요.</div>';
     btn.disabled = false;
     btn.textContent = oldBtnText;
     return;
