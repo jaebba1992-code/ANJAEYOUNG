@@ -348,6 +348,7 @@
     <button type="button" class="seg-btn" id="tabBtnCafe" style="padding:11px;">카페 답변</button>
     <button type="button" class="seg-btn" id="tabBtnBlog" style="padding:11px;">블로그 포스팅</button>
     <button type="button" class="seg-btn" id="tabBtnReco" style="padding:11px;">추천상품</button>
+    <button type="button" class="seg-btn" id="tabBtnSearch" style="padding:11px;">자료 검색</button>
   </div>
 
   <div id="scriptTab">
@@ -916,6 +917,33 @@
 
   </div>
 
+  <div id="searchTab" style="display:none;">
+
+    <div style="background:linear-gradient(160deg, #0f2622, #0a1a17); border:1px solid #1d3b35; border-radius:14px; padding:40px 32px; text-align:center; margin-bottom:20px;">
+      <p style="color:#5eead4; font-size:11px; font-weight:700; letter-spacing:0.14em; text-transform:uppercase; margin:0 0 10px;">영업 자료 검색</p>
+      <h2 style="color:#f0fdfa; font-size:26px; font-weight:700; margin:0 0 8px; letter-spacing:-0.01em;">영업메뉴얼 안에서 바로 찾기</h2>
+      <p style="color:#7fb8ad; font-size:13.5px; margin:0 0 26px;">매니저 연락처, 심사결과, 보험료 비교, 실손 변천사 등 — 궁금한 걸 그대로 물어보세요.</p>
+      <div style="max-width:640px; margin:0 auto; display:flex; gap:10px; background:#0d211d; border:1px solid #235349; border-radius:12px; padding:6px 6px 6px 18px; align-items:center;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style="flex-shrink:0;"><circle cx="11" cy="11" r="7" stroke="#5eead4" stroke-width="2"/><path d="M21 21L16.65 16.65" stroke="#5eead4" stroke-width="2" stroke-linecap="round"/></svg>
+        <input type="text" id="searchQueryInput" placeholder="예: 흥국화재 매니저 번호가 뭐야?" style="flex:1; background:none; border:none; outline:none; color:#f0fdfa; font-size:14.5px; padding:12px 0;">
+        <button id="searchGoBtn" style="background:#2dd4bf; color:#04211c; border:none; border-radius:9px; padding:12px 22px; font-size:13.5px; font-weight:700; cursor:pointer; white-space:nowrap;">검색</button>
+      </div>
+    </div>
+
+    <div class="panel" id="searchHistoryPanel" style="display:none;">
+      <div class="result-head" style="cursor:pointer;" id="searchHistoryToggle">
+        <p class="panel-title" style="border:none; padding:0; margin:0;">이전 검색 목록 <span style="color:var(--paper-mute); font-weight:400; font-size:12px;" id="searchHistoryCount"></span></p>
+        <span class="copy-btn" id="searchHistoryToggleBtn">펼치기</span>
+      </div>
+      <div id="searchHistoryList" style="display:none; margin-top:14px;"></div>
+    </div>
+
+    <div id="searchResultPanel" style="display:none; background:#0d211d; border:1px solid #1d3b35; border-radius:12px; padding:24px 26px;">
+      <div id="searchResultBody"></div>
+    </div>
+
+  </div>
+
 </div>
 
 <script>
@@ -968,16 +996,20 @@ document.getElementById('tabBtnScript').addEventListener('click', () => setActiv
 document.getElementById('tabBtnCafe').addEventListener('click', () => setActiveTab('cafe'));
 document.getElementById('tabBtnBlog').addEventListener('click', () => setActiveTab('blog'));
 document.getElementById('tabBtnReco').addEventListener('click', () => setActiveTab('reco'));
+document.getElementById('tabBtnSearch').addEventListener('click', () => setActiveTab('search'));
 function setActiveTab(name) {
   document.getElementById('tabBtnScript').classList.toggle('active', name === 'script');
   document.getElementById('tabBtnCafe').classList.toggle('active', name === 'cafe');
   document.getElementById('tabBtnBlog').classList.toggle('active', name === 'blog');
   document.getElementById('tabBtnReco').classList.toggle('active', name === 'reco');
+  document.getElementById('tabBtnSearch').classList.toggle('active', name === 'search');
   document.getElementById('scriptTab').style.display = name === 'script' ? 'block' : 'none';
   document.getElementById('cafeTab').style.display = name === 'cafe' ? 'block' : 'none';
   document.getElementById('blogTab').style.display = name === 'blog' ? 'block' : 'none';
   document.getElementById('recoTab').style.display = name === 'reco' ? 'block' : 'none';
+  document.getElementById('searchTab').style.display = name === 'search' ? 'block' : 'none';
   if (name === 'reco' && !recoLoaded) refreshRecoList();
+  if (name === 'search' && !searchHistoryLoaded) renderSearchHistory();
 }
 document.querySelectorAll('#cafeIntensitySeg .seg-btn').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -1083,6 +1115,7 @@ async function addToHistory(entry) {
     await renderBlogHistory();
     await renderCafeHistory();
     await renderRecoHistory();
+    await renderSearchHistory();
   } catch (e) {
     console.error('history save failed', e);
   }
@@ -1094,6 +1127,7 @@ async function deleteFromHistory(id) {
     await renderBlogHistory();
     await renderCafeHistory();
     await renderRecoHistory();
+    await renderSearchHistory();
   } catch (e) {
     alert('삭제 실패: ' + e.message);
   }
@@ -3577,6 +3611,126 @@ function renderRecoQuickButtons() {
     });
   });
 }
+
+/* ===================== 자료 검색 탭 ===================== */
+let searchHistoryLoaded = false;
+
+async function generateSearchAnswer() {
+  const q = document.getElementById('searchQueryInput').value.trim();
+  if (!q) return;
+  const btn = document.getElementById('searchGoBtn');
+  const resultPanel = document.getElementById('searchResultPanel');
+  const resultBody = document.getElementById('searchResultBody');
+
+  btn.disabled = true;
+  const oldBtnText = btn.textContent;
+  btn.textContent = '찾는 중...';
+  resultPanel.style.display = 'block';
+  resultBody.innerHTML = '<div class="script-body" style="color:#7fb8ad;">관련 자료 찾는 중...</div>';
+
+  const libMatches = searchLibrary(q, '').slice(0, 3);
+  const libBlock = libMatches.length
+    ? `\n\n[내 라이브러리에 저장된 관련 자료]\n${libMatches.map(m => `■ ${m.title}\n${(m.content||'').slice(0, 1500)}`).join('\n\n')}`
+    : '';
+  const corpusMatches = await searchCorpus(q, '');
+  const corpusBlock = corpusMatches.length
+    ? `\n\n[8천페이지 자료 안에서 찾은 관련 내용]\n${corpusMatches.map(m => `■ [${m.source_file || '자료'} p.${m.page_number || '?'}]\n${(m.content||'').slice(0, 1500)}`).join('\n\n')}`
+    : '';
+  const knowledgeBlock = libBlock + corpusBlock;
+
+  if (!knowledgeBlock) {
+    resultBody.innerHTML = '<div class="error-box">관련 자료를 찾지 못했어요. 다른 표현으로 다시 물어보시거나, 관련 자료가 8천페이지/구글시트 자동연동에 등록되어 있는지 확인해주세요.</div>';
+    btn.disabled = false;
+    btn.textContent = oldBtnText;
+    return;
+  }
+
+  const system = `당신은 보험 설계사 본인이 사내 영업자료에서 정보를 찾아볼 때 쓰는 사내용 검색 비서입니다.
+- 고객 응대용 말투가 아니라, 동료에게 알려주듯 담백하고 직접적으로 답한다.
+- 아래 [참고자료] 안의 내용을 근거로 정확하게 답한다. 자료에 없는 내용은 지어내지 않고 "자료에서 못 찾았다"고 솔직히 말한다.
+- 자료 안에 여러 회사·조건이 있으면 비교하기 쉽게 정리해서 보여준다 (표나 목록 형태 환영).
+- 전화번호, 링크, 수치 등은 자료에 있는 그대로 정확히 옮긴다.
+- 결과는 답변 본문만 출력한다.`;
+
+  const userPrompt = `[질문]\n${q}${knowledgeBlock}\n\n위 자료를 바탕으로 답해줘.`;
+
+  try {
+    const answer = await callClaude(system, [{ role: 'user', content: userPrompt }], 2, null, 2400);
+    resultBody.innerHTML = '';
+    const div = document.createElement('div');
+    div.className = 'script-body';
+    div.style.color = '#dff5f0';
+    div.textContent = answer || '답변을 만들지 못했어요.';
+    resultBody.appendChild(div);
+    if (answer) {
+      await addToHistory({ id: Date.now(), topic: q.slice(0, 60), category: '자료검색', format: 'search', script: JSON.stringify({ fmt: 'search', text: answer }) });
+      await renderSearchHistory();
+    }
+  } catch (err) {
+    resultBody.innerHTML = '<div class="error-box">오류가 발생했어요: ' + err.message + '</div>';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = oldBtnText;
+  }
+}
+document.getElementById('searchGoBtn').addEventListener('click', generateSearchAnswer);
+document.getElementById('searchQueryInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') generateSearchAnswer();
+});
+
+async function renderSearchHistory() {
+  searchHistoryLoaded = true;
+  const all = await fetchAllHistory();
+  const list = all.filter(h => h.format === 'search');
+
+  const panel = document.getElementById('searchHistoryPanel');
+  panel.style.display = list.length ? 'block' : 'none';
+  document.getElementById('searchHistoryCount').textContent = `(${list.length}개)`;
+  const el = document.getElementById('searchHistoryList');
+  el.innerHTML = list.map(h => `
+    <div class="hist-item">
+      <div class="hist-item-head">
+        <div>
+          <div class="hist-item-title">${escapeHtml(h.topic || '(제목 없음)')}</div>
+          <div class="hist-item-meta">${new Date(h.created_at || h.id).toLocaleString('ko-KR')}</div>
+        </div>
+        <div class="hist-item-actions">
+          <button class="mini-btn" data-action="view" data-id="${h.id}">보기</button>
+          <button class="mini-btn danger" data-action="del" data-id="${h.id}">삭제</button>
+        </div>
+      </div>
+    </div>
+  `).join('');
+  el.querySelectorAll('[data-action="view"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const h = list.find(x => String(x.id) === btn.dataset.id);
+      if (!h) return;
+      let parsed;
+      try { parsed = JSON.parse(h.script); } catch (e) { parsed = { text: h.script }; }
+      document.getElementById('searchQueryInput').value = h.topic || '';
+      const resultPanel = document.getElementById('searchResultPanel');
+      const resultBody = document.getElementById('searchResultBody');
+      resultPanel.style.display = 'block';
+      resultBody.innerHTML = '';
+      const div = document.createElement('div');
+      div.className = 'script-body';
+      div.style.color = '#dff5f0';
+      div.textContent = parsed.text || '';
+      resultBody.appendChild(div);
+      resultPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
+  el.querySelectorAll('[data-action="del"]').forEach(btn => {
+    btn.addEventListener('click', () => deleteFromHistory(Number(btn.dataset.id)));
+  });
+}
+document.getElementById('searchHistoryToggle').addEventListener('click', () => {
+  const list = document.getElementById('searchHistoryList');
+  const btn = document.getElementById('searchHistoryToggleBtn');
+  const show = list.style.display === 'none';
+  list.style.display = show ? 'block' : 'none';
+  btn.textContent = show ? '접기' : '펼치기';
+});
 </script>
 </body>
 </html>
