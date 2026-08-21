@@ -50,13 +50,36 @@ module.exports = async function handler(req, res) {
         const allLabels = (sheetSrcs || []).map(s => s.label);
         if (!allLabels.length) return res.status(200).json({ items: [] });
 
-        const { data, error } = await supabase.rpc('search_corpus_ranked', {
-          query_text: tsQuery,
-          result_limit: 10,
-          filter_files: allLabels
-        });
-        if (error) throw error;
-        return res.status(200).json({ items: data || [] });
+        // 질문에 등록된 시트 이름이 직접 언급되면(예: "초건강체"), 그 시트 안에서 우선 찾는다 — 가장 정확한 소스
+        const matchedLabels = allLabels.filter(label => terms.some(t => label.includes(t)));
+
+        let items = [];
+        if (matchedLabels.length) {
+          const { data: matchedRows, error: mErr } = await supabase.rpc('search_corpus_ranked', {
+            query_text: tsQuery,
+            result_limit: 10,
+            filter_files: matchedLabels
+          });
+          if (mErr) throw mErr;
+          items = matchedRows || [];
+        }
+        // 이름이 언급된 시트에서 결과가 부족하면, 등록된 시트 전체에서 나머지를 보충한다
+        if (items.length < 6) {
+          const { data: generalRows, error: gErr } = await supabase.rpc('search_corpus_ranked', {
+            query_text: tsQuery,
+            result_limit: 10,
+            filter_files: allLabels
+          });
+          if (gErr) throw gErr;
+          const seen = new Set(items.map(r => r.id));
+          for (const row of (generalRows || [])) {
+            if (!seen.has(row.id)) {
+              seen.add(row.id);
+              items.push(row);
+            }
+          }
+        }
+        return res.status(200).json({ items: items.slice(0, 10) });
       }
 
       // 검색어 중에 등록된 구글시트 이름(label)과 겹치는 게 있으면, 그 시트 내용을 우선적으로 포함시킨다.
