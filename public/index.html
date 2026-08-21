@@ -422,6 +422,32 @@
         <p id="corpusUploadStatus" style="font-size:11.5px; color:var(--paper-mute); margin-top:8px;"></p>
         <p id="corpusCurrentCount" style="font-size:12px; color:var(--brass); margin-top:10px; font-weight:600;">확인 중...</p>
       </div>
+
+      <div style="margin-top:22px; padding-top:18px; border-top:1px solid var(--line);">
+        <p style="font-size:12.5px; color:var(--brass); font-weight:600; margin:0 0 8px;">구글시트 자동연동 (매달 바뀌는 시트를 버튼 한 번으로 최신화)</p>
+        <p style="font-size:12px; color:var(--paper-mute); line-height:1.7; margin:0 0 10px;">
+          구글시트 링크를 등록해두면, "지금 동기화" 누를 때마다 그 시트의 최신 내용을 가져와서 자동으로 자료를 갱신해요. 재업로드하실 필요 없어요.
+        </p>
+        <div class="row">
+          <div class="field">
+            <label>이름 (자료 구분용)</label>
+            <input type="text" id="sheetLabelInput" placeholder="예: 심사결과 공유">
+          </div>
+          <div class="field">
+            <label>구글시트 링크 또는 ID</label>
+            <input type="text" id="sheetIdInput" placeholder="시트 URL 전체를 붙여넣어도 돼요">
+          </div>
+        </div>
+        <div class="row">
+          <div class="field">
+            <label>탭 이름 (선택, 비우면 첫 번째 탭)</label>
+            <input type="text" id="sheetTabInput" placeholder="예: 시트1">
+          </div>
+        </div>
+        <button class="mini-btn" id="sheetAddBtn">시트 등록</button>
+        <div id="sheetSourceList" style="margin-top:14px;"></div>
+      </div>
+
     </div>
   </div>
 
@@ -1598,6 +1624,91 @@ document.getElementById('corpusUploadBtn').addEventListener('click', async () =>
 
   statusEl.textContent = `완료 — 총 ${totalRows.toLocaleString()}페이지 업로드됐어요.`;
   await refreshCorpusCount();
+});
+
+/* ===================== 구글시트 자동연동 ===================== */
+function extractSheetId(input) {
+  const trimmed = input.trim();
+  const match = trimmed.match(/\/d\/([a-zA-Z0-9-_]+)/);
+  return match ? match[1] : trimmed;
+}
+
+async function refreshSheetSources() {
+  const el = document.getElementById('sheetSourceList');
+  try {
+    const { items } = await apiGet('/api/sheet-sources');
+    if (!items || !items.length) {
+      el.innerHTML = '<p style="font-size:12px; color:var(--paper-mute);">등록된 시트가 없어요.</p>';
+      return;
+    }
+    el.innerHTML = items.map(it => `
+      <div class="lib-item">
+        <div class="lib-item-head">
+          <div>
+            <div class="lib-item-title">${escapeHtml(it.label)}</div>
+            <div class="lib-item-meta">${it.tab_name ? escapeHtml(it.tab_name) + ' · ' : ''}${it.last_synced_at ? '최근 동기화: ' + new Date(it.last_synced_at).toLocaleString('ko-KR') : '아직 동기화 안 됨'}</div>
+          </div>
+          <div class="lib-item-actions">
+            <button class="mini-btn" data-action="sync" data-id="${it.id}">지금 동기화</button>
+            <button class="mini-btn danger" data-action="del" data-id="${it.id}">삭제</button>
+          </div>
+        </div>
+      </div>
+    `).join('');
+    el.querySelectorAll('[data-action="sync"]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        btn.disabled = true;
+        const old = btn.textContent;
+        btn.textContent = '동기화 중...';
+        try {
+          const result = await apiPost('/api/sync-sheets', { id: Number(btn.dataset.id) });
+          if (result.errors && result.errors.length) {
+            alert('동기화 실패: ' + result.errors[0].error);
+          } else {
+            const r = result.results[0];
+            alert(`동기화 완료: "${r.label}" (${r.tab} 탭, ${r.chars.toLocaleString()}자, ${r.pages}페이지)`);
+          }
+        } catch (e) {
+          alert('동기화 실패: ' + e.message);
+        } finally {
+          btn.disabled = false;
+          btn.textContent = old;
+          await refreshSheetSources();
+        }
+      });
+    });
+    el.querySelectorAll('[data-action="del"]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (!confirm('이 시트 등록을 삭제할까요? (이미 동기화된 자료는 남아있어요)')) return;
+        await apiDelete('/api/sheet-sources', { id: Number(btn.dataset.id) });
+        await refreshSheetSources();
+      });
+    });
+  } catch (e) {
+    el.innerHTML = '<p style="font-size:12px; color:var(--paper-mute);">목록을 불러오지 못했어요.</p>';
+  }
+}
+refreshSheetSources();
+
+document.getElementById('sheetAddBtn').addEventListener('click', async () => {
+  const label = document.getElementById('sheetLabelInput').value.trim();
+  const rawId = document.getElementById('sheetIdInput').value.trim();
+  const tabName = document.getElementById('sheetTabInput').value.trim();
+  if (!label || !rawId) { alert('이름과 시트 링크(또는 ID)를 입력해주세요.'); return; }
+  const sheetId = extractSheetId(rawId);
+  const btn = document.getElementById('sheetAddBtn');
+  btn.disabled = true;
+  try {
+    await apiPost('/api/sheet-sources', { label, sheet_id: sheetId, tab_name: tabName || null });
+    document.getElementById('sheetLabelInput').value = '';
+    document.getElementById('sheetIdInput').value = '';
+    document.getElementById('sheetTabInput').value = '';
+    await refreshSheetSources();
+  } catch (e) {
+    alert('등록 실패: ' + e.message);
+  } finally {
+    btn.disabled = false;
+  }
 });
 
 
