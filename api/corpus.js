@@ -50,21 +50,29 @@ module.exports = async function handler(req, res) {
         const allLabels = (sheetSrcs || []).map(s => s.label);
         if (!allLabels.length) return res.status(200).json({ items: [] });
 
-        // 질문에 등록된 시트 이름이 직접 언급되면(예: "초건강체"), 그 시트 안에서 우선 찾는다 — 가장 정확한 소스
+        // 질문에 등록된 시트 이름이 직접 언급되면(예: "초건강체"), 그 시트를 순위 매기지 않고 통째로(순서대로) 가져온다.
+        // 랭킹 알고리즘이 중요한 줄을 놓치는 걸 막기 위해, 관련된 것만 골라내지 않고 그 시트의 내용을 최대한 다 넘긴다.
         const matchedLabels = allLabels.filter(label => terms.some(t => label.includes(t)));
 
         let items = [];
         if (matchedLabels.length) {
-          const { data: matchedRows, error: mErr } = await supabase.rpc('search_corpus_ranked', {
-            query_text: tsQuery,
-            result_limit: 10,
-            filter_files: matchedLabels
-          });
+          const { data: allRows, error: mErr } = await supabase
+            .from('source_corpus')
+            .select('id, source_file, page_number, content')
+            .in('source_file', matchedLabels)
+            .order('source_file', { ascending: true })
+            .order('page_number', { ascending: true });
           if (mErr) throw mErr;
-          items = matchedRows || [];
+          // 시트가 너무 커서 한도를 넘으면 앞에서부터 담되, 약 6만자까지만 담는다
+          let totalLen = 0;
+          for (const row of (allRows || [])) {
+            if (totalLen > 60000) break;
+            items.push(row);
+            totalLen += (row.content || '').length;
+          }
         }
         // 이름이 언급된 시트에서 결과가 부족하면, 등록된 시트 전체에서 나머지를 보충한다
-        if (items.length < 6) {
+        if (items.length < 4) {
           const { data: generalRows, error: gErr } = await supabase.rpc('search_corpus_ranked', {
             query_text: tsQuery,
             result_limit: 10,
@@ -79,7 +87,7 @@ module.exports = async function handler(req, res) {
             }
           }
         }
-        return res.status(200).json({ items: items.slice(0, 10) });
+        return res.status(200).json({ items });
       }
 
       // 검색어 중에 등록된 구글시트 이름(label)과 겹치는 게 있으면, 그 시트 내용을 우선적으로 포함시킨다.
