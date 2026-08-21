@@ -7,23 +7,24 @@ function rowsToText(rows) {
 }
 
 function chunkText(text, label, maxLen = 3000) {
+  const header = `[자료명: ${label}]\n`;
   const lines = text.split('\n');
   const chunks = [];
   let current = '';
   let page = 1;
   for (const line of lines) {
-    if (current.length + line.length + 1 > maxLen && current.length > 0) {
-      chunks.push({ source_file: label, page_number: page, content: current });
+    if (header.length + current.length + line.length + 1 > maxLen && current.length > 0) {
+      chunks.push({ source_file: label, page_number: page, content: header + current });
       page += 1;
       current = '';
     }
     current += (current ? '\n' : '') + line;
   }
   if (current.trim()) {
-    chunks.push({ source_file: label, page_number: page, content: current });
+    chunks.push({ source_file: label, page_number: page, content: header + current });
   }
   if (chunks.length === 0) {
-    chunks.push({ source_file: label, page_number: 1, content: '(내용 없음)' });
+    chunks.push({ source_file: label, page_number: 1, content: header + '(내용 없음)' });
   }
   return chunks;
 }

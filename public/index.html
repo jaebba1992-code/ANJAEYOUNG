@@ -449,6 +449,8 @@
         <input type="hidden" id="sheetEditingId" value="">
         <button class="mini-btn" id="sheetAddBtn">시트 등록</button>
         <button class="mini-btn" id="sheetCancelEditBtn" style="display:none;">수정 취소</button>
+        <button class="mini-btn" id="sheetSyncAllBtn" style="background:var(--brass-dim); color:var(--brass); border-color:var(--brass-dim);">전체 동기화 (등록된 시트 전부)</button>
+        <p id="sheetSyncAllStatus" style="font-size:11.5px; color:var(--paper-mute); margin-top:8px;"></p>
         <div id="sheetSourceList" style="margin-top:14px;"></div>
       </div>
 
@@ -1751,6 +1753,29 @@ function resetSheetForm() {
   document.getElementById('sheetCancelEditBtn').style.display = 'none';
 }
 document.getElementById('sheetCancelEditBtn').addEventListener('click', resetSheetForm);
+
+document.getElementById('sheetSyncAllBtn').addEventListener('click', async () => {
+  const btn = document.getElementById('sheetSyncAllBtn');
+  const statusEl = document.getElementById('sheetSyncAllStatus');
+  if (!confirm('등록된 시트를 전부 다시 동기화할까요? 개수에 따라 시간이 좀 걸릴 수 있어요.')) return;
+  btn.disabled = true;
+  statusEl.textContent = '전체 동기화 중... (몇 분 걸릴 수 있어요, 창을 닫지 말아주세요)';
+  try {
+    const result = await apiPost('/api/sync-sheets', { syncAll: true });
+    const okCount = result.results ? result.results.length : 0;
+    const errCount = result.errors ? result.errors.length : 0;
+    let msg = `완료 — 성공 ${okCount}건`;
+    if (errCount) {
+      msg += `, 실패 ${errCount}건 (${result.errors.map(e => e.label).join(', ')})`;
+    }
+    statusEl.textContent = msg;
+  } catch (e) {
+    statusEl.textContent = '전체 동기화 실패: ' + e.message;
+  } finally {
+    btn.disabled = false;
+    await refreshSheetSources();
+  }
+});
 
 document.getElementById('sheetAddBtn').addEventListener('click', async () => {
   const label = document.getElementById('sheetLabelInput').value.trim();
