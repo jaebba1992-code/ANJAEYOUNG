@@ -18,9 +18,17 @@ module.exports = async function handler(req, res) {
     }
 
     if (req.method === 'POST') {
-      const { label, sheet_id, tab_name, category } = req.body || {};
+      const { id, label, sheet_id, tab_name, category } = req.body || {};
       if (!label || !sheet_id) {
         return res.status(400).json({ error: 'label과 sheet_id는 필수입니다.' });
+      }
+      if (id) {
+        // 기존 항목 수정
+        const { error } = await supabase.from('sheet_sources')
+          .update({ label, sheet_id, tab_name: tab_name || null, category: category || null })
+          .eq('id', id);
+        if (error) throw error;
+        return res.status(200).json({ ok: true, item: { id, label, sheet_id, tab_name, category } });
       }
       const row = {
         id: Date.now(),

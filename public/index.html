@@ -442,11 +442,13 @@
         </div>
         <div class="row">
           <div class="field">
-            <label>탭 이름 (선택, 비우면 첫 번째 탭)</label>
+            <label>탭 이름 (선택, 비우면 시트 안의 모든 탭을 다 가져와요)</label>
             <input type="text" id="sheetTabInput" placeholder="예: 시트1">
           </div>
         </div>
+        <input type="hidden" id="sheetEditingId" value="">
         <button class="mini-btn" id="sheetAddBtn">시트 등록</button>
+        <button class="mini-btn" id="sheetCancelEditBtn" style="display:none;">수정 취소</button>
         <div id="sheetSourceList" style="margin-top:14px;"></div>
       </div>
 
@@ -1682,10 +1684,11 @@ async function refreshSheetSources() {
         <div class="lib-item-head">
           <div>
             <div class="lib-item-title">${escapeHtml(it.label)}</div>
-            <div class="lib-item-meta">${it.tab_name ? escapeHtml(it.tab_name) + ' · ' : ''}${it.last_synced_at ? '최근 동기화: ' + new Date(it.last_synced_at).toLocaleString('ko-KR') : '아직 동기화 안 됨'}</div>
+            <div class="lib-item-meta">${it.tab_name ? escapeHtml(it.tab_name) + ' · ' : '모든 탭 · '}${it.last_synced_at ? '최근 동기화: ' + new Date(it.last_synced_at).toLocaleString('ko-KR') : '아직 동기화 안 됨'}</div>
           </div>
           <div class="lib-item-actions">
             <button class="mini-btn" data-action="sync" data-id="${it.id}">지금 동기화</button>
+            <button class="mini-btn" data-action="edit" data-id="${it.id}">수정</button>
             <button class="mini-btn danger" data-action="del" data-id="${it.id}">삭제</button>
           </div>
         </div>
@@ -1713,6 +1716,19 @@ async function refreshSheetSources() {
         }
       });
     });
+    el.querySelectorAll('[data-action="edit"]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const it = items.find(x => String(x.id) === btn.dataset.id);
+        if (!it) return;
+        document.getElementById('sheetLabelInput').value = it.label || '';
+        document.getElementById('sheetIdInput').value = it.sheet_id || '';
+        document.getElementById('sheetTabInput').value = it.tab_name || '';
+        document.getElementById('sheetEditingId').value = it.id;
+        document.getElementById('sheetAddBtn').textContent = '수정 내용 저장';
+        document.getElementById('sheetCancelEditBtn').style.display = 'inline-block';
+        document.getElementById('sheetLabelInput').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+    });
     el.querySelectorAll('[data-action="del"]').forEach(btn => {
       btn.addEventListener('click', async () => {
         if (!confirm('이 시트 등록을 삭제할까요? (이미 동기화된 자료는 남아있어요)')) return;
@@ -1726,19 +1742,30 @@ async function refreshSheetSources() {
 }
 refreshSheetSources();
 
+function resetSheetForm() {
+  document.getElementById('sheetLabelInput').value = '';
+  document.getElementById('sheetIdInput').value = '';
+  document.getElementById('sheetTabInput').value = '';
+  document.getElementById('sheetEditingId').value = '';
+  document.getElementById('sheetAddBtn').textContent = '시트 등록';
+  document.getElementById('sheetCancelEditBtn').style.display = 'none';
+}
+document.getElementById('sheetCancelEditBtn').addEventListener('click', resetSheetForm);
+
 document.getElementById('sheetAddBtn').addEventListener('click', async () => {
   const label = document.getElementById('sheetLabelInput').value.trim();
   const rawId = document.getElementById('sheetIdInput').value.trim();
   const tabName = document.getElementById('sheetTabInput').value.trim();
+  const editingId = document.getElementById('sheetEditingId').value;
   if (!label || !rawId) { alert('이름과 시트 링크(또는 ID)를 입력해주세요.'); return; }
   const sheetId = extractSheetId(rawId);
   const btn = document.getElementById('sheetAddBtn');
   btn.disabled = true;
   try {
-    await apiPost('/api/sheet-sources', { label, sheet_id: sheetId, tab_name: tabName || null });
-    document.getElementById('sheetLabelInput').value = '';
-    document.getElementById('sheetIdInput').value = '';
-    document.getElementById('sheetTabInput').value = '';
+    const payload = { label, sheet_id: sheetId, tab_name: tabName || null };
+    if (editingId) payload.id = Number(editingId);
+    await apiPost('/api/sheet-sources', payload);
+    resetSheetForm();
     await refreshSheetSources();
   } catch (e) {
     alert('등록 실패: ' + e.message);

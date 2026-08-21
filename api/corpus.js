@@ -29,7 +29,7 @@ module.exports = async function handler(req, res) {
         .from('source_corpus')
         .select('id, source_file, page_number, content')
         .textSearch('search_vector', tsQuery, { config: 'simple' })
-        .limit(4);
+        .limit(8);
 
       if (error) throw error;
       return res.status(200).json({ items: data });

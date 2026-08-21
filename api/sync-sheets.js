@@ -7,13 +7,20 @@ function rowsToText(rows) {
 }
 
 function chunkText(text, label, maxLen = 3000) {
+  const lines = text.split('\n');
   const chunks = [];
-  let i = 0;
+  let current = '';
   let page = 1;
-  while (i < text.length) {
-    chunks.push({ source_file: label, page_number: page, content: text.slice(i, i + maxLen) });
-    i += maxLen;
-    page += 1;
+  for (const line of lines) {
+    if (current.length + line.length + 1 > maxLen && current.length > 0) {
+      chunks.push({ source_file: label, page_number: page, content: current });
+      page += 1;
+      current = '';
+    }
+    current += (current ? '\n' : '') + line;
+  }
+  if (current.trim()) {
+    chunks.push({ source_file: label, page_number: page, content: current });
   }
   if (chunks.length === 0) {
     chunks.push({ source_file: label, page_number: 1, content: '(내용 없음)' });
@@ -22,15 +29,29 @@ function chunkText(text, label, maxLen = 3000) {
 }
 
 async function syncOne(supabase, accessToken, source) {
-  let tabName = source.tab_name;
-  if (!tabName) {
-    const titles = await fetchSheetTitles(source.sheet_id, accessToken);
-    if (!titles.length) throw new Error('시트 안에 탭이 없어요.');
-    tabName = titles[0];
+  let tabNames;
+  if (source.tab_name) {
+    tabNames = [source.tab_name];
+  } else {
+    // 탭 이름을 안 정했으면, 이 시트 안의 모든 탭을 다 가져온다
+    tabNames = await fetchSheetTitles(source.sheet_id, accessToken);
+    if (!tabNames.length) throw new Error('시트 안에 탭이 없어요.');
   }
-  const rows = await fetchSheetValues(source.sheet_id, tabName, accessToken);
-  const text = rowsToText(rows);
-  const chunks = chunkText(text, source.label);
+
+  let combinedText = '';
+  for (const tabName of tabNames) {
+    try {
+      const rows = await fetchSheetValues(source.sheet_id, tabName, accessToken);
+      const text = rowsToText(rows);
+      if (text.trim()) {
+        combinedText += `\n\n=== 탭: ${tabName} ===\n${text}`;
+      }
+    } catch (e) {
+      combinedText += `\n\n=== 탭: ${tabName} (읽기 실패: ${e.message}) ===`;
+    }
+  }
+  combinedText = combinedText.trim();
+  const chunks = chunkText(combinedText, source.label);
 
   // 기존 이 시트의 내용을 지우고 새로 넣는다 (매번 최신 스냅샷으로 교체)
   const { error: delErr } = await supabase.from('source_corpus').delete().eq('source_file', source.label);
@@ -40,10 +61,10 @@ async function syncOne(supabase, accessToken, source) {
   if (insErr) throw insErr;
 
   await supabase.from('sheet_sources')
-    .update({ last_synced_at: new Date().toISOString(), last_synced_chars: text.length })
+    .update({ last_synced_at: new Date().toISOString(), last_synced_chars: combinedText.length })
     .eq('id', source.id);
 
-  return { label: source.label, tab: tabName, chars: text.length, pages: chunks.length };
+  return { label: source.label, tab: tabNames.join(', '), chars: combinedText.length, pages: chunks.length };
 }
 
 module.exports = async function handler(req, res) {
