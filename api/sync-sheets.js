@@ -1,6 +1,6 @@
 const { getSupabase } = require('./_supabaseClient');
 const { checkAppPassword } = require('./_auth');
-const { getSheetsAccessToken, fetchSheetTitles, fetchSheetValues } = require('./_googleAuth');
+const { getSheetsAccessToken, fetchSheetTitles, fetchSheetValues, sleep } = require('./_googleAuth');
 
 function rowsToText(rows) {
   return rows.map(row => row.filter(c => c !== '').join(' | ')).filter(line => line.trim()).join('\n');
@@ -50,6 +50,7 @@ async function syncOne(supabase, accessToken, source) {
     } catch (e) {
       combinedText += `\n\n=== 탭: ${tabName} (읽기 실패: ${e.message}) ===`;
     }
+    await sleep(250); // 구글 API에 너무 몰아서 요청하지 않도록 탭마다 살짝 텀을 둔다
   }
   combinedText = combinedText.trim();
   const chunks = chunkText(combinedText, source.label);
@@ -99,12 +100,22 @@ module.exports = async function handler(req, res) {
     const results = [];
     const errors = [];
     for (const source of sources) {
-      try {
-        const r = await syncOne(supabase, accessToken, source);
-        results.push(r);
-      } catch (e) {
-        errors.push({ label: source.label, error: String(e.message || e) });
+      let lastErr = null;
+      let succeeded = false;
+      for (let attempt = 0; attempt < 2 && !succeeded; attempt++) {
+        try {
+          const r = await syncOne(supabase, accessToken, source);
+          results.push(r);
+          succeeded = true;
+        } catch (e) {
+          lastErr = e;
+          await sleep(1200); // 실패했으면 조금 더 쉬었다가 한 번 더 시도
+        }
       }
+      if (!succeeded) {
+        errors.push({ label: source.label, error: String(lastErr && (lastErr.message || lastErr)) });
+      }
+      await sleep(300); // 시트와 시트 사이에도 살짝 텀을 둔다
     }
 
     return res.status(200).json({ ok: errors.length === 0, results, errors });
