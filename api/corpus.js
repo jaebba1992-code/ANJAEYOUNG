@@ -41,11 +41,10 @@ module.exports = async function handler(req, res) {
       if (terms.length === 0) return res.status(200).json({ items: [] });
       const tsQuery = terms.join(' | ');
 
-      const { data, error } = await supabase
-        .from('source_corpus')
-        .select('id, source_file, page_number, content')
-        .textSearch('search_vector', tsQuery, { config: 'simple' })
-        .limit(8);
+      const { data, error } = await supabase.rpc('search_corpus_ranked', {
+        query_text: tsQuery,
+        result_limit: 8
+      });
 
       if (error) throw error;
       return res.status(200).json({ items: data });
