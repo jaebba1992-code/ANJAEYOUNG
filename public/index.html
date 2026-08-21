@@ -83,7 +83,7 @@
     border-bottom: 1px solid var(--border);
   }
   .top-header-brand { display: flex; align-items: center; gap: 10px; }
-  .top-header-logo { width: 26px; height: 26px; border-radius: 9px; background: var(--green); flex-shrink: 0; }
+  .top-header-logo { width: 26px; height: 26px; border-radius: 9px; background: var(--green); flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
   .top-header-title { font-size: 15px; font-weight: 700; color: var(--text); font-family: 'Pretendard', sans-serif; }
   .top-header-avatar { width: 32px; height: 32px; border-radius: 50%; background: #D7E8E0; flex-shrink: 0; }
   .pill-tabs { display: flex; background: var(--surface-tint); border-radius: var(--r-pill); padding: 4px; gap: 2px; overflow-x: auto; max-width: 60vw; }
@@ -494,6 +494,13 @@
     animation: shimmer 1.4s infinite;
   }
   @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+
+  /* 공지사항 */
+  .announcement-head { display: flex; align-items: center; justify-content: space-between; }
+  .announcement-badge {
+    background: var(--green-soft); color: var(--green); font-size: 11.5px; font-weight: 700;
+    padding: 5px 12px; border-radius: var(--r-pill); letter-spacing: 0.02em;
+  }
 </style>
 </head>
 <body>
@@ -510,8 +517,10 @@
 
 <div class="top-header" id="topHeader" style="display:none;">
   <div class="top-header-brand">
-    <div class="top-header-logo"></div>
-    <div class="top-header-title">보험 콘텐츠 제작실</div>
+    <div class="top-header-logo">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 2L4 5v6c0 5.2 3.4 9.9 8 11 4.6-1.1 8-5.8 8-11V5l-8-3z" fill="#fff"/><path d="M9.5 12.5l1.8 1.8L15 10.5" stroke="var(--green)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+    <div class="top-header-title">안재영지사 영업지원센터</div>
   </div>
   <div class="pill-tabs" id="pillTabs">
     <button type="button" class="pill-tab active" id="tabBtnScript">대본 생성기</button>
@@ -524,9 +533,21 @@
 </div>
 
 <div class="wrap" id="mainWrap" style="display:none;">
-  <p class="eyebrow">INSURANCE CONTENT STUDIO</p>
-  <h1>보험 콘텐츠 제작실</h1>
-  <p class="sub">주제 하나로 근거 있는 롱폼·숏폼 대본과, 업로드에 필요한 부가 콘텐츠(제목·썸네일·캡션·해시태그)까지 한 번에 준비합니다.</p>
+
+  <div class="panel" id="announcementPanel" style="margin-bottom:24px;">
+    <div class="announcement-head">
+      <span class="announcement-badge">공지사항</span>
+      <button class="mini-btn" id="announcementEditBtn">수정</button>
+    </div>
+    <div id="announcementView" class="script-body" style="white-space:pre-wrap; font-size:14px; margin-top:10px; color:var(--paper-dim);"></div>
+    <div id="announcementEditArea" style="display:none; margin-top:10px;">
+      <textarea id="announcementInput" rows="4" placeholder="지사원분들께 전달할 공지 내용을 입력하세요"></textarea>
+      <div style="display:flex; gap:8px; margin-top:10px;">
+        <button class="generate" id="announcementSaveBtn" style="width:auto; padding:10px 22px; margin-top:0;">저장</button>
+        <button class="copy-btn" id="announcementCancelBtn">취소</button>
+      </div>
+    </div>
+  </div>
 
   <div id="scriptTab" class="wrap-narrow">
 
@@ -1173,6 +1194,7 @@ async function tryEnter(pw) {
       document.getElementById('authGate').style.display = 'none';
       document.getElementById('mainWrap').style.display = 'block';
       document.getElementById('topHeader').style.display = 'flex';
+      loadAnnouncement();
       return true;
     }
     errEl.style.display = 'block';
@@ -1192,6 +1214,55 @@ document.getElementById('authPasswordInput').addEventListener('keydown', (e) => 
 });
 // auto-try with a stored password (or empty, in case no password is configured server-side)
 tryEnter(appPassword);
+
+/* ===================== 공지사항 ===================== */
+async function loadAnnouncement() {
+  const viewEl = document.getElementById('announcementView');
+  try {
+    const data = await apiGet('/api/announcement');
+    const content = (data.content || '').trim();
+    viewEl.textContent = content || '아직 등록된 공지사항이 없어요. "수정" 눌러서 지사원분들께 전할 내용을 등록해보세요.';
+  } catch (e) {
+    viewEl.textContent = '공지사항을 불러오지 못했어요.';
+  }
+}
+document.getElementById('announcementEditBtn').addEventListener('click', async () => {
+  const viewEl = document.getElementById('announcementView');
+  const editArea = document.getElementById('announcementEditArea');
+  const input = document.getElementById('announcementInput');
+  try {
+    const data = await apiGet('/api/announcement');
+    input.value = data.content || '';
+  } catch (e) {
+    input.value = '';
+  }
+  viewEl.style.display = 'none';
+  document.getElementById('announcementEditBtn').style.display = 'none';
+  editArea.style.display = 'block';
+});
+document.getElementById('announcementCancelBtn').addEventListener('click', () => {
+  document.getElementById('announcementView').style.display = 'block';
+  document.getElementById('announcementEditBtn').style.display = 'inline-block';
+  document.getElementById('announcementEditArea').style.display = 'none';
+});
+document.getElementById('announcementSaveBtn').addEventListener('click', async () => {
+  const btn = document.getElementById('announcementSaveBtn');
+  const content = document.getElementById('announcementInput').value;
+  btn.disabled = true;
+  btn.textContent = '저장 중...';
+  try {
+    await apiPost('/api/announcement', { content });
+    document.getElementById('announcementView').style.display = 'block';
+    document.getElementById('announcementEditBtn').style.display = 'inline-block';
+    document.getElementById('announcementEditArea').style.display = 'none';
+    await loadAnnouncement();
+  } catch (e) {
+    alert('저장 실패: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '저장';
+  }
+});
 
 let format = 'short';
 let intensity = 'normal';
