@@ -41,13 +41,61 @@ module.exports = async function handler(req, res) {
       if (terms.length === 0) return res.status(200).json({ items: [] });
       const tsQuery = terms.join(' | ');
 
+      const sheetsOnly = req.query.sheetsOnly === '1';
+
+      if (sheetsOnly) {
+        // "자료 검색" 탭 전용: 구글시트로 동기화된 자료 안에서만 찾는다 (8천페이지 원본 txt, 정닥터 대본 등은 제외)
+        const { data: sheetSrcs, error: sheetErr } = await supabase.from('sheet_sources').select('label');
+        if (sheetErr) throw sheetErr;
+        const allLabels = (sheetSrcs || []).map(s => s.label);
+        if (!allLabels.length) return res.status(200).json({ items: [] });
+
+        const { data, error } = await supabase.rpc('search_corpus_ranked', {
+          query_text: tsQuery,
+          result_limit: 10,
+          filter_files: allLabels
+        });
+        if (error) throw error;
+        return res.status(200).json({ items: data || [] });
+      }
+
+      // 검색어 중에 등록된 구글시트 이름(label)과 겹치는 게 있으면, 그 시트 내용을 우선적으로 포함시킨다.
+      // (예: "초건강체"로 검색했는데 8천페이지 안의 다른 방대한 문서가 순위에서 이겨버리는 걸 방지)
+      let boosted = [];
+      try {
+        const { data: sheetSrcs } = await supabase.from('sheet_sources').select('label');
+        const matchedLabels = (sheetSrcs || [])
+          .map(s => s.label)
+          .filter(label => terms.some(t => label.includes(t)));
+        if (matchedLabels.length) {
+          const { data: boostedRows } = await supabase.rpc('search_corpus_ranked', {
+            query_text: tsQuery,
+            result_limit: 6,
+            filter_files: matchedLabels
+          });
+          boosted = boostedRows || [];
+        }
+      } catch (e) {
+        // 부스팅 실패해도 일반 검색은 계속 진행
+      }
+
       const { data, error } = await supabase.rpc('search_corpus_ranked', {
         query_text: tsQuery,
         result_limit: 8
       });
 
       if (error) throw error;
-      return res.status(200).json({ items: data });
+
+      // 우선 포함시킨 것 + 일반 순위 결과를 합치고, 중복은 제거한다
+      const seen = new Set();
+      const merged = [];
+      for (const row of [...boosted, ...(data || [])]) {
+        if (!seen.has(row.id)) {
+          seen.add(row.id);
+          merged.push(row);
+        }
+      }
+      return res.status(200).json({ items: merged.slice(0, 10) });
     }
 
     if (req.method === 'POST') {
