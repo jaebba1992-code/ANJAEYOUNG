@@ -19,6 +19,7 @@ module.exports = async function handler(req, res) {
 
       const q = (req.query.q || '').trim();
       if (!q) return res.status(400).json({ error: 'q(검색어) 파라미터가 필요합니다.' });
+      const rawQ = (req.query.rawQ || q).trim(); // 사용자가 실제로 타이핑한 원문 (있으면 이걸 우선 사용)
 
       // Convert free text into a simple OR-based tsquery from the keywords.
       // 한국어 조사(로/을/를/은/는 등)가 단어 끝에 붙으면 원문과 안 맞아서 검색이 실패하니, 흔한 조사를 떼어내고 검색한다.
@@ -43,6 +44,16 @@ module.exports = async function handler(req, res) {
 
       const sheetsOnly = req.query.sheetsOnly === '1';
 
+      // 시트 이름에서 "비교자료/비교표/비교/자료"와 끝의 숫자(2608 등)를 뺀 핵심 단어를 뽑아서,
+      // 사용자가 실제로 타이핑한 원문 안에 그 핵심 단어가 있는지 직접 확인한다.
+      // (AI가 다듬은 키워드에 그 단어가 빠졌더라도, 원문에 있으면 확실하게 잡아낸다)
+      function coreLabelName(label) {
+        let core = label.split(/[\(（]/)[0]; // 괄호 앞부분만 사용
+        core = core.replace(/\d{3,}\s*$/, ''); // 끝의 숫자(2608 등) 제거
+        core = core.replace(/(비교자료|비교표|비교|자료)\s*$/, '');
+        return core.trim();
+      }
+
       if (sheetsOnly) {
         // "자료 검색" 탭 전용: 구글시트로 동기화된 자료 안에서만 찾는다 (8천페이지 원본 txt, 정닥터 대본 등은 제외)
         const { data: sheetSrcs, error: sheetErr } = await supabase.from('sheet_sources').select('label');
@@ -50,9 +61,12 @@ module.exports = async function handler(req, res) {
         const allLabels = (sheetSrcs || []).map(s => s.label);
         if (!allLabels.length) return res.status(200).json({ items: [] });
 
-        // 질문에 등록된 시트 이름이 직접 언급되면(예: "초건강체"), 그 시트를 순위 매기지 않고 통째로(순서대로) 가져온다.
+        // 질문 원문에 등록된 시트 이름이 직접 언급되면(예: "초건강체"), 그 시트를 순위 매기지 않고 통째로(순서대로) 가져온다.
         // 랭킹 알고리즘이 중요한 줄을 놓치는 걸 막기 위해, 관련된 것만 골라내지 않고 그 시트의 내용을 최대한 다 넘긴다.
-        const matchedLabels = allLabels.filter(label => terms.some(t => label.includes(t)));
+        const matchedLabels = allLabels.filter(label => {
+          const core = coreLabelName(label);
+          return core.length >= 2 && rawQ.includes(core);
+        });
 
         let items = [];
         if (matchedLabels.length) {
