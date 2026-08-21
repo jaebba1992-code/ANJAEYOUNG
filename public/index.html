@@ -11,24 +11,24 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
   :root {
-    --ink: #12141a;
-    --panel: #1a1d26;
-    --panel-2: #21252f;
-    --line: #2c303c;
-    --line-soft: #23262f;
-    --paper: #ece7d8;
-    --paper-dim: #9a978c;
-    --paper-mute: #6b6a63;
-    --brass: #b3925a;
-    --brass-dim: #4a3f2c;
-    --seal: #a8402f;
-    --seal-dim: #3a201b;
+    --ink: #fbfbf9;
+    --panel: #ffffff;
+    --panel-2: #f0fbf7;
+    --line: #e6e4dd;
+    --line-soft: #eeece4;
+    --paper: #1c2321;
+    --paper-dim: #52605a;
+    --paper-mute: #93998f;
+    --brass: #0f9d70;
+    --brass-dim: #d6f3e6;
+    --seal: #c04a3d;
+    --seal-dim: #f8e4e1;
   }
   * { box-sizing: border-box; }
   body {
     margin: 0;
     background: var(--ink);
-    background-image: radial-gradient(circle at 15% 0%, rgba(179,146,90,0.07), transparent 45%);
+    background-image: radial-gradient(circle at 12% -5%, rgba(15,157,112,0.08), transparent 42%);
     color: var(--paper);
     min-height: 100vh;
     padding: 56px 20px 80px;
@@ -74,10 +74,11 @@
   .panel {
     background: var(--panel);
     border: 1px solid var(--line);
-    border-radius: 4px;
+    border-radius: 10px;
     padding: 30px 30px 28px;
     margin-bottom: 24px;
     position: relative;
+    box-shadow: 0 1px 2px rgba(28,35,33,0.03), 0 8px 24px -12px rgba(28,35,33,0.06);
   }
   .panel-title {
     font-family: 'Noto Serif KR', serif;
@@ -105,7 +106,7 @@
     width: 100%;
     background: var(--panel-2);
     border: 1px solid var(--line);
-    border-radius: 3px;
+    border-radius: 8px;
     color: var(--paper);
     padding: 11px 13px;
     font-size: 14px;
@@ -123,7 +124,7 @@
     display: flex;
     background: var(--panel-2);
     border: 1px solid var(--line);
-    border-radius: 3px;
+    border-radius: 8px;
     padding: 3px;
     gap: 3px;
   }
@@ -133,7 +134,7 @@
     border: none;
     color: var(--paper-mute);
     padding: 10px 10px;
-    border-radius: 2px;
+    border-radius: 6px;
     font-size: 12.5px;
     font-weight: 500;
     cursor: pointer;
@@ -152,7 +153,7 @@
     padding: 12px 14px;
     background: var(--panel-2);
     border: 1px solid var(--line);
-    border-radius: 3px;
+    border-radius: 8px;
     margin-bottom: 18px;
   }
   .checkline input { margin-top: 2px; accent-color: var(--brass); }
@@ -162,9 +163,9 @@
   button.generate {
     width: 100%;
     background: var(--brass);
-    color: #1a1204;
+    color: #ffffff;
     border: none;
-    border-radius: 3px;
+    border-radius: 8px;
     padding: 14px;
     font-size: 14px;
     font-weight: 700;
@@ -177,7 +178,7 @@
   button.generate:not(:disabled):hover { filter: brightness(1.08); }
 
   #progressWrap { margin-top: 14px; }
-  #progressWrap .track { height: 3px; background: var(--panel-2); border-radius: 2px; overflow: hidden; }
+  #progressWrap .track { height: 3px; background: var(--panel-2); border-radius: 6px; overflow: hidden; }
   #progressWrap .bar { height: 100%; width: 0%; background: var(--brass); transition: width .3s; }
   #progressWrap .txt { font-size: 11.5px; color: var(--paper-mute); margin: 9px 0 0; text-align: center; font-family: monospace; letter-spacing: 0.02em; }
 
@@ -198,7 +199,7 @@
     background: transparent;
     border: 1px solid var(--line);
     color: var(--paper-dim);
-    border-radius: 3px;
+    border-radius: 8px;
     padding: 7px 14px;
     font-size: 12px;
     cursor: pointer;
@@ -237,10 +238,10 @@
   }
 
   .error-box {
-    background: #2a1a1a;
-    border: 1px solid #4a2a2a;
-    color: #e0a3a3;
-    border-radius: 3px;
+    background: #fdf1f0;
+    border: 1px solid #f2cfc9;
+    color: #a83a2e;
+    border-radius: 8px;
     padding: 12px 14px;
     font-size: 13px;
     line-height: 1.6;
@@ -256,7 +257,7 @@
   .bcard {
     background: var(--panel-2);
     border: 1px solid var(--line);
-    border-radius: 3px;
+    border-radius: 8px;
     padding: 16px 18px;
   }
   .bcard.full { grid-column: 1 / -1; }
@@ -304,7 +305,7 @@
   .lib-item, .hist-item {
     background: var(--panel-2);
     border: 1px solid var(--line);
-    border-radius: 3px;
+    border-radius: 8px;
     padding: 12px 14px;
     margin-bottom: 8px;
   }
@@ -314,22 +315,22 @@
   .lib-item-actions, .hist-item-actions { display: flex; gap: 6px; flex-shrink: 0; }
   .mini-btn {
     background: transparent; border: 1px solid var(--line); color: var(--paper-dim);
-    border-radius: 3px; padding: 4px 10px; font-size: 11.5px; cursor: pointer; font-family: 'Pretendard', sans-serif;
+    border-radius: 8px; padding: 4px 10px; font-size: 11.5px; cursor: pointer; font-family: 'Pretendard', sans-serif;
   }
   .mini-btn:hover { border-color: var(--brass-dim); color: var(--brass); }
   .mini-btn.danger:hover { border-color: var(--seal); color: var(--seal); }
 
   .warn-box {
-    background: #2e2410; border: 1px solid #5a4718; color: #e0c088;
-    border-radius: 3px; padding: 12px 14px; font-size: 12.5px; line-height: 1.7; margin-top: 14px;
+    background: #fdf6e8; border: 1px solid #ecdba8; color: #8a6412;
+    border-radius: 8px; padding: 12px 14px; font-size: 12.5px; line-height: 1.7; margin-top: 14px;
   }
-  .warn-box b { color: #f0d090; }
+  .warn-box b { color: #6e4c08; }
 </style>
 </head>
 <body>
 
 <div id="authGate" style="position:fixed; inset:0; background:var(--ink); z-index:999; display:flex; align-items:center; justify-content:center;">
-  <div style="width:100%; max-width:340px; padding:30px; background:var(--panel); border:1px solid var(--line); border-radius:6px;">
+  <div style="width:100%; max-width:340px; padding:30px; background:var(--panel); border:1px solid var(--line); border-radius:12px; box-shadow:0 8px 30px -12px rgba(28,35,33,0.15);">
     <p class="eyebrow" style="margin-bottom:14px;">INSURANCE CONTENT STUDIO</p>
     <p style="font-size:14px; color:var(--paper-dim); margin:0 0 18px;">비밀번호를 입력하세요</p>
     <input type="password" id="authPasswordInput" placeholder="비밀번호" style="width:100%; background:var(--panel-2); border:1px solid var(--line); border-radius:4px; color:var(--paper); padding:11px 13px; font-size:14px; margin-bottom:12px;">
@@ -919,14 +920,14 @@
 
   <div id="searchTab" style="display:none;">
 
-    <div style="background:linear-gradient(160deg, #0f2622, #0a1a17); border:1px solid #1d3b35; border-radius:14px; padding:40px 32px; text-align:center; margin-bottom:20px;">
-      <p style="color:#5eead4; font-size:11px; font-weight:700; letter-spacing:0.14em; text-transform:uppercase; margin:0 0 10px;">영업 자료 검색</p>
-      <h2 style="color:#f0fdfa; font-size:26px; font-weight:700; margin:0 0 8px; letter-spacing:-0.01em;">영업메뉴얼 안에서 바로 찾기</h2>
-      <p style="color:#7fb8ad; font-size:13.5px; margin:0 0 26px;">매니저 연락처, 심사결과, 보험료 비교, 실손 변천사 등 — 궁금한 걸 그대로 물어보세요.</p>
-      <div style="max-width:640px; margin:0 auto; display:flex; gap:10px; background:#0d211d; border:1px solid #235349; border-radius:12px; padding:6px 6px 6px 18px; align-items:center;">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style="flex-shrink:0;"><circle cx="11" cy="11" r="7" stroke="#5eead4" stroke-width="2"/><path d="M21 21L16.65 16.65" stroke="#5eead4" stroke-width="2" stroke-linecap="round"/></svg>
-        <input type="text" id="searchQueryInput" placeholder="예: 흥국화재 매니저 번호가 뭐야?" style="flex:1; background:none; border:none; outline:none; color:#f0fdfa; font-size:14.5px; padding:12px 0;">
-        <button id="searchGoBtn" style="background:#2dd4bf; color:#04211c; border:none; border-radius:9px; padding:12px 22px; font-size:13.5px; font-weight:700; cursor:pointer; white-space:nowrap;">검색</button>
+    <div style="background:linear-gradient(160deg, #f0fbf7, #ffffff); border:1px solid var(--brass-dim); border-radius:16px; padding:44px 32px; text-align:center; margin-bottom:20px; box-shadow:0 1px 2px rgba(28,35,33,0.03), 0 12px 28px -14px rgba(15,157,112,0.18);">
+      <p style="color:var(--brass); font-size:11px; font-weight:700; letter-spacing:0.14em; text-transform:uppercase; margin:0 0 10px;">영업 자료 검색</p>
+      <h2 style="color:var(--paper); font-size:26px; font-weight:700; margin:0 0 8px; letter-spacing:-0.01em; font-family:'Noto Serif KR', serif;">영업메뉴얼 안에서 바로 찾기</h2>
+      <p style="color:var(--paper-dim); font-size:13.5px; margin:0 0 26px;">매니저 연락처, 심사결과, 보험료 비교, 실손 변천사 등 — 궁금한 걸 그대로 물어보세요.</p>
+      <div style="max-width:640px; margin:0 auto; display:flex; gap:10px; background:#ffffff; border:1px solid var(--line); border-radius:14px; padding:6px 6px 6px 18px; align-items:center; box-shadow:0 1px 3px rgba(28,35,33,0.05);">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style="flex-shrink:0;"><circle cx="11" cy="11" r="7" stroke="#0f9d70" stroke-width="2"/><path d="M21 21L16.65 16.65" stroke="#0f9d70" stroke-width="2" stroke-linecap="round"/></svg>
+        <input type="text" id="searchQueryInput" placeholder="예: 흥국화재 매니저 번호가 뭐야?" style="flex:1; background:none; border:none; outline:none; color:var(--paper); font-size:14.5px; padding:12px 0;">
+        <button id="searchGoBtn" style="background:var(--brass); color:#ffffff; border:none; border-radius:10px; padding:12px 22px; font-size:13.5px; font-weight:700; cursor:pointer; white-space:nowrap;">검색</button>
       </div>
     </div>
 
@@ -938,11 +939,12 @@
       <div id="searchHistoryList" style="display:none; margin-top:14px;"></div>
     </div>
 
-    <div id="searchResultPanel" style="display:none; background:#0d211d; border:1px solid #1d3b35; border-radius:12px; padding:24px 26px;">
+    <div class="panel" id="searchResultPanel" style="display:none;">
       <div id="searchResultBody"></div>
     </div>
 
   </div>
+
 
 </div>
 
@@ -2416,10 +2418,10 @@ function renderComplianceCheck(text, container) {
   const box = document.createElement('div');
   box.style.cssText = 'margin-top:16px; padding-top:14px; border-top:1px solid var(--line);';
   if (hits.length === 0) {
-    box.innerHTML = `<div style="display:flex; align-items:center; gap:8px; font-size:12.5px; color:#8fae8f;">✓ 심의 위험 표현(확정적 문구, 불안감 조성, 다급함, 타사 비방 등) 자동 검사 — 발견된 것 없음</div>`;
+    box.innerHTML = `<div style="display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--brass);">✓ 심의 위험 표현(확정적 문구, 불안감 조성, 다급함, 타사 비방 등) 자동 검사 — 발견된 것 없음</div>`;
   } else {
     const list = hits.map(h => `<li><b>${escapeHtml(h.phrase)}</b> — ${escapeHtml(h.label)}</li>`).join('');
-    box.innerHTML = `<div class="error-box" style="border-color:#4a3a1a; background:#2a2214; color:#e0c37a;">
+    box.innerHTML = `<div class="warn-box">
       ⚠ 심의 위험 표현이 남아있을 수 있어요, 직접 확인해주세요:
       <ul style="margin:8px 0 0; padding-left:20px;">${list}</ul>
     </div>`;
@@ -3626,7 +3628,7 @@ async function generateSearchAnswer() {
   const oldBtnText = btn.textContent;
   btn.textContent = '찾는 중...';
   resultPanel.style.display = 'block';
-  resultBody.innerHTML = '<div class="script-body" style="color:#7fb8ad;">관련 자료 찾는 중...</div>';
+  resultBody.innerHTML = '<div class="script-body" style="color:var(--paper-mute);">관련 자료 찾는 중...</div>';
 
   const libMatches = searchLibrary(q, '').slice(0, 3);
   const libBlock = libMatches.length
@@ -3659,7 +3661,7 @@ async function generateSearchAnswer() {
     resultBody.innerHTML = '';
     const div = document.createElement('div');
     div.className = 'script-body';
-    div.style.color = '#dff5f0';
+    div.style.color = 'var(--paper)';
     div.textContent = answer || '답변을 만들지 못했어요.';
     resultBody.appendChild(div);
     if (answer) {
@@ -3714,7 +3716,7 @@ async function renderSearchHistory() {
       resultBody.innerHTML = '';
       const div = document.createElement('div');
       div.className = 'script-body';
-      div.style.color = '#dff5f0';
+      div.style.color = 'var(--paper)';
       div.textContent = parsed.text || '';
       resultBody.appendChild(div);
       resultPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
