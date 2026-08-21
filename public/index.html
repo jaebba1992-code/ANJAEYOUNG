@@ -1142,7 +1142,7 @@ async function fetchAllHistory() {
 }
 async function renderHistory() {
   const all = await fetchAllHistory();
-  const list = all.filter(h => h.format !== 'blog' && h.format !== 'cafe');
+  const list = all.filter(h => h.format === 'long' || h.format === 'short');
 
   document.getElementById('historyPanel').style.display = list.length ? 'block' : 'none';
   document.getElementById('historyCount').textContent = `(${list.length}개)`;
