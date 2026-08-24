@@ -882,6 +882,21 @@
         <div id="sheetSourceList" style="margin-top:14px;"></div>
       </div>
 
+      <div style="margin-top:22px; padding-top:18px; border-top:1px solid var(--line);">
+        <p style="font-size:12.5px; color:var(--brass); font-weight:600; margin:0 0 8px;">직원 이름 관리 (등록된 이름만 방문 시 입력 가능)</p>
+        <p style="font-size:12px; color:var(--paper-mute); line-height:1.7; margin:0 0 10px;">
+          여기에 이름을 등록해두면, 처음 방문하는 사람은 이 목록에 있는 이름만 입력할 수 있어요. 목록이 비어있으면 누구나 아무 이름이나 입력할 수 있으니, 최소 한 명은 등록해두세요.
+        </p>
+        <div class="row">
+          <div class="field">
+            <label>이름 추가</label>
+            <input type="text" id="staffNameInput" placeholder="예: 안재영">
+          </div>
+        </div>
+        <button class="mini-btn" id="staffAddBtn">추가</button>
+        <div id="staffList" style="margin-top:14px;"></div>
+      </div>
+
     </div>
   </div>
 
@@ -1508,10 +1523,29 @@ async function logVisit() {
 async function submitNameGate() {
   const input = document.getElementById('nameGateInput');
   const errEl = document.getElementById('nameGateError');
+  const btn = document.getElementById('nameGateSubmitBtn');
   const name = input.value.trim();
   if (name.length < 2) {
+    errEl.textContent = '이름을 2자 이상 입력해주세요.';
     errEl.style.display = 'block';
     return;
+  }
+  btn.disabled = true;
+  btn.textContent = '확인 중...';
+  try {
+    const { items } = await apiGet('/api/staff');
+    if (items && items.length > 0) {
+      const matched = items.find(s => s.name.trim() === name);
+      if (!matched) {
+        errEl.textContent = '등록된 직원 명단에 없는 이름이에요. 정확히 입력하셨는지 확인해주세요.';
+        errEl.style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = '확인';
+        return;
+      }
+    }
+  } catch (e) {
+    // 명단 조회 자체가 실패하면(네트워크 등) 일단 통과시킨다 — 앱 사용이 완전히 막히지 않게
   }
   errEl.style.display = 'none';
   localStorage.setItem('ins_visitor_name', name.slice(0, 40));
@@ -1523,6 +1557,8 @@ async function submitNameGate() {
     // 방문 기록 실패는 조용히 무시
   }
   refreshVisitsWidget();
+  btn.disabled = false;
+  btn.textContent = '확인';
 }
 document.getElementById('nameGateSubmitBtn').addEventListener('click', submitNameGate);
 document.getElementById('nameGateInput').addEventListener('keydown', (e) => {
@@ -2533,6 +2569,57 @@ document.getElementById('sheetSyncAllBtn').addEventListener('click', async () =>
     btn.disabled = false;
     await refreshSheetSources();
   }
+});
+
+/* ===================== 직원 이름 관리 ===================== */
+async function refreshStaffList() {
+  const el = document.getElementById('staffList');
+  try {
+    const { items } = await apiGet('/api/staff');
+    if (!items || !items.length) {
+      el.innerHTML = '<p style="font-size:12px; color:var(--paper-mute);">등록된 이름이 없어요 — 지금은 누구나 아무 이름이나 입력할 수 있는 상태예요.</p>';
+      return;
+    }
+    el.innerHTML = items.map(it => `
+      <div class="lib-item">
+        <div class="lib-item-head">
+          <div class="lib-item-title">${escapeHtml(it.name)}</div>
+          <div class="lib-item-actions">
+            <button class="mini-btn danger" data-id="${it.id}">삭제</button>
+          </div>
+        </div>
+      </div>
+    `).join('');
+    el.querySelectorAll('[data-id]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (!confirm('이 이름을 목록에서 삭제할까요?')) return;
+        await apiDelete('/api/staff', { id: Number(btn.dataset.id) });
+        await refreshStaffList();
+      });
+    });
+  } catch (e) {
+    el.innerHTML = '<p style="font-size:12px; color:var(--paper-mute);">목록을 불러오지 못했어요.</p>';
+  }
+}
+refreshStaffList();
+document.getElementById('staffAddBtn').addEventListener('click', async () => {
+  const input = document.getElementById('staffNameInput');
+  const name = input.value.trim();
+  if (name.length < 2) { alert('이름을 2자 이상 입력해주세요.'); return; }
+  const btn = document.getElementById('staffAddBtn');
+  btn.disabled = true;
+  try {
+    await apiPost('/api/staff', { name });
+    input.value = '';
+    await refreshStaffList();
+  } catch (e) {
+    alert('추가 실패: ' + e.message);
+  } finally {
+    btn.disabled = false;
+  }
+});
+document.getElementById('staffNameInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') document.getElementById('staffAddBtn').click();
 });
 
 document.getElementById('sheetAddBtn').addEventListener('click', async () => {
