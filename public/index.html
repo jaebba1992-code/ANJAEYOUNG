@@ -798,6 +798,7 @@
         <span class="sb-visits-total" id="sbVisitsTotal">-</span>
       </button>
       <div class="sb-visits-list" id="sbVisitsList" style="display:none;"></div>
+      <div id="sbUsageTotals" style="display:none; padding:10px 4px 2px; font-size:11.5px; color:var(--paper-mute); border-top:1px solid var(--line); margin-top:6px;"></div>
     </div>
   </div>
 
@@ -1077,7 +1078,10 @@
         <p class="panel-title" id="resultLabel">생성된 대본</p>
         <span class="charcount" id="charcount"></span>
       </div>
-      <button class="copy-btn" id="copyBtn">대본 복사</button>
+      <div style="display:flex; gap:8px;">
+        <button class="copy-btn" id="resultNextTopicBtn">💡 다음 주제 추천받기</button>
+        <button class="copy-btn" id="copyBtn">대본 복사</button>
+      </div>
     </div>
     <div id="resultBody"></div>
   </div>
@@ -1924,6 +1928,30 @@ async function refreshVisitsWidget() {
     });
   } catch (e) {
     document.getElementById('sbVisitsTotal').textContent = '-';
+  }
+  refreshUsageTotals();
+}
+// 이름별 상세 통계와 별개로, 전체 사용 현황(모든 사람 합계)을 한눈에 보여준다 —
+// 특정 사람 이름 클릭 없이도 PPT·카드뉴스 등 기능별 사용 횟수가 바로 보이도록.
+async function refreshUsageTotals() {
+  const el = document.getElementById('sbUsageTotals');
+  try {
+    const all = await fetchAllHistory();
+    const counts = { script: 0, cafe: 0, blog: 0, reco: 0, search: 0, ppt: 0, card: 0, proposal: 0 };
+    all.forEach(h => {
+      const c = historyFormatToCategory(h.format);
+      if (c) counts[c]++;
+    });
+    const total = Object.values(counts).reduce((a, b) => a + b, 0);
+    if (!total) { el.style.display = 'none'; return; }
+    el.style.display = 'block';
+    el.innerHTML = `<div style="margin-bottom:4px; font-weight:700; color:var(--paper-text);">전체 사용 현황 (총 ${total}건)</div>` +
+      Object.entries(USAGE_CATEGORY_LABEL)
+        .filter(([key]) => counts[key] > 0)
+        .map(([key, label]) => `<div style="display:flex; justify-content:space-between; padding:2px 0;"><span>${label}</span><span>${counts[key]}건</span></div>`)
+        .join('');
+  } catch (e) {
+    el.style.display = 'none';
   }
 }
 document.getElementById('sbVisitsToggle').addEventListener('click', () => {
@@ -4621,6 +4649,32 @@ function renderTopicRecommend(topics) {
 }
 
 document.getElementById('topicRecommendBtn').addEventListener('click', runTopicRecommend);
+
+// 대본을 다 쓴 후에도 바로 이어서 "다음 주제"를 추천받을 수 있게 연결한다.
+// 이미 쓴 제목은 매번 직접 입력할 필요 없이, 실제 히스토리(과거 생성한 대본 제목)에서 자동으로 불러온다.
+async function seedUsedTopicsFromHistory() {
+  const usedEl = document.getElementById('topicUsedInput');
+  if (usedEl.value.trim()) return; // 사용자가 이미 직접 입력해뒀으면 덮어쓰지 않는다
+  try {
+    const all = await fetchAllHistory();
+    const titles = all
+      .filter(h => h.format === 'long' || h.format === 'short')
+      .map(h => h.topic)
+      .filter(Boolean)
+      .slice(0, 15);
+    if (titles.length) usedEl.value = titles.join('\n');
+  } catch (e) {
+    // 히스토리 조회 실패해도 추천 자체는 계속 진행
+  }
+}
+
+document.getElementById('resultNextTopicBtn').addEventListener('click', async () => {
+  const panel = document.getElementById('topicRecommendPanel');
+  panel.style.display = 'block';
+  panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  await seedUsedTopicsFromHistory();
+  runTopicRecommend();
+});
 
 
 function cafeSystem(intensityLevel) {
