@@ -105,19 +105,23 @@ module.exports = async function handler(req, res) {
       }
 
       // 검색어 중에 등록된 구글시트 이름(label)과 겹치는 게 있으면, 그 시트 내용을 우선적으로 포함시킨다.
-      // (예: "초건강체"로 검색했는데 8천페이지 안의 다른 방대한 문서가 순위에서 이겨버리는 걸 방지)
+      // (예: "간병인보험"으로 검색했는데 8천페이지 안의 다른 방대한 문서가 순위에서 이겨버리는 걸 방지)
       let boosted = [];
       try {
         const { data: sheetSrcs } = await supabase.from('sheet_sources').select('label');
-        const matchedLabels = (sheetSrcs || [])
-          .map(s => s.label)
-          .filter(label => terms.some(t => label.includes(t)));
+        const allLabels = (sheetSrcs || []).map(s => s.label);
+        const matchedLabels = allLabels.filter(label => {
+          const core = coreLabelName(label);
+          return core.length >= 2 && rawQ.includes(core);
+        });
         if (matchedLabels.length) {
-          const { data: boostedRows } = await supabase.rpc('search_corpus_ranked', {
-            query_text: tsQuery,
-            result_limit: 6,
-            filter_files: matchedLabels
-          });
+          const { data: boostedRows } = await supabase
+            .from('source_corpus')
+            .select('id, source_file, page_number, content')
+            .in('source_file', matchedLabels)
+            .order('source_file', { ascending: true })
+            .order('page_number', { ascending: true })
+            .limit(10);
           boosted = boostedRows || [];
         }
       } catch (e) {
