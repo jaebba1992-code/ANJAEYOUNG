@@ -108,7 +108,49 @@
   .app-history { display: none; flex-direction: column; }
   .app-shell.has-history .app-history { display: flex; }
   @media (max-width: 1280px) { .app-shell.has-history { grid-template-columns: 236px 1fr; } .app-shell.has-history .app-history { display: none; } }
-  @media (max-width: 1024px) { .app-shell { grid-template-columns: 1fr; } .app-sidebar { display: none; } }
+  @media (max-width: 1024px) { .app-shell { grid-template-columns: 1fr; } }
+
+  /* ===== 모바일 (1024px 이하): 사이드바를 슬라이드 드로어로 ===== */
+  .mobile-topbar { display: none; }
+  .sidebar-backdrop { display: none; }
+  @media (max-width: 1024px) {
+    .mobile-topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      background: var(--forest); padding: 12px 16px;
+      position: sticky; top: 0; z-index: 60;
+    }
+    .mobile-topbar-brand { display: flex; align-items: center; gap: 8px; }
+    .mobile-topbar-brand .sb-logo { width: 26px; height: 26px; }
+    .mobile-topbar-name { color: #F2FBF7; font-size: 14px; font-weight: 700; }
+    .mobile-menu-btn {
+      background: var(--rail-surface); border: 1px solid var(--rail-line); border-radius: 8px;
+      width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
+      cursor: pointer; flex-shrink: 0;
+    }
+    .app-sidebar {
+      position: fixed; top: 0; left: 0; height: 100vh; width: 236px; z-index: 80;
+      transform: translateX(-100%); transition: transform .22s ease;
+    }
+    .app-sidebar.open { transform: translateX(0); }
+    .sidebar-backdrop.open {
+      display: block; position: fixed; inset: 0; background: rgba(6,37,27,.5); z-index: 75;
+    }
+    .page-header { padding: 16px 18px; flex-wrap: wrap; row-gap: 10px; }
+    .page-header-stats { display: none !important; }
+    .main-inner { padding: 16px; }
+    .contact-card-grid { grid-template-columns: 1fr 1fr; }
+    .search-empty-grid { grid-template-columns: 1fr; }
+    .search-input-wrap { flex-wrap: wrap; padding: 10px 10px 10px 16px; }
+    .search-input-wrap input { min-width: 140px; }
+    .search-enter-key { display: none; }
+  }
+  @media (max-width: 640px) {
+    .contact-card-grid { grid-template-columns: 1fr; }
+    .page-header { align-items: flex-start; }
+    .page-header-title { font-size: 19px; }
+    .search-action-bar { gap: 6px; }
+    .search-action-bar .sab-helpful-label { display: none; }
+  }
 
   .app-sidebar {
     background: var(--forest);
@@ -699,6 +741,17 @@
     <div id="usageStatsBody"></div>
   </div>
 </div>
+
+<div class="mobile-topbar" id="mobileTopbar" style="display:none;">
+  <div class="mobile-topbar-brand">
+    <div class="sb-logo">안</div>
+    <span class="mobile-topbar-name">안재영지사</span>
+  </div>
+  <button type="button" class="mobile-menu-btn" id="mobileMenuBtn" aria-label="메뉴 열기">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M3 6h18M3 12h18M3 18h18" stroke="#BCD9CD" stroke-width="2" stroke-linecap="round"/></svg>
+  </button>
+</div>
+<div class="sidebar-backdrop" id="sidebarBackdrop"></div>
 
 <div class="app-shell" id="appShell" style="display:none;">
 
@@ -1479,6 +1532,7 @@ async function tryEnter(pw) {
       localStorage.setItem('ins_app_pw', pw);
       document.getElementById('authGate').style.display = 'none';
       document.getElementById('appShell').style.display = 'grid';
+      document.getElementById('mobileTopbar').style.display = '';
       loadAnnouncement();
       refreshSidebarCounts();
       logVisit();
@@ -1509,6 +1563,7 @@ async function logVisit() {
   const name = localStorage.getItem('ins_visitor_name');
   if (!name) {
     document.getElementById('appShell').style.display = 'none';
+    document.getElementById('mobileTopbar').style.display = 'none';
     document.getElementById('nameGate').style.display = 'flex';
     document.getElementById('nameGateInput').focus();
     return;
@@ -1551,6 +1606,7 @@ async function submitNameGate() {
   localStorage.setItem('ins_visitor_name', name.slice(0, 40));
   document.getElementById('nameGate').style.display = 'none';
   document.getElementById('appShell').style.display = 'grid';
+  document.getElementById('mobileTopbar').style.display = '';
   try {
     await apiPost('/api/visits', { visitor_name: name });
   } catch (e) {
@@ -1719,6 +1775,18 @@ document.getElementById('reindexBtn').addEventListener('click', async () => {
   }
 });
 
+/* ===================== 모바일 사이드바 드로어 ===================== */
+function openSidebarDrawer() {
+  document.querySelector('.app-sidebar').classList.add('open');
+  document.getElementById('sidebarBackdrop').classList.add('open');
+}
+function closeSidebarDrawer() {
+  document.querySelector('.app-sidebar').classList.remove('open');
+  document.getElementById('sidebarBackdrop').classList.remove('open');
+}
+document.getElementById('mobileMenuBtn').addEventListener('click', openSidebarDrawer);
+document.getElementById('sidebarBackdrop').addEventListener('click', closeSidebarDrawer);
+
 let format = 'short';
 let intensity = 'normal';
 let cafeIntensity = 'normal';
@@ -1736,6 +1804,7 @@ const TAB_META = {
   search: { title: '자료 검색', desc: '영업메뉴얼 · 업무연락처 · 상품자료 안에서 바로 찾기', eyebrow: 'SEARCH' }
 };
 function setActiveTab(name) {
+  closeSidebarDrawer();
   document.getElementById('tabBtnScript').classList.toggle('active', name === 'script');
   document.getElementById('tabBtnCafe').classList.toggle('active', name === 'cafe');
   document.getElementById('tabBtnBlog').classList.toggle('active', name === 'blog');
