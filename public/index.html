@@ -1337,6 +1337,11 @@
         <div class="field">
           <label>설계안 / 실제 숫자 자료 (선택) <span class="opt">비교하고 싶은 상품의 실제 보험료·보장금액 등을 붙여넣으면, 그대로 베끼지 않고 읽기 좋은 표로 재구성해요</span></label>
           <textarea id="pptDesignInput" rows="4" placeholder="예: A상품 요양병원 180일 한도, 가입금액 5만원 / B상품 365일 한도, 가입금액 6만원 등"></textarea>
+          <div style="display:flex; align-items:center; gap:10px; margin-top:8px; flex-wrap:wrap;">
+            <label for="pptDesignFileInput" class="copy-btn" style="cursor:pointer; display:inline-block;">+ PPT / PDF 파일 첨부</label>
+            <input type="file" id="pptDesignFileInput" accept=".pptx,.pdf" style="display:none;">
+            <span id="pptDesignFileStatus" style="font-size:12px; color:var(--paper-mute);"></span>
+          </div>
         </div>
       </div>
 
@@ -1344,6 +1349,11 @@
         <div class="field">
           <label>약관 발췌 (선택) <span class="opt">직접 발췌한 약관 문구가 있으면 붙여넣어주세요. 비워두면 AI가 일반적으로 알려진 수준에서 알아서 풀어써요</span></label>
           <textarea id="pptClauseInput" rows="3" placeholder="예: 제2-2조 3항 6호 ... (약관 원문 그대로 붙여넣기)"></textarea>
+          <div style="display:flex; align-items:center; gap:10px; margin-top:8px; flex-wrap:wrap;">
+            <label for="pptClauseFileInput" class="copy-btn" style="cursor:pointer; display:inline-block;">+ PPT / PDF 파일 첨부</label>
+            <input type="file" id="pptClauseFileInput" accept=".pptx,.pdf" style="display:none;">
+            <span id="pptClauseFileStatus" style="font-size:12px; color:var(--paper-mute);"></span>
+          </div>
         </div>
       </div>
 
@@ -2981,6 +2991,35 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs
 
 document.getElementById('fileInput').addEventListener('change', handleFileUpload);
 document.getElementById('recoFileInput').addEventListener('change', handleRecoFileUpload);
+
+async function handlePptDesignFileUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const ext = file.name.toLowerCase().split('.').pop();
+  if (ext === 'pptx') {
+    await handlePptxUpload(file, 'pptDesignFileStatus', 'pptDesignInput', () => {});
+  } else if (ext === 'pdf') {
+    await handlePdfUpload(file, 'pptDesignFileStatus', 'pptDesignInput', () => {});
+  } else {
+    document.getElementById('pptDesignFileStatus').textContent = 'pptx 또는 pdf 파일만 지원해요.';
+  }
+}
+document.getElementById('pptDesignFileInput').addEventListener('change', handlePptDesignFileUpload);
+
+async function handlePptClauseFileUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const ext = file.name.toLowerCase().split('.').pop();
+  if (ext === 'pptx') {
+    await handlePptxUpload(file, 'pptClauseFileStatus', 'pptClauseInput', () => {});
+  } else if (ext === 'pdf') {
+    await handlePdfUpload(file, 'pptClauseFileStatus', 'pptClauseInput', () => {});
+  } else {
+    document.getElementById('pptClauseFileStatus').textContent = 'pptx 또는 pdf 파일만 지원해요.';
+  }
+}
+document.getElementById('pptClauseFileInput').addEventListener('change', handlePptClauseFileUpload);
+
 
 document.getElementById('source').addEventListener('input', updateSourceCounter);
 function updateSourceCounter() {
