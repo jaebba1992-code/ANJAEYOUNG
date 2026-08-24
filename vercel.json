@@ -11,6 +11,9 @@
     },
     "api/generate-cardnews.js": {
       "maxDuration": 90
+    },
+    "api/generate-proposal.js": {
+      "maxDuration": 60
     }
   }
 }

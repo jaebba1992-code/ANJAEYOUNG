@@ -783,6 +783,7 @@
     </div>
     <div>
       <p class="sb-group-label">영업 지원</p>
+      <button type="button" class="sb-item" id="tabBtnProposal"><span class="sb-icon"></span>제안서 생성<span class="sb-count" id="sbCountProposal"></span></button>
       <button type="button" class="sb-item" id="tabBtnReco"><span class="sb-icon"></span>추천상품<span class="sb-count" id="sbCountReco"></span></button>
       <button type="button" class="sb-item" id="tabBtnSearch"><span class="sb-icon"></span>자료 검색<span class="sb-count" id="sbCountSearch"></span></button>
     </div>
@@ -997,7 +998,19 @@
       <div class="field">
         <label>영상 주제 / 키워드</label>
         <input type="text" id="topic" placeholder="예: 죽어도 해지하면 안 되는 보험 4가지">
+        <div style="margin-top:8px;">
+          <button type="button" class="copy-btn" id="topicRecommendBtn">💡 지금 뜨는 주제 추천받기 (실시간 검색)</button>
+        </div>
       </div>
+    </div>
+
+    <div class="panel" id="topicRecommendPanel" style="display:none; margin-top:0;">
+      <p class="panel-title">주제 추천 <span style="color:var(--paper-mute); font-weight:400; font-size:12px;">— 실시간 검색으로 요즘 반응 좋은 흐름을 찾아서, 아래 이미 쓴 제목과 겹치지 않는 다음 주제 5개를 추천해요. 카드를 클릭하면 주제란에 바로 채워져요.</span></p>
+      <div class="field" style="margin-bottom:14px;">
+        <label>이미 사용한 제목/키워드 (선택) <span class="opt">한 줄에 하나씩 — 추천이 이것과 겹치지 않게 조정돼요</span></label>
+        <textarea id="topicUsedInput" rows="3" placeholder="예:&#10;간병인보험 365일 vs 180일 차이&#10;실손보험 자기부담금 총정리"></textarea>
+      </div>
+      <div id="topicRecommendBody"></div>
     </div>
 
     <div class="row">
@@ -1445,8 +1458,8 @@
           <label>설계안 / 실제 숫자 자료 (선택) <span class="opt">비교하고 싶은 상품의 실제 보험료·보장금액 등을 붙여넣으면, 그대로 베끼지 않고 사례 카드로 재구성해요</span></label>
           <textarea id="cardDesignInput" rows="4" placeholder="예: A상품 요양병원 180일 한도, 가입금액 5만원 / B상품 365일 한도, 가입금액 6만원 등"></textarea>
           <div style="display:flex; align-items:center; gap:10px; margin-top:8px; flex-wrap:wrap;">
-            <label for="cardDesignFileInput" class="copy-btn" style="cursor:pointer; display:inline-block;">+ PPT / PDF 파일 첨부</label>
-            <input type="file" id="cardDesignFileInput" accept=".pptx,.pdf" style="display:none;">
+            <label for="cardDesignFileInput" class="copy-btn" style="cursor:pointer; display:inline-block;">+ PPT / PDF / 이미지 첨부 (여러 장 가능)</label>
+            <input type="file" id="cardDesignFileInput" accept=".pptx,.pdf,image/*" multiple style="display:none;">
             <span id="cardDesignFileStatus" style="font-size:12px; color:var(--paper-mute);"></span>
           </div>
         </div>
@@ -1457,8 +1470,8 @@
           <label>약관 발췌 (선택) <span class="opt">직접 발췌한 약관 문구가 있으면 붙여넣어주세요. 비워두면 AI가 일반적으로 알려진 수준에서 알아서 풀어써요</span></label>
           <textarea id="cardClauseInput" rows="3" placeholder="예: 제2-2조 3항 6호 ... (약관 원문 그대로 붙여넣기)"></textarea>
           <div style="display:flex; align-items:center; gap:10px; margin-top:8px; flex-wrap:wrap;">
-            <label for="cardClauseFileInput" class="copy-btn" style="cursor:pointer; display:inline-block;">+ PPT / PDF 파일 첨부</label>
-            <input type="file" id="cardClauseFileInput" accept=".pptx,.pdf" style="display:none;">
+            <label for="cardClauseFileInput" class="copy-btn" style="cursor:pointer; display:inline-block;">+ PPT / PDF / 이미지 첨부 (여러 장 가능)</label>
+            <input type="file" id="cardClauseFileInput" accept=".pptx,.pdf,image/*" multiple style="display:none;">
             <span id="cardClauseFileStatus" style="font-size:12px; color:var(--paper-mute);"></span>
           </div>
         </div>
@@ -1493,14 +1506,68 @@
       <p id="cardGenStatus" style="font-size:12px; color:var(--paper-mute); margin-top:10px;"></p>
     </div>
 
-    <div class="panel" id="cardPrompterPanel" style="display:none;">
+    <div class="panel" id="cardCaptionPanel" style="display:none;">
       <div class="result-head">
         <div class="result-head-left">
-          <p class="panel-title" id="cardPrompterLabel">촬영용 프롬프터 대본 <span style="color:var(--paper-mute); font-weight:400; font-size:12px;">— 카드 문구를 그대로 읽지 않고, 카메라 앞에서 자연스럽게 말하듯 풀어쓴 버전이에요</span></p>
+          <p class="panel-title" id="cardCaptionLabel">인스타그램 캡션 <span style="color:var(--paper-mute); font-weight:400; font-size:12px;">— 카드뉴스 게시글에 그대로 붙여넣을 수 있는 본문이에요</span></p>
         </div>
-        <button class="copy-btn" id="cardPrompterCopyBtn">대본 복사</button>
+        <button class="copy-btn" id="cardCaptionCopyBtn">캡션 복사</button>
       </div>
-      <div id="cardPrompterBody" class="script-body" style="white-space:pre-wrap; line-height:1.75;"></div>
+      <div id="cardCaptionBody" class="script-body" style="white-space:pre-wrap; line-height:1.75;"></div>
+    </div>
+
+  </div>
+
+  <div id="proposalTab" style="display:none;">
+
+    <div class="panel" id="proposalHistoryPanel" style="display:none;">
+      <div class="result-head" style="cursor:pointer;" id="proposalHistoryToggle">
+        <p class="panel-title" style="border:none; padding:0; margin:0;">이전 작업 목록 <span style="color:var(--paper-mute); font-weight:400; font-size:12px;" id="proposalHistoryCount"></span></p>
+        <span class="copy-btn" id="proposalHistoryToggleBtn">펼치기</span>
+      </div>
+      <div id="proposalHistoryList" style="display:none; margin-top:14px;"></div>
+    </div>
+
+    <div class="panel">
+      <p class="panel-title">제안서 생성 <span style="color:var(--paper-mute); font-weight:400; font-size:12px;">— 설계안 캡처(이미지)나 PDF를 올리면, 내용을 읽어서 깔끔한 제안서 이미지로 다시 꾸며드려요</span></p>
+
+      <div class="row">
+        <div class="field">
+          <label>설계안 첨부 <span class="opt">캡처 이미지 여러 장 또는 PDF — 같은 설계안의 여러 화면이어도, 플랜을 비교하는 화면이어도 괜찮아요</span></label>
+          <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+            <label for="proposalFileInput" class="copy-btn" style="cursor:pointer; display:inline-block;">+ 이미지 / PDF 첨부 (여러 장 가능)</label>
+            <input type="file" id="proposalFileInput" accept=".pdf,image/*" multiple style="display:none;">
+            <span id="proposalFileStatus" style="font-size:12px; color:var(--paper-mute);"></span>
+          </div>
+          <div id="proposalFilePreviewWrap" style="display:none; margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;"></div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label>고객명 (선택)</label>
+          <input type="text" id="proposalClientInput" placeholder="예: 배준열">
+        </div>
+        <div class="field">
+          <label>설계사/채널명 (선택)</label>
+          <input type="text" id="proposalAgentInput" value="보험탈출구" placeholder="예: 보험탈출구 · 안재영">
+        </div>
+      </div>
+
+      <button class="generate" id="proposalGenBtn">제안서 만들기</button>
+      <p id="proposalGenStatus" style="font-size:12px; color:var(--paper-mute); margin-top:10px;"></p>
+    </div>
+
+    <div class="panel" id="proposalResultPanel" style="display:none;">
+      <div class="result-head">
+        <div class="result-head-left">
+          <p class="panel-title">완성된 제안서</p>
+        </div>
+        <a class="copy-btn" id="proposalDownloadBtn" download="제안서.png">이미지 다운로드</a>
+      </div>
+      <div style="text-align:center; background:#f4f4f4; padding:16px; border-radius:8px;">
+        <img id="proposalResultImg" style="max-width:100%; border-radius:6px; box-shadow:0 4px 20px rgba(0,0,0,.12);">
+      </div>
     </div>
 
   </div>
@@ -1866,7 +1933,7 @@ document.getElementById('sbVisitsToggle').addEventListener('click', () => {
 
 const USAGE_CATEGORY_LABEL = {
   script: '대본 생성기', cafe: '카페 답변', blog: '블로그 포스팅',
-  reco: '추천상품', search: '자료 검색'
+  reco: '추천상품', search: '자료 검색', ppt: 'PPT 제작', card: '인스타 카드뉴스', proposal: '제안서 생성'
 };
 function historyFormatToCategory(fmt) {
   if (fmt === 'long' || fmt === 'short') return 'script';
@@ -1874,6 +1941,9 @@ function historyFormatToCategory(fmt) {
   if (fmt === 'blog') return 'blog';
   if (fmt === 'reco' || fmt === 'reco_kakao' || fmt === 'coverage') return 'reco';
   if (fmt === 'search') return 'search';
+  if (fmt === 'ppt') return 'ppt';
+  if (fmt === 'card') return 'card';
+  if (fmt === 'proposal') return 'proposal';
   return null;
 }
 async function showUsageStats(name) {
@@ -1885,7 +1955,7 @@ async function showUsageStats(name) {
   try {
     const all = await fetchAllHistory();
     const mine = all.filter(h => (h.visitor_name || '') === name);
-    const counts = { script: 0, cafe: 0, blog: 0, reco: 0, search: 0 };
+    const counts = { script: 0, cafe: 0, blog: 0, reco: 0, search: 0, ppt: 0, card: 0, proposal: 0 };
     mine.forEach(h => {
       const c = historyFormatToCategory(h.format);
       if (c) counts[c]++;
@@ -1911,13 +1981,14 @@ document.getElementById('usageStatsCloseBtn').addEventListener('click', () => {
 async function refreshSidebarCounts() {
   try {
     const all = await fetchAllHistory();
-    const counts = { script: 0, cafe: 0, blog: 0, ppt: 0, card: 0, reco: 0, search: 0 };
+    const counts = { script: 0, cafe: 0, blog: 0, ppt: 0, card: 0, proposal: 0, reco: 0, search: 0 };
     all.forEach(h => {
       if (h.format === 'long' || h.format === 'short') counts.script++;
       else if (h.format === 'cafe') counts.cafe++;
       else if (h.format === 'blog') counts.blog++;
       else if (h.format === 'ppt') counts.ppt++;
       else if (h.format === 'card') counts.card++;
+      else if (h.format === 'proposal') counts.proposal++;
       else if (h.format === 'reco' || h.format === 'reco_kakao' || h.format === 'coverage') counts.reco++;
       else if (h.format === 'search') counts.search++;
     });
@@ -1926,6 +1997,7 @@ async function refreshSidebarCounts() {
     document.getElementById('sbCountBlog').textContent = counts.blog || '';
     document.getElementById('sbCountPpt').textContent = counts.ppt || '';
     document.getElementById('sbCountCard').textContent = counts.card || '';
+    document.getElementById('sbCountProposal').textContent = counts.proposal || '';
     document.getElementById('sbCountReco').textContent = counts.reco || '';
     document.getElementById('sbCountSearch').textContent = counts.search || '';
   } catch (e) {
@@ -2021,6 +2093,7 @@ document.getElementById('tabBtnCafe').addEventListener('click', () => setActiveT
 document.getElementById('tabBtnBlog').addEventListener('click', () => setActiveTab('blog'));
 document.getElementById('tabBtnPpt').addEventListener('click', () => setActiveTab('ppt'));
 document.getElementById('tabBtnCard').addEventListener('click', () => setActiveTab('card'));
+document.getElementById('tabBtnProposal').addEventListener('click', () => setActiveTab('proposal'));
 document.getElementById('tabBtnReco').addEventListener('click', () => setActiveTab('reco'));
 document.getElementById('tabBtnSearch').addEventListener('click', () => setActiveTab('search'));
 const TAB_META = {
@@ -2029,6 +2102,7 @@ const TAB_META = {
   blog:   { title: '블로그 포스팅', desc: '황금 키워드 기반으로 블로그 글을 만들어요', eyebrow: 'BLOG' },
   ppt:    { title: 'PPT 생성', desc: '요청 내용을 적으면 스토리가 있는 발표용 PPT를 만들어요', eyebrow: 'PPT' },
   card:   { title: '인스타 카드뉴스', desc: '요청 내용을 적으면 4:5 카드뉴스 이미지 여러 장을 만들어요', eyebrow: 'CARD NEWS' },
+  proposal: { title: '제안서 생성', desc: '설계안 캡처·PDF를 올리면 깔끔한 제안서 이미지로 정리해요', eyebrow: 'PROPOSAL' },
   reco:   { title: '추천상품', desc: '이번 달 추천 상품 안내와 보장분석 대화를 만들어요', eyebrow: 'RECOMMEND' },
   search: { title: '자료 검색', desc: '영업메뉴얼 · 업무연락처 · 상품자료 안에서 바로 찾기', eyebrow: 'SEARCH' }
 };
@@ -2039,6 +2113,7 @@ function setActiveTab(name) {
   document.getElementById('tabBtnBlog').classList.toggle('active', name === 'blog');
   document.getElementById('tabBtnPpt').classList.toggle('active', name === 'ppt');
   document.getElementById('tabBtnCard').classList.toggle('active', name === 'card');
+  document.getElementById('tabBtnProposal').classList.toggle('active', name === 'proposal');
   document.getElementById('tabBtnReco').classList.toggle('active', name === 'reco');
   document.getElementById('tabBtnSearch').classList.toggle('active', name === 'search');
   document.getElementById('scriptTab').style.display = name === 'script' ? 'block' : 'none';
@@ -2046,12 +2121,14 @@ function setActiveTab(name) {
   document.getElementById('blogTab').style.display = name === 'blog' ? 'block' : 'none';
   document.getElementById('pptTab').style.display = name === 'ppt' ? 'block' : 'none';
   document.getElementById('cardTab').style.display = name === 'card' ? 'block' : 'none';
+  document.getElementById('proposalTab').style.display = name === 'proposal' ? 'block' : 'none';
   document.getElementById('recoTab').style.display = name === 'reco' ? 'block' : 'none';
   document.getElementById('searchTab').style.display = name === 'search' ? 'block' : 'none';
   if (name === 'reco' && !recoLoaded) refreshRecoList();
   if (name === 'search' && !searchHistoryLoaded) renderSearchHistory();
   if (name === 'ppt' && !pptHistoryLoaded) renderPptHistory();
   if (name === 'card' && !cardHistoryLoaded) renderCardHistory();
+  if (name === 'proposal' && !proposalHistoryLoaded) renderProposalHistory();
 
   const meta = TAB_META[name];
   if (meta) {
@@ -2211,6 +2288,7 @@ async function addToHistory(entry) {
     await renderSearchHistory();
     await renderPptHistory();
     await renderCardHistory();
+    await renderProposalHistory();
   } catch (e) {
     console.error('history save failed', e);
   }
@@ -2225,6 +2303,7 @@ async function deleteFromHistory(id) {
     await renderSearchHistory();
     await renderPptHistory();
     await renderCardHistory();
+    await renderProposalHistory();
   } catch (e) {
     alert('삭제 실패: ' + e.message);
   }
@@ -2571,34 +2650,46 @@ ${CARD_TEMPLATE_GUIDE}
   });
 }
 
-async function buildPrompterScript(plan, request) {
-  const system = `당신은 보험설계사가 인스타그램 카드뉴스를 촬영할 때 쓸 텔레프롬프터(프롬프터) 대본을 만드는 전문가입니다.
+async function buildCardCaption(plan, request) {
+  const system = `당신은 보험설계사의 인스타그램 카드뉴스 게시글에 들어갈 캡션(본문 글)을 쓰는 전문 카피라이터입니다.
 
-아래 [카드뉴스 기획안 JSON]은 이미 완성된 카드뉴스입니다. 카드 안의 문구는 화면에 크게 보이도록 압축·생략한 짧은 문장이라, 그 문구를 그대로 소리 내어 읽으면 매우 어색합니다.
+아래 [카드뉴스 기획안 JSON]은 이미 완성된 카드뉴스입니다. 이 내용을 바탕으로, 실제 인스타그램 게시글 캡션을 작성하세요. 카드 문구를 그대로 나열하는 게 아니라, 캡션만 읽어도 핵심이 전달되는 독립적인 글로 다시 씁니다.
 
-같은 순서, 같은 정보, 같은 논리 흐름과 톤을 유지하면서, 카메라 앞에서 사람이 실제로 자연스럽게 말하듯이 구어체로 풀어써주세요.
+[스타일 — 아래 예시 톤을 따른다]
+🚨 여름철 불청객 수족구,
+올여름에만 33배 증가?! 😱
+
+✔️ 폐렴 진단 시 10만원
+✔️ 독감 진단 시 20만원
+✔️ 수족구 진단 시 최대 50만원
+
+✨ 최소 보험료 1만원부터!
+
+궁금하신 분들은 댓글에 "수족구" 남겨주세요 💬
+확인하는 즉시 DM 보내드릴게요 📩💕
 
 [규칙]
-- 카드 순서를 그대로 따라가며, 카드 하나당 한 문단을 작성한다. 각 문단 맨 앞에 "[카드 N]" 표시를 붙인다 (N은 카드 순번, 1부터 시작).
-- 카드에 없는 정보·숫자·사실을 새로 지어내지 않는다. 과장되거나 확정적인 표현(무조건, 100%, 반드시 등)도 쓰지 않는다.
-- darkCover 카드는 시청자의 시선을 끄는 도입 멘트로 자연스럽게 푼다.
-- caseFormula 카드는 표에 있는 숫자를 정확히 그대로 언급하되, 말하듯이 풀어서 설명한다 (계산식을 기호 그대로 읽지 말고 "여기서 얼마가 차이 나요" 식으로).
-- ctaShare 카드는 실제로 사람이 부탁하듯 자연스러운 구어체로 바꾼다.
-- outro 카드는 심의번호·유의사항을 줄줄 읽는 대신, "이 내용은 심의를 받았고, 자세한 유의사항은 화면을 참고해주세요" 정도로 짧게 안내하는 멘트로만 처리한다 (법적 문구 원문을 대본에 그대로 옮기지 않는다).
-- 문장은 짧게 끊어서, 실제 말할 때 숨쉬기 편하게 구성한다.
-- 결과는 순수 텍스트만 출력한다. 마크다운, 코드블록 기호, 별도 설명을 붙이지 않는다.`;
+- 첫 줄은 이모지 + 후킹 문구/질문으로 시작해서 스크롤을 멈추게 한다.
+- 핵심 정보는 ✔️, 📍 같은 기호로 짧게 끊어 나열하는 구간을 최소 한 번 넣는다.
+- 문단은 1~3줄 단위로 짧게 끊고, 문단 사이 줄바꿈을 넉넉히 준다.
+- 이모지는 자연스럽게 섞되 과하지 않게 (문장마다 넣지 않는다).
+- 카드에 없는 숫자·사실을 새로 지어내지 않는다. 과장·확정적 표현(무조건, 100% 등)은 쓰지 않는다.
+- outro 카드의 심의번호·유의사항 원문은 캡션에 옮기지 않는다.
+- 마지막은 참여 유도 멘트로 마무리한다 (예: 댓글에 특정 키워드를 남기면 DM으로 보내드린다는 형태). 요청 내용에 맞는 자연스러운 키워드를 하나 골라 쓴다.
+- 캡션 맨 마지막 줄에 관련 해시태그 5~8개를 나열한다 (# 포함, 띄어쓰기로 구분, 예: #간병인보험 #요양병원간병인).
+- 결과는 캡션 본문 텍스트만 출력한다. 마크다운 헤더, 코드블록 기호, 별도 설명을 붙이지 않는다.`;
 
   const userPrompt = `[원래 요청 내용]\n${request}\n\n[카드뉴스 기획안 JSON]\n${JSON.stringify(plan)}`;
-  const raw = await callClaude(system, [{ role: 'user', content: userPrompt }], 2, null, 3000);
+  const raw = await callClaude(system, [{ role: 'user', content: userPrompt }], 2, null, 1200);
   return raw.trim();
 }
 
-function renderPrompterScript(scriptText) {
-  const panel = document.getElementById('cardPrompterPanel');
-  const body = document.getElementById('cardPrompterBody');
-  if (!scriptText) { panel.style.display = 'none'; body.textContent = ''; return; }
+function renderCardCaption(captionText) {
+  const panel = document.getElementById('cardCaptionPanel');
+  const body = document.getElementById('cardCaptionBody');
+  if (!captionText) { panel.style.display = 'none'; body.textContent = ''; return; }
   panel.style.display = 'block';
-  body.textContent = scriptText;
+  body.textContent = captionText;
 }
 
 function downloadZipFromBase64(base64, filename) {
@@ -2634,22 +2725,22 @@ document.getElementById('cardGenBtn').addEventListener('click', async () => {
   btn.disabled = true;
   btn.textContent = '카드 구성 짜는 중...';
   statusEl.textContent = '';
-  renderPrompterScript('');
+  renderCardCaption('');
   try {
     const plan = await buildCardPlan(request, designData, clauseText, cardCount, styleNote);
     btn.textContent = '이미지 만드는 중... (시간이 좀 걸려요)';
-    const [result, prompterScript] = await Promise.all([
+    const [result, caption] = await Promise.all([
       apiPost('/api/generate-cardnews', { plan, accent, theme, channelName }),
-      buildPrompterScript(plan, request).catch(err => { console.error('프롬프터 생성 실패:', err); return ''; })
+      buildCardCaption(plan, request).catch(err => { console.error('캡션 생성 실패:', err); return ''; })
     ]);
     const filename = request.slice(0, 30).replace(/[\\/:*?"<>|]/g, '') + '_카드뉴스.zip';
     downloadZipFromBase64(result.base64, filename);
     statusEl.textContent = `완료! (${result.count}장) — 자동으로 다운로드됐어요.`;
-    renderPrompterScript(prompterScript);
+    renderCardCaption(caption);
 
     await addToHistory({
       id: Date.now(), topic: request.slice(0, 60), category: `${result.count}장`, format: 'card',
-      script: JSON.stringify({ plan, accent, theme, channelName, filename, prompterScript })
+      script: JSON.stringify({ plan, accent, theme, channelName, filename, caption })
     });
     await renderCardHistory();
   } catch (err) {
@@ -2661,10 +2752,10 @@ document.getElementById('cardGenBtn').addEventListener('click', async () => {
   }
 });
 
-document.getElementById('cardPrompterCopyBtn').addEventListener('click', () => {
-  const text = document.getElementById('cardPrompterBody').innerText;
+document.getElementById('cardCaptionCopyBtn').addEventListener('click', () => {
+  const text = document.getElementById('cardCaptionBody').innerText;
   navigator.clipboard.writeText(text);
-  const btn = document.getElementById('cardPrompterCopyBtn');
+  const btn = document.getElementById('cardCaptionCopyBtn');
   const old = btn.textContent;
   btn.textContent = '복사됨';
   setTimeout(() => btn.textContent = old, 1200);
@@ -2705,7 +2796,7 @@ async function renderCardHistory() {
       try {
         const result = await apiPost('/api/generate-cardnews', { plan: parsed.plan, accent: parsed.accent, theme: parsed.theme, channelName: parsed.channelName });
         downloadZipFromBase64(result.base64, parsed.filename || 'cardnews.zip');
-        renderPrompterScript(parsed.prompterScript || '');
+        renderCardCaption(parsed.caption || parsed.prompterScript || '');
       } catch (e) {
         alert('다운로드 실패: ' + e.message);
       } finally {
@@ -2721,6 +2812,223 @@ async function renderCardHistory() {
 document.getElementById('cardHistoryToggle').addEventListener('click', () => {
   const list = document.getElementById('cardHistoryList');
   const btn = document.getElementById('cardHistoryToggleBtn');
+  const show = list.style.display === 'none';
+  list.style.display = show ? 'block' : 'none';
+  btn.textContent = show ? '접기' : '펼치기';
+});
+
+/* ===================== 제안서 생성 ===================== */
+let proposalHistoryLoaded = false;
+window.__proposalFiles = [];
+
+document.getElementById('proposalFileInput').addEventListener('change', (e) => {
+  const files = Array.from(e.target.files || []);
+  if (!files.length) return;
+  window.__proposalFiles = window.__proposalFiles.concat(files).slice(0, 8);
+  renderProposalFilePreview();
+  e.target.value = '';
+});
+
+function renderProposalFilePreview() {
+  const wrap = document.getElementById('proposalFilePreviewWrap');
+  const files = window.__proposalFiles;
+  if (!files.length) { wrap.style.display = 'none'; wrap.innerHTML = ''; return; }
+  wrap.style.display = 'flex';
+  wrap.innerHTML = files.map((f, i) => `
+    <div style="position:relative;">
+      <div style="width:70px; height:70px; border-radius:6px; border:1px solid var(--line); display:flex; align-items:center; justify-content:center; font-size:11px; color:var(--paper-mute); overflow:hidden; background:#fafafa;">
+        ${/^image\//.test(f.type) ? `<img data-idx="${i}" style="width:100%; height:100%; object-fit:cover;">` : 'PDF'}
+      </div>
+      <button type="button" data-remove="${i}" style="position:absolute; top:-6px; right:-6px; width:20px; height:20px; border-radius:50%; border:none; background:#333; color:#fff; font-size:12px; cursor:pointer; line-height:1;">×</button>
+    </div>
+  `).join('');
+  wrap.querySelectorAll('img[data-idx]').forEach(img => {
+    const f = files[Number(img.dataset.idx)];
+    const reader = new FileReader();
+    reader.onload = () => { img.src = reader.result; };
+    reader.readAsDataURL(f);
+  });
+  wrap.querySelectorAll('[data-remove]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      window.__proposalFiles.splice(Number(btn.dataset.remove), 1);
+      renderProposalFilePreview();
+    });
+  });
+}
+
+// PDF 페이지를 이미지로 변환 (표 구조를 그대로 보존해서 vision에 넘기기 위함 — 텍스트만 뽑으면 표 구조가 깨짐)
+async function pdfToImageBase64List(file, maxPages = 6) {
+  const buffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
+  const pagesToRead = Math.min(pdf.numPages, maxPages);
+  const results = [];
+  for (let p = 1; p <= pagesToRead; p++) {
+    const page = await pdf.getPage(p);
+    const viewport = page.getViewport({ scale: 1.6 });
+    const canvas = document.createElement('canvas');
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    const ctx = canvas.getContext('2d');
+    await page.render({ canvasContext: ctx, viewport }).promise;
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+    results.push(dataUrl.split(',')[1]);
+  }
+  return results;
+}
+
+async function extractProposalData(imagesBase64List) {
+  const system = `당신은 보험 설계안(제안서) 이미지를 구조화된 데이터로 정리하는 전문가입니다. 여러 장의 스크린샷/페이지가 주어질 수 있습니다 — 같은 설계안의 여러 화면일 수도 있고, 서로 다른 플랜(예: 고급형/프리미엄형)을 비교하는 화면일 수도 있습니다. 내용을 보고 논리적으로 하나의 제안서로 합쳐서 아래 JSON 스키마로만 출력하세요.
+
+스키마:
+{
+  "title": "제안서 제목 (예: OOO님 맞춤 설계안)",
+  "clientName": "고객 이름 (이미지에 있으면, 없으면 빈 문자열)",
+  "plans": [{"label": "플랜 이름 (예: 고급형 플랜)", "premium": "월 보험료 (예: 35,590원)"}],
+  "sections": [
+    {
+      "name": "카테고리명 (예: 상해사고플랜)",
+      "rows": [
+        {"no": 1, "label": "담보명", "term": "납기·만기 정보", "amounts": ["플랜별 가입금액을 plans 배열과 같은 순서로"]}
+      ]
+    }
+  ]
+}
+
+[규칙]
+- 이미지에 있는 담보명·금액·숫자를 정확히 그대로 옮긴다. 지어내지 않는다.
+- 이미지가 여러 장이면, 같은 담보 항목이 중복되지 않게 병합한다.
+- plans가 1개뿐이면 amounts 배열도 원소 1개로 통일한다.
+- 카테고리(section) 구분이 이미지에 색상/구분선으로 되어 있으면 그 구분을 따른다. 불명확하면 담보 성격에 따라 적절히 묶는다.
+- 글자를 알아보기 어려운 부분은 억지로 추측해서 채우지 말고, 확실히 읽히는 내용 위주로 정리한다.
+- 다른 설명, 코드블록 기호 없이 JSON만 출력한다.`;
+
+  const content = imagesBase64List.map(b64 => ({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: b64 } }));
+  content.push({ type: 'text', text: '위 이미지(들)을 보고 제안서 JSON 스키마로 정리해줘.' });
+
+  const raw = await callClaude(system, [{ role: 'user', content }], 2, null, 4000);
+  const cleaned = raw.replace(/```json|```/g, '').trim();
+  return JSON.parse(cleaned);
+}
+
+document.getElementById('proposalGenBtn').addEventListener('click', async () => {
+  const btn = document.getElementById('proposalGenBtn');
+  const statusEl = document.getElementById('proposalGenStatus');
+  const clientName = document.getElementById('proposalClientInput').value.trim();
+  const agentName = document.getElementById('proposalAgentInput').value.trim() || '보험탈출구';
+  const files = window.__proposalFiles;
+
+  if (!files.length) { alert('설계안 이미지나 PDF를 먼저 첨부해주세요.'); return; }
+
+  btn.disabled = true;
+  statusEl.textContent = '';
+  try {
+    btn.textContent = '설계안 읽는 중...';
+    let images = [];
+    for (const file of files) {
+      if (/^image\//.test(file.type)) {
+        const dataUrl = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+        const resized = await resizeImageToBase64(dataUrl.split(',')[1], file.type, 1400, 0.85);
+        images.push(resized);
+      } else if (file.name.toLowerCase().endsWith('.pdf')) {
+        const pages = await pdfToImageBase64List(file);
+        images = images.concat(pages);
+      }
+    }
+    images = images.slice(0, 10);
+    if (!images.length) throw new Error('처리할 수 있는 이미지가 없어요.');
+
+    btn.textContent = '내용 분석 중...';
+    const data = await extractProposalData(images);
+    if (clientName) data.clientName = clientName;
+    data.agentName = agentName;
+    if (!data.title) data.title = (clientName ? clientName + '님 ' : '') + '맞춤 설계 제안서';
+
+    btn.textContent = '제안서 이미지 만드는 중...';
+    const result = await apiPost('/api/generate-proposal', data);
+    const imgSrc = 'data:image/png;base64,' + result.base64;
+
+    document.getElementById('proposalResultPanel').style.display = 'block';
+    const imgEl = document.getElementById('proposalResultImg');
+    imgEl.src = imgSrc;
+    const dlBtn = document.getElementById('proposalDownloadBtn');
+    dlBtn.href = imgSrc;
+    dlBtn.download = (data.title || '제안서').replace(/[\\/:*?"<>|]/g, '') + '.png';
+
+    statusEl.textContent = '완료!';
+    await addToHistory({
+      id: Date.now(), topic: data.title, category: clientName || '', format: 'proposal',
+      script: JSON.stringify({ data })
+    });
+  } catch (err) {
+    statusEl.textContent = '';
+    alert('생성 실패: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '제안서 만들기';
+  }
+});
+
+async function renderProposalHistory() {
+  proposalHistoryLoaded = true;
+  const all = await fetchAllHistory();
+  const list = all.filter(h => h.format === 'proposal');
+
+  const panel = document.getElementById('proposalHistoryPanel');
+  panel.style.display = list.length ? 'block' : 'none';
+  document.getElementById('proposalHistoryCount').textContent = `(${list.length}개)`;
+  const el = document.getElementById('proposalHistoryList');
+  el.innerHTML = list.map(h => `
+    <div class="hist-item">
+      <div class="hist-item-head">
+        <div>
+          <div class="hist-item-title">${escapeHtml(h.topic || '(제목 없음)')}</div>
+          <div class="hist-item-meta">${escapeHtml(h.category || '')} · ${new Date(h.created_at || h.id).toLocaleString('ko-KR')}</div>
+        </div>
+        <div class="hist-item-actions">
+          <button class="mini-btn" data-action="redownload" data-id="${h.id}">다시 만들기</button>
+          <button class="mini-btn danger" data-action="del" data-id="${h.id}">삭제</button>
+        </div>
+      </div>
+    </div>
+  `).join('');
+  el.querySelectorAll('[data-action="redownload"]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const h = list.find(x => String(x.id) === btn.dataset.id);
+      if (!h) return;
+      let parsed;
+      try { parsed = JSON.parse(h.script); } catch (e) { alert('저장된 제안서 데이터를 읽지 못했어요.'); return; }
+      const old = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = '만드는 중...';
+      try {
+        const result = await apiPost('/api/generate-proposal', parsed.data);
+        const imgSrc = 'data:image/png;base64,' + result.base64;
+        document.getElementById('proposalResultPanel').style.display = 'block';
+        document.getElementById('proposalResultImg').src = imgSrc;
+        const dlBtn = document.getElementById('proposalDownloadBtn');
+        dlBtn.href = imgSrc;
+        dlBtn.download = (parsed.data.title || '제안서').replace(/[\\/:*?"<>|]/g, '') + '.png';
+        document.getElementById('proposalResultPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } catch (e) {
+        alert('다시 만들기 실패: ' + e.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = old;
+      }
+    });
+  });
+  el.querySelectorAll('[data-action="del"]').forEach(btn => {
+    btn.addEventListener('click', () => deleteFromHistory(Number(btn.dataset.id)));
+  });
+}
+document.getElementById('proposalHistoryToggle').addEventListener('click', () => {
+  const list = document.getElementById('proposalHistoryList');
+  const btn = document.getElementById('proposalHistoryToggleBtn');
   const show = list.style.display === 'none';
   list.style.display = show ? 'block' : 'none';
   btn.textContent = show ? '접기' : '펼치기';
@@ -3394,31 +3702,91 @@ async function handlePptClauseFileUpload(e) {
 }
 document.getElementById('pptClauseFileInput').addEventListener('change', handlePptClauseFileUpload);
 
+// 이미지 여러 장을 순서대로 OCR(텍스트 인식)해서 하나의 텍스트로 합쳐 붙여넣는다
+async function handleImagesUpload(fileList, statusId, sourceId, afterUpdate) {
+  const statusEl = document.getElementById(statusId);
+  const sourceEl = document.getElementById(sourceId);
+  const files = Array.from(fileList).filter(f => /^image\//.test(f.type));
+  if (!files.length) return;
+  const MAX_IMAGES = 10;
+  const toProcess = files.slice(0, MAX_IMAGES);
+  let extracted = '';
+
+  for (let i = 0; i < toProcess.length; i++) {
+    const file = toProcess[i];
+    statusEl.textContent = `이미지에서 텍스트 읽는 중... (${i + 1}/${toProcess.length})`;
+    try {
+      const rawDataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const rawBase64 = rawDataUrl.split(',')[1];
+      const resized = await resizeImageToBase64(rawBase64, file.type || 'image/jpeg');
+      const ocrText = await extractTextFromImageBase64(resized, 'image/jpeg');
+      if (ocrText && !/^텍스트\s*없음/.test(ocrText)) {
+        extracted += `[이미지 ${i + 1}: ${file.name}]\n${ocrText}\n\n`;
+      }
+    } catch (imgErr) {
+      extracted += `[이미지 ${i + 1}: ${file.name} 처리 실패: ${imgErr.message}]\n\n`;
+    }
+  }
+
+  if (files.length > MAX_IMAGES) {
+    extracted += `(※ 이미지가 ${files.length}장이라 앞의 ${MAX_IMAGES}장만 처리했어요.)\n\n`;
+  }
+
+  if (!extracted.trim()) {
+    statusEl.textContent = '이미지에서 텍스트를 찾지 못했어요.';
+    return;
+  }
+
+  const prefix = sourceEl.value.trim() ? sourceEl.value.trim() + '\n\n' : '';
+  sourceEl.value = prefix + `--- 첨부 이미지 ${toProcess.length}장 인식 결과 ---\n` + extracted.trim();
+  statusEl.textContent = `이미지 ${toProcess.length}장 처리 완료`;
+  afterUpdate();
+}
+
 async function handleCardDesignFileUpload(e) {
-  const file = e.target.files[0];
-  if (!file) return;
+  const files = e.target.files;
+  if (!files || !files.length) return;
+  if (files.length > 1 || /^image\//.test(files[0].type)) {
+    await handleImagesUpload(files, 'cardDesignFileStatus', 'cardDesignInput', () => {});
+    e.target.value = '';
+    return;
+  }
+  const file = files[0];
   const ext = file.name.toLowerCase().split('.').pop();
   if (ext === 'pptx') {
     await handlePptxUpload(file, 'cardDesignFileStatus', 'cardDesignInput', () => {});
   } else if (ext === 'pdf') {
     await handlePdfUpload(file, 'cardDesignFileStatus', 'cardDesignInput', () => {});
   } else {
-    document.getElementById('cardDesignFileStatus').textContent = 'pptx 또는 pdf 파일만 지원해요.';
+    document.getElementById('cardDesignFileStatus').textContent = 'pptx, pdf, 이미지 파일만 지원해요.';
   }
+  e.target.value = '';
 }
 document.getElementById('cardDesignFileInput').addEventListener('change', handleCardDesignFileUpload);
 
 async function handleCardClauseFileUpload(e) {
-  const file = e.target.files[0];
-  if (!file) return;
+  const files = e.target.files;
+  if (!files || !files.length) return;
+  if (files.length > 1 || /^image\//.test(files[0].type)) {
+    await handleImagesUpload(files, 'cardClauseFileStatus', 'cardClauseInput', () => {});
+    e.target.value = '';
+    return;
+  }
+  const file = files[0];
   const ext = file.name.toLowerCase().split('.').pop();
   if (ext === 'pptx') {
     await handlePptxUpload(file, 'cardClauseFileStatus', 'cardClauseInput', () => {});
   } else if (ext === 'pdf') {
     await handlePdfUpload(file, 'cardClauseFileStatus', 'cardClauseInput', () => {});
   } else {
-    document.getElementById('cardClauseFileStatus').textContent = 'pptx 또는 pdf 파일만 지원해요.';
+    document.getElementById('cardClauseFileStatus').textContent = 'pptx, pdf, 이미지 파일만 지원해요.';
   }
+  e.target.value = '';
 }
 document.getElementById('cardClauseFileInput').addEventListener('change', handleCardClauseFileUpload);
 
@@ -4171,6 +4539,89 @@ function renderBundle(data) {
     </div>
   `;
 }
+
+/* ===================== 다음 주제 / 제목 추천 (대본 쓰기 전, 실시간 검색 기반) ===================== */
+async function runTopicRecommend() {
+  const btn = document.getElementById('topicRecommendBtn');
+  const body = document.getElementById('topicRecommendBody');
+  const panel = document.getElementById('topicRecommendPanel');
+  const usedList = document.getElementById('topicUsedInput').value.trim();
+
+  panel.style.display = 'block';
+  btn.disabled = true;
+  btn.textContent = '검색 중... (30초~1분 정도 걸려요)';
+  body.innerHTML = '<p class="footnote">최근 보험/보장성 콘텐츠 트렌드를 실시간으로 검색하고 있어요...</p>';
+
+  const system = `당신은 유튜브·인스타그램 보험 콘텐츠 채널의 SEO·기획 전문가입니다. web_search 도구를 사용해서, 지금 시점 기준으로 실제로 반응이 좋은(조회수·검색량이 오르고 있는) 보험/보장성 관련 콘텐츠 흐름과 키워드를 찾아보세요.
+
+[검색 방향]
+- "보험 유튜브 요즘", "보험 인스타 릴스 인기", 최근 화제가 된 보험 관련 이슈/제도 변경/뉴스, 관련 질병·사고 통계 등을 검색해서 실제 근거를 확보하세요.
+- 유튜브 알고리즘은 채널이 이미 다룬 키워드와 연관성 있는 다음 주제를 좋아합니다. 아래 [이미 사용한 제목/키워드]가 주어지면, 그것과 완전히 똑같은 주제는 피하되, 소재 결이 비슷하거나 관련 키워드로 이어지는 인접 주제를 우선 추천하세요 (예: "간병인보험"을 이미 다뤘다면, "치매보험"이나 "요양병원 실비" 처럼 연관되지만 겹치지 않는 주제).
+- [이미 사용한 제목/키워드]가 비어 있으면, 보험설계사 채널이 일반적으로 다루기 좋은 화제성 있는 소재 위주로 추천하세요.
+
+[출력 형식 — 반드시 아래 JSON 형식만 출력, 다른 텍스트·코드블록 금지]
+{
+  "topics": [
+    {
+      "title": "영상 제목으로 바로 쓸 수 있는 구체적 문구",
+      "keywords": ["관련 검색 키워드 3~5개"],
+      "reason": "왜 지금 이 키워드/주제가 반응이 좋을 가능성이 높은지, 검색으로 찾은 근거를 한두 문장으로",
+      "seoNote": "제목에 어떤 키워드가 왜 들어갔는지, 검색 노출 관점에서 한 문장"
+    }
+  ]
+}
+- topics는 5개.
+- 검색으로 실제 뒷받침되지 않는 추측성 트렌드는 넣지 않는다. 애매하면 "최근 ~에 대한 관심이 이어지고 있다" 정도로 보수적으로 서술한다.`;
+
+  const userPrompt = `[이미 사용한 제목/키워드 — 이것과 겹치지 않게]\n${usedList || '(없음)'}\n\n지금 반응이 좋을 만한 보험 콘텐츠 다음 주제 5개를 실시간 검색으로 찾아서 추천해줘.`;
+
+  try {
+    const raw = await callClaude(system, [{ role: 'user', content: userPrompt }], 1, WEB_SEARCH_TOOL, 2500);
+    const cleaned = raw.replace(/```json|```/g, '').trim();
+    const data = JSON.parse(cleaned);
+    renderTopicRecommend(data.topics || []);
+  } catch (err) {
+    body.innerHTML = '<div class="error-box">주제 추천에 실패했어요: ' + err.message + '</div>';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '다시 찾아보기';
+  }
+}
+
+function renderTopicRecommend(topics) {
+  const body = document.getElementById('topicRecommendBody');
+  if (!topics.length) {
+    body.innerHTML = '<p class="footnote">추천할 만한 주제를 찾지 못했어요. 다시 시도해보세요.</p>';
+    return;
+  }
+  body.innerHTML = `<div class="bundle-grid">` + topics.map((t, i) => `
+    <div class="bcard full topic-pick-card" data-idx="${i}" style="cursor:pointer;">
+      <h4>${escapeHtml(t.title || '')}</h4>
+      <div class="content">
+        <div style="margin-bottom:8px;">${(t.keywords||[]).map(k => `<span class="tag-pill">${escapeHtml(k)}</span>`).join('')}</div>
+        <p style="margin:6px 0;"><b>왜 지금인가:</b> ${escapeHtml(t.reason || '')}</p>
+        <p style="margin:6px 0; color:var(--paper-mute);"><b>SEO 포인트:</b> ${escapeHtml(t.seoNote || '')}</p>
+        <p style="margin:8px 0 0; color:var(--brass); font-size:12.5px;">클릭하면 이 제목으로 주제란에 채워져요 →</p>
+      </div>
+    </div>
+  `).join('') + `</div>`;
+
+  body.querySelectorAll('.topic-pick-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const idx = Number(card.dataset.idx);
+      const picked = topics[idx];
+      if (!picked) return;
+      document.getElementById('topic').value = picked.title || '';
+      // 사용 목록에도 자동으로 추가해서, 다음번 추천 때 또 겹치지 않게 해준다
+      const usedEl = document.getElementById('topicUsedInput');
+      usedEl.value = (usedEl.value.trim() ? usedEl.value.trim() + '\n' : '') + picked.title;
+      document.getElementById('topic').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  });
+}
+
+document.getElementById('topicRecommendBtn').addEventListener('click', runTopicRecommend);
+
 
 function cafeSystem(intensityLevel) {
   return `당신은 네이버 카페에서 실제 질문에 답변하는 보험 설계사입니다.

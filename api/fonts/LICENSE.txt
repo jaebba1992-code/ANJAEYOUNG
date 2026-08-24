@@ -1,3 +1,5 @@
-Pretendard (PretendardStd) — Copyright (c) 2021, Kil Hyung-jin.
+Noto Sans KR — Copyright 2014-2021 Adobe (http://www.adobe.com/), with Reserved Font Name 'Source'.
+Portions Copyright 2014-2021 Google Inc.
 Licensed under the SIL Open Font License, Version 1.1.
-https://github.com/orioncactus/pretendard
+https://github.com/google/fonts/tree/main/ofl/notosanskr
+(Static weight instances extracted from the variable font and subset to Korean+Latin+punctuation ranges using fonttools, for embedding.)

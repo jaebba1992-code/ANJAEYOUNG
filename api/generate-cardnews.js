@@ -1,21 +1,20 @@
 const { checkAppPassword } = require('./_auth');
 const sharp = require('sharp');
 const archiver = require('archiver');
-const fs = require('fs');
-const path = require('path');
 const { PassThrough } = require('stream');
 
 const CW = 1080, CH = 1350; // 4:5 인스타그램 카드뉴스 표준 사이즈
 const MAX_CARDS = 10; // 카드뉴스는 최대 10장까지만 만든다 (하드 캡)
 
-/* ================= 폰트 임베딩 (Pretendard, OFL 라이선스) =================
+/* ================= 폰트 임베딩 (Noto Sans KR, OFL 라이선스) =================
    서버(Vercel)에는 한글 폰트가 기본으로 없어서, SVG 안에 폰트 파일 자체를
-   base64로 심어(@font-face) 어떤 환경에서도 항상 같은 폰트로 렌더링되게 한다. */
-const FONT = 'Pretendard';
-const FONT_DIR = path.join(__dirname, 'fonts');
-const FONT_REGULAR_B64 = fs.readFileSync(path.join(FONT_DIR, 'PretendardStd-Regular.ttf')).toString('base64');
-const FONT_BOLD_B64 = fs.readFileSync(path.join(FONT_DIR, 'PretendardStd-Bold.ttf')).toString('base64');
-const FONT_EXTRABOLD_B64 = fs.readFileSync(path.join(FONT_DIR, 'PretendardStd-ExtraBold.ttf')).toString('base64');
+   base64로 심어(@font-face) 어떤 환경에서도 항상 같은 폰트로 렌더링되게 한다.
+   .ttf 바이너리 대신 .js 파일 안에 base64 텍스트로 담아둔다 — GitHub 웹 업로드로
+   바이너리 파일이 누락되는 사고를 원천적으로 막기 위함 (다른 .js 코드 파일과 동일하게 취급됨). */
+const FONT = 'NotoSansKR';
+const FONT_REGULAR_B64 = require('./fonts/notosans-regular.b64.js');
+const FONT_BOLD_B64 = require('./fonts/notosans-bold.b64.js');
+const FONT_EXTRABOLD_B64 = require('./fonts/notosans-black.b64.js');
 const FONT_FACE_DEFS = `<style>
   @font-face { font-family:'${FONT}'; font-weight:400; src:url(data:font/truetype;base64,${FONT_REGULAR_B64}) format('truetype'); }
   @font-face { font-family:'${FONT}'; font-weight:700; src:url(data:font/truetype;base64,${FONT_BOLD_B64}) format('truetype'); }
