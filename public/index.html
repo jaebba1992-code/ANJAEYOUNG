@@ -3581,16 +3581,19 @@ document.getElementById('recoExtractBtn').addEventListener('click', async () => 
   btn.disabled = true;
   btn.textContent = 'AI가 항목 정리 중...';
   try {
-    const system = `당신은 보험사 소식지·안내자료에서 "추천 상품" 정보를 구조화해서 뽑아내는 어시스턴트입니다.
-- 입력된 텍스트 안에서 보험사명, 상품명(있으면), 추천하는 이유·특징을 항목별로 뽑아낸다.
+    const system = `당신은 보험사 소식지·안내자료(때로는 유튜브 방송 대본처럼 잡담이 섞인 긴 텍스트)에서 "추천 상품" 정보만 구조화해서 뽑아내는 어시스턴트입니다.
+- 입력 텍스트 안에서 실제로 보험 상품·보장·요율·특약과 직접 관련된 내용만 골라서 보험사명, 상품명(있으면), 추천하는 이유·특징을 항목별로 뽑아낸다.
+- 매우 중요: 잡담, 농담, 인사말, 감사 인사, 정치·사회 이슈에 대한 사견, 방송 진행 관련 멘트(예: "시청해주셔서 감사합니다", "구독과 좋아요"), 본론과 무관한 여담은 완전히 무시한다. reason에도 절대 포함하지 않는다.
+- 보험 얘기라도 구체적인 상품·보장 정보 없이 막연한 넋두리("힘들다", "어렵다" 등)만 있는 부분도 제외한다.
 - 구체적인 보험료·금액은 절대 만들어내지 말고, 텍스트에 실제로 있는 경우에만 reason 안에 그대로 포함한다.
+- 텍스트 전체를 다 훑어봐도 보험 상품과 직접 관련된 내용이 하나도 없으면, 빈 배열 []을 반환한다. 억지로 무관한 내용을 상품 정보로 둔갑시키지 않는다.
 - 결과는 오직 JSON 배열만 출력한다. 다른 설명, 마크다운, 코드블록 기호는 절대 붙이지 않는다.
-- 형식: [{"insurer": "보험사명", "product_name": "상품명 (없으면 빈 문자열)", "category": "보험 분야 (예: 암보험, 실손보험, 종신보험 등 텍스트에서 추론)", "reason": "추천 이유·특징을 자연스러운 문장 몇 개로 정리"}]
-- 항목을 구분할 수 없을 만큼 텍스트가 짧거나 모호하면, 전체를 하나의 항목으로 정리해서 반환한다.`;
+- 형식: [{"insurer": "보험사명", "product_name": "상품명 (없으면 빈 문자열)", "category": "보험 분야 (예: 암보험, 실손보험, 종신보험 등 텍스트에서 추론)", "reason": "추천 이유·특징을 자연스러운 문장 몇 개로 정리 (잡담 제외하고 상품 관련 내용만)"}]
+- 항목을 구분할 수 없을 만큼 관련 텍스트가 짧거나 모호하면, 그 관련 부분만으로 하나의 항목을 정리해서 반환한다.`;
     const raw2 = await callClaude(system, [{ role: 'user', content: raw }], 2, null, 3000);
     const cleaned = raw2.replace(/```json|```/g, '').trim();
     const items = JSON.parse(cleaned);
-    if (!Array.isArray(items) || !items.length) throw new Error('항목을 찾지 못했어요.');
+    if (!Array.isArray(items) || !items.length) throw new Error('이 텍스트 안에서 보험 상품 관련 내용을 찾지 못했어요. 관련 내용이 있는 부분인지 확인해주세요.');
     items.forEach(it => { it.raw_text = raw.slice(0, 3000); });
     await apiPost('/api/recommended', { items });
     document.getElementById('recoSource').value = '';
