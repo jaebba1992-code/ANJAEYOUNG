@@ -8,6 +8,9 @@
     },
     "api/generate-pptx.js": {
       "maxDuration": 60
+    },
+    "api/generate-cardnews.js": {
+      "maxDuration": 90
     }
   }
 }
