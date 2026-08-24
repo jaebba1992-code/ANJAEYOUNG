@@ -13,15 +13,15 @@ module.exports = async function handler(req, res) {
         .from('history')
         .select('*')
         .order('created_at', { ascending: false })
-        .limit(50);
+        .limit(2000);
       if (error) throw error;
       return res.status(200).json({ items: data });
     }
 
     if (req.method === 'POST') {
-      const { id, topic, category, format, script } = req.body || {};
+      const { id, topic, category, format, script, visitor_name } = req.body || {};
       if (!script) return res.status(400).json({ error: 'script가 필요합니다.' });
-      const row = { id: id || Date.now(), topic, category, format, script };
+      const row = { id: id || Date.now(), topic, category, format, script, visitor_name: visitor_name || null };
       const { error } = await supabase.from('history').upsert(row);
       if (error) throw error;
       return res.status(200).json({ ok: true, id: row.id });

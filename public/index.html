@@ -690,6 +690,16 @@
   </div>
 </div>
 
+<div id="usageStatsModal" style="position:fixed; inset:0; background:rgba(10,46,34,0.45); z-index:997; display:none; align-items:center; justify-content:center;">
+  <div style="width:100%; max-width:360px; padding:26px 28px; background:var(--card); border-radius:var(--r-card); box-shadow:var(--sh-card);">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px;">
+      <p id="usageStatsName" style="font-size:15px; font-weight:700; color:var(--ink0); margin:0;">사용 내역</p>
+      <button type="button" id="usageStatsCloseBtn" style="background:none; border:none; font-size:18px; color:var(--muted0); cursor:pointer; line-height:1;">×</button>
+    </div>
+    <div id="usageStatsBody"></div>
+  </div>
+</div>
+
 <div class="app-shell" id="appShell" style="display:none;">
 
   <div class="app-sidebar">
@@ -1524,11 +1534,14 @@ async function refreshVisitsWidget() {
     document.getElementById('sbVisitsTotal').textContent = `총 ${data.total || 0}회`;
     const listEl = document.getElementById('sbVisitsList');
     listEl.innerHTML = (data.visitors || []).map(v => `
-      <div class="sb-visit-row">
+      <div class="sb-visit-row" data-name="${escapeHtml(v.name)}" style="cursor:pointer;">
         <span class="sb-visit-name">${escapeHtml(v.name)}</span>
         <span class="sb-visit-count">${v.count}회${v.last ? ' · ' + new Date(v.last).toLocaleDateString('ko-KR') : ''}</span>
       </div>
     `).join('') || '<div class="sb-visit-row"><span class="sb-visit-name">기록 없음</span></div>';
+    listEl.querySelectorAll('.sb-visit-row[data-name]').forEach(row => {
+      row.addEventListener('click', () => showUsageStats(row.dataset.name));
+    });
   } catch (e) {
     document.getElementById('sbVisitsTotal').textContent = '-';
   }
@@ -1536,6 +1549,50 @@ async function refreshVisitsWidget() {
 document.getElementById('sbVisitsToggle').addEventListener('click', () => {
   const list = document.getElementById('sbVisitsList');
   list.style.display = list.style.display === 'none' ? 'block' : 'none';
+});
+
+const USAGE_CATEGORY_LABEL = {
+  script: '대본 생성기', cafe: '카페 답변', blog: '블로그 포스팅',
+  reco: '추천상품', search: '자료 검색'
+};
+function historyFormatToCategory(fmt) {
+  if (fmt === 'long' || fmt === 'short') return 'script';
+  if (fmt === 'cafe') return 'cafe';
+  if (fmt === 'blog') return 'blog';
+  if (fmt === 'reco' || fmt === 'reco_kakao' || fmt === 'coverage') return 'reco';
+  if (fmt === 'search') return 'search';
+  return null;
+}
+async function showUsageStats(name) {
+  const modal = document.getElementById('usageStatsModal');
+  const body = document.getElementById('usageStatsBody');
+  document.getElementById('usageStatsName').textContent = name + '님 사용 내역';
+  body.innerHTML = '불러오는 중...';
+  modal.style.display = 'flex';
+  try {
+    const all = await fetchAllHistory();
+    const mine = all.filter(h => (h.visitor_name || '') === name);
+    const counts = { script: 0, cafe: 0, blog: 0, reco: 0, search: 0 };
+    mine.forEach(h => {
+      const c = historyFormatToCategory(h.format);
+      if (c) counts[c]++;
+    });
+    const total = Object.values(counts).reduce((a, b) => a + b, 0);
+    body.innerHTML = `
+      <div style="font-size:13px; color:var(--muted0); margin-bottom:14px;">총 ${total}건 생성</div>
+      ${Object.entries(USAGE_CATEGORY_LABEL).map(([key, label]) => `
+        <div style="display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--border0); font-size:13.5px;">
+          <span style="color:var(--ink0);">${label}</span>
+          <span style="color:var(--green0); font-weight:700;">${counts[key]}건</span>
+        </div>
+      `).join('')}
+    `;
+  } catch (e) {
+    body.innerHTML = '<div class="error-box">불러오지 못했어요: ' + e.message + '</div>';
+  }
+}
+document.getElementById('usageStatsCloseBtn').addEventListener('click', () => {
+  document.getElementById('usageStatsModal').style.display = 'none';
 });
 
 async function refreshSidebarCounts() {
@@ -1805,6 +1862,7 @@ function complianceSystemBlock() {
 /* ===================== 이전 작업 기록 (Supabase, 팀 공유) ===================== */
 async function addToHistory(entry) {
   try {
+    entry.visitor_name = localStorage.getItem('ins_visitor_name') || null;
     await apiPost('/api/history', entry);
     await renderHistory();
     await renderBlogHistory();
