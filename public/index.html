@@ -742,7 +742,7 @@
     </div>
   </div>
 
-  <div id="scriptTab" class="wrap-narrow">
+  <div id="scriptTab">
 
   <div class="panel" id="resumeBanner" style="display:none; border-color:var(--brass-dim);">
     <p class="panel-title" style="border:none; padding:0; margin:0 0 10px;">이어서 쓰다 만 대본이 있어요</p>
@@ -965,7 +965,7 @@
 
   </div>
 
-  <div id="cafeTab" class="wrap-narrow" style="display:none;">
+  <div id="cafeTab" style="display:none;">
 
   <div class="panel" id="cafeHistoryPanel" style="display:none;">
     <div class="result-head" style="cursor:pointer;" id="cafeHistoryToggle">
@@ -1056,7 +1056,7 @@
 
   </div>
 
-  <div id="blogTab" class="wrap-narrow" style="display:none;">
+  <div id="blogTab" style="display:none;">
 
   <div class="panel" id="blogHistoryPanel" style="display:none;">
     <div class="result-head" style="cursor:pointer;" id="blogHistoryToggle">
@@ -1178,7 +1178,7 @@
 
   </div>
 
-  <div id="recoTab" class="wrap-narrow" style="display:none;">
+  <div id="recoTab" style="display:none;">
 
   <div class="panel">
     <div class="result-head" style="cursor:pointer;" id="recoUploadToggle">
@@ -1283,6 +1283,12 @@
           <option value="summary">한눈에 보는 정리형</option>
           <option value="kakao">카톡 1:1 대화형 (실제 답변 넣으며 한 턴씩 이어가기)</option>
         </select>
+      </div>
+    </div>
+    <div class="row" style="margin-top:14px;">
+      <div class="field">
+        <label>직접 요청 입력 (선택) <span class="opt">위 분야·형태에 안 맞는 걸 원하시면, 원하는 내용을 그대로 적어주세요 — 이게 채워져 있으면 이 요청을 최우선으로 반영해요</span></label>
+        <textarea id="recoFreeInput" rows="3" placeholder="예: 20대 사회초년생한테 암보험이 왜 필요한지 부담 없는 톤으로 설명해줘 / 을지대병원 근처 고객한테 보낼 톡 멘트 만들어줘 등, 원하시는 걸 자유롭게 적어주세요"></textarea>
       </div>
     </div>
     <div class="row" id="recoCustomerRow" style="display:none;">
@@ -3606,6 +3612,7 @@ async function generateRecoOutput() {
   const category = document.getElementById('recoCategory').value.trim();
   const fmt = document.getElementById('recoFormat').value;
   const customerContext = document.getElementById('recoCustomerContext').value.trim();
+  const freeInput = document.getElementById('recoFreeInput').value.trim();
   const btn = document.getElementById('recoGenBtn');
   const resultPanel = document.getElementById('recoResultPanel');
   const resultBody = document.getElementById('recoResultBody');
@@ -3618,7 +3625,8 @@ async function generateRecoOutput() {
   btn.textContent = '관련 자료 찾는 중...';
 
   // 저장된 추천상품 목록뿐 아니라, 8천페이지 자료(정닥터 대본·소식지 원문 등)와 라이브러리도 항상 같이 검색한다.
-  const searchQuery = (category || '보험 추천 상품') + (customerContext ? ' ' + customerContext : '');
+  // 직접 입력한 요청이 있으면 그 내용도 검색어에 포함시켜서 더 정확한 자료를 찾는다.
+  const searchQuery = (freeInput || category || '보험 추천 상품') + (customerContext ? ' ' + customerContext : '');
   const libMatches = searchLibrary(searchQuery, '').slice(0, 3);
   const libBlock = libMatches.length
     ? `\n\n[내 라이브러리에 저장된 관련 자료]\n${libMatches.map(m => `■ ${m.title}\n${(m.content||'').slice(0, 1500)}`).join('\n\n')}`
@@ -3632,14 +3640,14 @@ async function generateRecoOutput() {
   if (!pool.length && !extraKnowledgeBlock) {
     btn.disabled = false;
     btn.textContent = '추천 상품 안내 생성하기';
-    alert('저장된 추천상품 목록에도, 라이브러리·8천페이지 자료에도 관련 내용을 찾지 못했어요. 검색어(보험 분야)를 좀 더 넓게 입력해보시거나, 관련 자료를 먼저 업로드해주세요.');
+    alert('저장된 추천상품 목록에도, 라이브러리·8천페이지 자료에도 관련 내용을 찾지 못했어요. 검색어(보험 분야 또는 직접 입력)를 좀 더 넓게 입력해보시거나, 관련 자료를 먼저 업로드해주세요.');
     return;
   }
 
   if (fmt === 'kakao') {
     btn.textContent = '생성 중...';
     try {
-      await recoKakaoEngine.start({ category, customerContext, pool, extraKnowledgeBlock });
+      await recoKakaoEngine.start({ category, customerContext, pool, extraKnowledgeBlock, freeInput });
       document.getElementById('recoSetupRow').style.display = 'none';
       document.getElementById('recoCustomerRow').style.display = 'none';
       btn.style.display = 'none';
@@ -3661,19 +3669,24 @@ async function generateRecoOutput() {
     ? pool.map(it => `■ [${it.insurer}${it.product_name ? ' - ' + it.product_name : ''}] (${it.category || '분야 미상'})\n${it.reason}`).join('\n\n')
     : '(저장된 추천상품 목록엔 해당 조건이 없음 — 아래 라이브러리/출처자료를 근거로 작성)';
   const COMPLIANCE_NOTE = '\n\n(중요: 위 자료 중 보험사 소식지에서 나온 내용은 설계사 교육용으로만 배포된 내부 참고자료입니다. 소식지 특유의 이벤트성 문구·프로모션 표현을 그대로 인용하지 말고, 일반적으로 알려진 상품 특징 수준에서 설계사 본인의 말로 자연스럽게 풀어서 설명하세요.)';
+  const freeInputNote = freeInput
+    ? `\n\n[사용자가 직접 입력한 요청 — 이게 있으면 아래 분야/형태 설정보다 이 요청 내용을 최우선으로 따른다]\n${freeInput}`
+    : '';
 
   const system = fmt === 'answer'
     ? `당신은 보험 설계사입니다. "요즘 뭐가 좋아요?" 같은 질문에 답하듯, 아래 [현재 추천 상품 목록]과 [참고자료]를 근거로 자연스럽고 친근한 답변을 작성합니다.
+- 사용자가 직접 입력한 요청이 있으면, 그 요청의 형식·톤·타겟·내용을 최우선으로 반영한다. 아래 다른 지시들은 그 요청과 안 맞으면 요청 쪽을 따른다.
 - 자료에 있는 보험사명·상품명·추천 이유·통계를 그대로 활용해서 구체적으로 설명한다.
 - 자료에 없는 보험료·금액은 절대 지어내지 않는다. 필요하면 "정확한 보험료는 상담 시 안내"로 자연스럽게 넘어간다.
 - 결론(추천 방향) 먼저 제시하고, 이유를 조목조목 설명한 뒤, 자연스러운 상담 유도 CTA로 마무리한다.
 - 결과는 답변 본문만 출력한다.` + complianceSystemBlock() + salesSystemBlock(cafeIntensity)
     : `당신은 보험 콘텐츠 작가입니다. 아래 [현재 추천 상품 목록]과 [참고자료]를 "한눈에 보는 이번 달 추천 상품 정리" 형태로 정리합니다.
+- 사용자가 직접 입력한 요청이 있으면, 그 요청의 형식·톤·타겟·내용을 최우선으로 반영한다.
 - 보험사·주제별로 항목을 나누고, 각 항목마다 추천 이유를 간결하게 정리한다.
 - 자료에 없는 보험료·금액은 절대 지어내지 않는다.
 - 결과는 정리된 본문만 출력한다.` + complianceSystemBlock();
 
-  const userPrompt = `[현재 추천 상품 목록]\n${listBlock}${extraKnowledgeBlock ? '\n\n[참고자료]' + extraKnowledgeBlock : ''}${COMPLIANCE_NOTE}\n\n위 자료를 바탕으로 작성해줘.`;
+  const userPrompt = `[현재 추천 상품 목록]\n${listBlock}${extraKnowledgeBlock ? '\n\n[참고자료]' + extraKnowledgeBlock : ''}${freeInputNote}${COMPLIANCE_NOTE}\n\n위 자료를 바탕으로 작성해줘.`;
 
   try {
     const answer = await callClaude(system, [{ role: 'user', content: userPrompt }], 2, null, 3200);
@@ -3682,7 +3695,7 @@ async function generateRecoOutput() {
     div.className = 'script-body';
     div.textContent = answer || '생성에 실패했어요. 다시 시도해주세요.';
     resultBody.appendChild(div);
-    if (answer) addToHistory({ id: Date.now(), topic: (category || '전체') + ' ' + (fmt === 'answer' ? '질문 답변형' : '정리형'), category: category || '전체', format: 'reco', script: JSON.stringify({ fmt, text: answer }) });
+    if (answer) addToHistory({ id: Date.now(), topic: (freeInput ? freeInput.slice(0, 40) : (category || '전체')) + ' ' + (fmt === 'answer' ? '질문 답변형' : '정리형'), category: category || '전체', format: 'reco', script: JSON.stringify({ fmt, text: answer }) });
   } catch (err) {
     resultBody.innerHTML = '<div class="error-box">오류가 발생했어요: ' + err.message + '</div>';
   } finally {
@@ -4199,13 +4212,13 @@ const recoKakaoEngine = createKakaoChatEngine({
     const extra = meta.extraKnowledgeBlock ? `\n\n[참고자료 — 라이브러리·8천페이지 자료(정닥터 대본, 소식지 원문 등)]${meta.extraKnowledgeBlock}` : '';
     return `\n\n[현재 추천 상품 목록]\n${listBlock}${extra}\n\n(중요: 보험사 소식지에서 나온 내용은 설계사 교육용으로만 배포된 내부 참고자료입니다. 소식지 특유의 이벤트성 문구·프로모션 표현을 그대로 인용하지 말고, 일반적으로 알려진 상품 특징 수준에서 설계사 본인의 말로 자연스럽게 풀어서 설명하세요.)`;
   },
-  buildStartPrompt: (meta, knowledgeBlock) => `${meta.customerContext ? '[고객 상황]\n' + meta.customerContext + '\n\n' : ''}${knowledgeBlock}\n\n지금 막 대화를 시작하는 시점이야. 첫 상담사 메시지 하나만 만들어줘.
+  buildStartPrompt: (meta, knowledgeBlock) => `${meta.customerContext ? '[고객 상황]\n' + meta.customerContext + '\n\n' : ''}${meta.freeInput ? '[사용자가 직접 입력한 요청 — 이게 있으면 최우선으로 반영]\n' + meta.freeInput + '\n\n' : ''}${knowledgeBlock}\n\n지금 막 대화를 시작하는 시점이야. 첫 상담사 메시지 하나만 만들어줘.
 
 [첫 메시지 규칙 — 중요]
 대뜸 상품 얘기로 들어가지 않는다. 첫 메시지는 순수한 안부 인사 + 아주 가벼운 체크인 정도로만 구성한다 (예: "요즘 잘 지내셨어요? 별일 없으시죠?" 수준). "보험", "보장", "상품", 구체적 질환명 등을 이 메시지에 넣지 않는다. 왜 연락했는지 이유도 설명하지 않는다.
-이번엔 이 메시지 하나로 끝. 고객의 실제 답변을 받은 다음, 그 다음 메시지부터 자연스러운 이유를 대며(예: "다름이 아니라 요즘 ~하시는 분들이 많아서 생각나서 연락드렸어요") [현재 추천 상품 목록]의 내용으로 이어간다.`,
+이번엔 이 메시지 하나로 끝. 고객의 실제 답변을 받은 다음, 그 다음 메시지부터 자연스러운 이유를 대며(예: "다름이 아니라 요즘 ~하시는 분들이 많아서 생각나서 연락드렸어요") [현재 추천 상품 목록]의 내용으로 이어간다. (단, 사용자가 직접 입력한 요청이 있고 그 요청이 이 순서와 다르게 진행하길 원한다면 그 요청을 따른다.)`,
   historyFormat: 'reco_kakao',
-  historyTopicBuilder: (meta) => meta.resumedTopic || ((meta.category || '전체') + ' 카톡 대화' + (meta.customerContext ? ' — ' + meta.customerContext.slice(0, 20) : '')),
+  historyTopicBuilder: (meta) => meta.resumedTopic || ((meta.freeInput ? meta.freeInput.slice(0, 30) : (meta.category || '전체')) + ' 카톡 대화' + (meta.customerContext ? ' — ' + meta.customerContext.slice(0, 20) : '')),
   historyCategoryBuilder: (meta) => meta.category || '전체',
   onResume: () => { document.getElementById('recoCustomerRow').style.display = 'none'; }
 });
