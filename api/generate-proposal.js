@@ -110,7 +110,7 @@ function esc(s) {
   return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-// 담보 카테고리별 색상 팔레트 (예시 이미지의 파랑/보라/초록/노랑/분홍 그룹 컬러 느낌 참고)
+// 담보 카테고리(보험사)별 색상 팔레트 — 조합설계 안에서 보험사별로 구간을 구분하는 용도
 const SECTION_COLORS = [
   { bg: 'EAF1FF', accent: '3B6FE0', text: '1D3A7A' }, // 블루
   { bg: 'F1ECFF', accent: '7B4FE0', text: '3B2470' }, // 퍼플
@@ -120,84 +120,114 @@ const SECTION_COLORS = [
   { bg: 'FFF1EA', accent: 'E06B2F', text: '7A3714' }  // 오렌지
 ];
 
-module.exports = async function handler(req, res) {
-  if (!checkAppPassword(req)) {
-    return res.status(401).json({ error: '비밀번호가 필요해요.' });
+// 문서 전체 톤(헤더 배너 색) — 고객 성향에 맞게 선택
+const COLOR_THEMES = {
+  blue: { grad: ['1E3A8A', '3B6FE0'] },
+  pink: { grad: ['9D174D', 'E0508E'] },
+  yellow: { grad: ['8A6300', 'D9A400'] },
+  purple: { grad: ['4C1D95', '7B4FE0'] },
+  green: { grad: ['14532D', '2FA35C'] }
+};
+function getColorTheme(key) {
+  return COLOR_THEMES[key] || COLOR_THEMES.blue;
+}
+
+const MARGIN = 56;
+const NO_W = 56;
+const ROW_H = 50;
+const SECTION_HEADER_H = 46;
+const HEADER_H = 210;
+const FOOTER_H = 90;
+
+function headerBannerSvg(theme, agentName, title, clientName, boxes) {
+  let s = `<rect width="${CW}" height="${HEADER_H}" fill="url(#headerGrad)"/>`;
+  s += drawText(agentName || '', MARGIN, 72, 24, 700, 'FFFFFF', { fillOpacity: 0.85 });
+  s += drawText(title || '맞춤 설계 제안서', MARGIN, 128, 42, 800, 'FFFFFF');
+  if (clientName) {
+    s += drawText(`${clientName}님을 위한 설계안`, MARGIN, 168, 24, 400, 'FFFFFF', { fillOpacity: 0.85 });
   }
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: '지원하지 않는 메서드입니다.' });
-  }
-  try {
-    const { title, clientName, agentName, plans, sections } = req.body || {};
-    if (!Array.isArray(sections) || !sections.length) {
-      return res.status(400).json({ error: 'sections 데이터가 필요합니다.' });
-    }
-    const planList = Array.isArray(plans) && plans.length ? plans.slice(0, 3) : [{ label: '플랜', premium: '' }];
-    const planCount = planList.length;
+  const boxCount = boxes.length;
+  const boxW = 220, boxGap = 16;
+  const boxX = CW - MARGIN - (boxW * boxCount + boxGap * (boxCount - 1));
+  boxes.forEach((b, i) => {
+    const bx = boxX + i * (boxW + boxGap);
+    s += `<rect x="${bx}" y="30" width="${boxW}" height="150" rx="14" fill="#FFFFFF" fill-opacity="0.12" stroke="#FFFFFF" stroke-opacity="0.4"/>`;
+    s += drawText(b.label || '', bx + boxW / 2, 60, 18, 700, 'FFFFFF', { align: 'middle' });
+    if (b.sub) s += drawText(b.sub, bx + boxW / 2, 82, 12, 400, 'FFFFFF', { align: 'middle', fillOpacity: 0.75 });
+    s += drawText('월 보험료', bx + boxW / 2, 108, 13, 400, 'FFFFFF', { align: 'middle', fillOpacity: 0.8 });
+    s += drawText(b.premium || '-', bx + boxW / 2, 142, 27, 800, 'FFFFFF', { align: 'middle' });
+  });
+  return s;
+}
 
-    const MARGIN = 56;
-    const NO_W = 56;
-    const LABEL_W_BASE = 430;
-    const TERM_W = 190;
-    const tableW = CW - MARGIN * 2;
-    const amountColW = (tableW - NO_W - LABEL_W_BASE - TERM_W) / planCount;
+function footerSvg(cy) {
+  let s = `<line x1="${MARGIN}" y1="${cy}" x2="${CW-MARGIN}" y2="${cy}" stroke="#E4E4E7" stroke-width="1"/>`;
+  s += drawText('본 제안서는 참고용이며, 실제 가입 시 약관 및 상품설명서를 기준으로 안내드립니다.', MARGIN, cy + 40, 14, 400, '999999');
+  return s;
+}
 
-    // ---- 헤더 높이 ----
-    let y = 0;
-    const HEADER_H = 210;
-    y = HEADER_H;
+function svgDocument(theme, totalH, body) {
+  return `<svg width="${CW}" height="${totalH}" viewBox="0 0 ${CW} ${totalH}" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="headerGrad" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="#${theme.grad[0]}"/>
+        <stop offset="100%" stop-color="#${theme.grad[1]}"/>
+      </linearGradient>
+    </defs>
+    <rect width="${CW}" height="${totalH}" fill="#FFFFFF"/>
+    ${body}
+  </svg>`;
+}
 
-    // ---- 각 섹션/행 높이를 먼저 계산 (동적 캔버스 높이용) ----
-    const ROW_H = 50;
-    const SECTION_HEADER_H = 46;
-    let contentHeight = 0;
-    sections.forEach(sec => {
+// ===== 조합설계 (A안/B안 — 각각 여러 보험사를 묶은 안) =====
+function renderCombinationProposal({ title, clientName, agentName, theme, designs }) {
+  const tableW = CW - MARGIN * 2;
+  const LABEL_W = tableW - NO_W - 170 - 200;
+  const TERM_W = 170;
+  const AMOUNT_W = 200;
+
+  let contentHeight = 0;
+  designs.forEach(dsn => {
+    contentHeight += 64; // 안(案) 헤더 밴드
+    (dsn.sections || []).forEach(sec => {
       contentHeight += SECTION_HEADER_H;
       contentHeight += (sec.rows || []).length * ROW_H;
     });
+    contentHeight += 24; // 안 사이 간격
+  });
 
-    const FOOTER_H = 90;
-    const totalH = HEADER_H + contentHeight + FOOTER_H + 40;
+  const totalH = HEADER_H + contentHeight + FOOTER_H + 40;
 
-    // ---- SVG 구성 ----
-    let body = '';
+  const boxes = designs.map(d => ({
+    label: d.label || '', sub: d.carriers || '', premium: d.premium || ''
+  }));
+  let body = headerBannerSvg(theme, agentName, title, clientName, boxes);
 
-    // 헤더 배너
-    body += `<rect width="${CW}" height="${HEADER_H}" fill="url(#headerGrad)"/>`;
-    body += drawText(agentName || '', MARGIN, 72, 24, 700, 'FFFFFF', { fillOpacity: 0.85 });
-    body += drawText(title || '맞춤 설계 제안서', MARGIN, 128, 42, 800, 'FFFFFF');
-    if (clientName) {
-      body += drawText(`${clientName}님을 위한 설계안`, MARGIN, 168, 24, 400, 'FFFFFF', { fillOpacity: 0.85 });
+  let cy = HEADER_H + 20;
+  designs.forEach(dsn => {
+    // 안(案) 헤더 밴드
+    body += `<rect x="${MARGIN}" y="${cy}" width="${tableW}" height="56" rx="8" fill="#${theme.grad[1]}" fill-opacity="0.08"/>`;
+    body += `<rect x="${MARGIN}" y="${cy}" width="6" height="56" fill="#${theme.grad[1]}"/>`;
+    const dsnTitle = [dsn.label, dsn.carriers].filter(Boolean).join(' · ');
+    body += drawText(dsnTitle, MARGIN + 24, cy + 34, 20, 800, theme.grad[0]);
+    if (dsn.premium) {
+      body += drawText(`월 ${dsn.premium}`, CW - MARGIN - 24, cy + 34, 18, 800, theme.grad[0], { align: 'end' });
     }
-    // 플랜 프리미엄 박스 (우측 정렬)
-    const boxW = 220, boxGap = 16;
-    let boxX = CW - MARGIN - (boxW * planCount + boxGap * (planCount - 1));
-    planList.forEach((p, i) => {
-      const bx = boxX + i * (boxW + boxGap);
-      body += `<rect x="${bx}" y="30" width="${boxW}" height="150" rx="14" fill="#FFFFFF" fill-opacity="0.12" stroke="#FFFFFF" stroke-opacity="0.4"/>`;
-      body += drawText(p.label || '', bx + boxW / 2, 66, 19, 700, 'FFFFFF', { align: 'middle' });
-      body += drawText('월 보험료', bx + boxW / 2, 100, 14, 400, 'FFFFFF', { align: 'middle', fillOpacity: 0.8 });
-      body += drawText(p.premium || '-', bx + boxW / 2, 140, 30, 800, 'FFFFFF', { align: 'middle' });
-    });
+    cy += 64;
 
-    // 표 헤더 행 (컬럼명)
-    let cy = HEADER_H + 4;
+    // 표 헤더 행
     body += `<rect x="${MARGIN}" y="${cy}" width="${tableW}" height="36" fill="#F4F5F7"/>`;
     body += drawText('NO', MARGIN + NO_W / 2, cy + 24, 14, 700, '555555', { align: 'middle' });
     body += drawText('담보명 및 보장내용', MARGIN + NO_W + 16, cy + 24, 14, 700, '555555');
-    body += drawText('납기·만기', MARGIN + NO_W + LABEL_W_BASE + TERM_W / 2, cy + 24, 14, 700, '555555', { align: 'middle' });
-    planList.forEach((p, i) => {
-      const cx = MARGIN + NO_W + LABEL_W_BASE + TERM_W + amountColW * i + amountColW / 2;
-      body += drawText(p.label || '가입금액', cx, cy + 24, 14, 700, '555555', { align: 'middle' });
-    });
+    body += drawText('납기·만기', MARGIN + NO_W + LABEL_W + TERM_W / 2, cy + 24, 14, 700, '555555', { align: 'middle' });
+    body += drawText('가입금액', MARGIN + NO_W + LABEL_W + TERM_W + AMOUNT_W / 2, cy + 24, 14, 700, '555555', { align: 'middle' });
     cy += 36;
 
-    // 섹션들
-    sections.forEach((sec, sIdx) => {
+    (dsn.sections || []).forEach((sec, sIdx) => {
       const color = SECTION_COLORS[sIdx % SECTION_COLORS.length];
       body += `<rect x="${MARGIN}" y="${cy}" width="${tableW}" height="${SECTION_HEADER_H}" fill="#${color.bg}"/>`;
       body += `<rect x="${MARGIN}" y="${cy}" width="6" height="${SECTION_HEADER_H}" fill="#${color.accent}"/>`;
-      body += drawText(`• ${sec.name || ''}`, MARGIN + 24, cy + SECTION_HEADER_H / 2 + 7, 19, 800, color.text);
+      body += drawText(`• ${sec.carrierName || ''}`, MARGIN + 24, cy + SECTION_HEADER_H / 2 + 7, 19, 800, color.text);
       cy += SECTION_HEADER_H;
 
       (sec.rows || []).forEach((row, rIdx) => {
@@ -206,35 +236,99 @@ module.exports = async function handler(req, res) {
         body += `<line x1="${MARGIN}" y1="${cy+ROW_H}" x2="${MARGIN+tableW}" y2="${cy+ROW_H}" stroke="#EDEDEF" stroke-width="1"/>`;
         body += drawText(String(row.no != null ? row.no : rIdx + 1), MARGIN + NO_W / 2, cy + ROW_H / 2 + 6, 14, 400, '888888', { align: 'middle' });
         body += drawText(row.label || '', MARGIN + NO_W + 16, cy + ROW_H / 2 + 6, 16, 500, '222222');
-        body += drawText(row.term || '', MARGIN + NO_W + LABEL_W_BASE + TERM_W / 2, cy + ROW_H / 2 + 6, 13, 400, '777777', { align: 'middle' });
-        const amounts = Array.isArray(row.amounts) ? row.amounts : [row.amount || ''];
-        planList.forEach((p, i) => {
-          const cx = MARGIN + NO_W + LABEL_W_BASE + TERM_W + amountColW * i + amountColW / 2;
-          const val = amounts[i] || amounts[0] || '';
-          body += drawText(val, cx, cy + ROW_H / 2 + 6, 15, 700, color.text, { align: 'middle' });
-        });
+        body += drawText(row.term || '', MARGIN + NO_W + LABEL_W + TERM_W / 2, cy + ROW_H / 2 + 6, 13, 400, '777777', { align: 'middle' });
+        body += drawText(row.amount || '', MARGIN + NO_W + LABEL_W + TERM_W + AMOUNT_W / 2, cy + ROW_H / 2 + 6, 15, 700, color.text, { align: 'middle' });
         cy += ROW_H;
       });
     });
-
-    // 푸터
     cy += 24;
-    body += `<line x1="${MARGIN}" y1="${cy}" x2="${CW-MARGIN}" y2="${cy}" stroke="#E4E4E7" stroke-width="1"/>`;
-    body += drawText('본 제안서는 참고용이며, 실제 가입 시 약관 및 상품설명서를 기준으로 안내드립니다.', MARGIN, cy + 40, 14, 400, '999999');
+  });
 
-    const svg = `<svg width="${CW}" height="${totalH}" viewBox="0 0 ${CW} ${totalH}" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <linearGradient id="headerGrad" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stop-color="#1E3A8A"/>
-          <stop offset="100%" stop-color="#3B6FE0"/>
-        </linearGradient>
-      </defs>
-      <rect width="${CW}" height="${totalH}" fill="#FFFFFF"/>
-      ${body}
-    </svg>`;
+  body += footerSvg(cy);
+  return svgDocument(theme, totalH, body);
+}
+
+// ===== 구버전 호환: 단일 플랜 비교표 (plans + sections) =====
+function renderLegacyProposal({ title, clientName, agentName, theme, plans, sections }) {
+  const planList = Array.isArray(plans) && plans.length ? plans.slice(0, 3) : [{ label: '플랜', premium: '' }];
+  const planCount = planList.length;
+  const tableW = CW - MARGIN * 2;
+  const LABEL_W_BASE = 430;
+  const TERM_W = 190;
+  const amountColW = (tableW - NO_W - LABEL_W_BASE - TERM_W) / planCount;
+
+  let contentHeight = 0;
+  sections.forEach(sec => {
+    contentHeight += SECTION_HEADER_H;
+    contentHeight += (sec.rows || []).length * ROW_H;
+  });
+  const totalH = HEADER_H + contentHeight + FOOTER_H + 40;
+
+  const boxes = planList.map(p => ({ label: p.label || '', premium: p.premium || '' }));
+  let body = headerBannerSvg(theme, agentName, title, clientName, boxes);
+
+  let cy = HEADER_H + 4;
+  body += `<rect x="${MARGIN}" y="${cy}" width="${tableW}" height="36" fill="#F4F5F7"/>`;
+  body += drawText('NO', MARGIN + NO_W / 2, cy + 24, 14, 700, '555555', { align: 'middle' });
+  body += drawText('담보명 및 보장내용', MARGIN + NO_W + 16, cy + 24, 14, 700, '555555');
+  body += drawText('납기·만기', MARGIN + NO_W + LABEL_W_BASE + TERM_W / 2, cy + 24, 14, 700, '555555', { align: 'middle' });
+  planList.forEach((p, i) => {
+    const cx = MARGIN + NO_W + LABEL_W_BASE + TERM_W + amountColW * i + amountColW / 2;
+    body += drawText(p.label || '가입금액', cx, cy + 24, 14, 700, '555555', { align: 'middle' });
+  });
+  cy += 36;
+
+  sections.forEach((sec, sIdx) => {
+    const color = SECTION_COLORS[sIdx % SECTION_COLORS.length];
+    body += `<rect x="${MARGIN}" y="${cy}" width="${tableW}" height="${SECTION_HEADER_H}" fill="#${color.bg}"/>`;
+    body += `<rect x="${MARGIN}" y="${cy}" width="6" height="${SECTION_HEADER_H}" fill="#${color.accent}"/>`;
+    body += drawText(`• ${sec.name || ''}`, MARGIN + 24, cy + SECTION_HEADER_H / 2 + 7, 19, 800, color.text);
+    cy += SECTION_HEADER_H;
+
+    (sec.rows || []).forEach((row, rIdx) => {
+      const rowBg = rIdx % 2 === 0 ? 'FFFFFF' : 'FAFAFA';
+      body += `<rect x="${MARGIN}" y="${cy}" width="${tableW}" height="${ROW_H}" fill="#${rowBg}"/>`;
+      body += `<line x1="${MARGIN}" y1="${cy+ROW_H}" x2="${MARGIN+tableW}" y2="${cy+ROW_H}" stroke="#EDEDEF" stroke-width="1"/>`;
+      body += drawText(String(row.no != null ? row.no : rIdx + 1), MARGIN + NO_W / 2, cy + ROW_H / 2 + 6, 14, 400, '888888', { align: 'middle' });
+      body += drawText(row.label || '', MARGIN + NO_W + 16, cy + ROW_H / 2 + 6, 16, 500, '222222');
+      body += drawText(row.term || '', MARGIN + NO_W + LABEL_W_BASE + TERM_W / 2, cy + ROW_H / 2 + 6, 13, 400, '777777', { align: 'middle' });
+      const amounts = Array.isArray(row.amounts) ? row.amounts : [row.amount || ''];
+      planList.forEach((p, i) => {
+        const cx = MARGIN + NO_W + LABEL_W_BASE + TERM_W + amountColW * i + amountColW / 2;
+        const val = amounts[i] || amounts[0] || '';
+        body += drawText(val, cx, cy + ROW_H / 2 + 6, 15, 700, color.text, { align: 'middle' });
+      });
+      cy += ROW_H;
+    });
+  });
+
+  cy += 24;
+  body += footerSvg(cy);
+  return svgDocument(theme, totalH, body);
+}
+
+module.exports = async function handler(req, res) {
+  if (!checkAppPassword(req)) {
+    return res.status(401).json({ error: '비밀번호가 필요해요.' });
+  }
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: '지원하지 않는 메서드입니다.' });
+  }
+  try {
+    const { title, clientName, agentName, colorKey, designs, plans, sections } = req.body || {};
+    const theme = getColorTheme(colorKey);
+
+    let svg;
+    if (Array.isArray(designs) && designs.length) {
+      svg = renderCombinationProposal({ title, clientName, agentName, theme, designs });
+    } else if (Array.isArray(sections) && sections.length) {
+      svg = renderLegacyProposal({ title, clientName, agentName, theme, plans, sections });
+    } else {
+      return res.status(400).json({ error: 'designs 또는 sections 데이터가 필요합니다.' });
+    }
 
     const png = await sharp(Buffer.from(svg)).png().toBuffer();
-    return res.status(200).json({ ok: true, base64: png.toString('base64'), width: CW, height: totalH });
+    return res.status(200).json({ ok: true, base64: png.toString('base64') });
   } catch (err) {
     return res.status(500).json({ error: String(err.message || err) });
   }

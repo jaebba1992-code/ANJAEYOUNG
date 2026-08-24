@@ -1533,17 +1533,22 @@
     </div>
 
     <div class="panel">
-      <p class="panel-title">제안서 생성 <span style="color:var(--paper-mute); font-weight:400; font-size:12px;">— 설계안 캡처(이미지)나 PDF를 올리면, 내용을 읽어서 깔끔한 제안서 이미지로 다시 꾸며드려요</span></p>
+      <p class="panel-title">제안서 생성 <span style="color:var(--paper-mute); font-weight:400; font-size:12px;">— 보험사 조합 설계안(A안/B안)을 각각 올리면, 보험사별로 특약을 정리한 비교 제안서를 만들어드려요</span></p>
 
       <div class="row">
         <div class="field">
-          <label>설계안 첨부 <span class="opt">캡처 이미지 여러 장 또는 PDF — 같은 설계안의 여러 화면이어도, 플랜을 비교하는 화면이어도 괜찮아요</span></label>
-          <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-            <label for="proposalFileInput" class="copy-btn" style="cursor:pointer; display:inline-block;">+ 이미지 / PDF 첨부 (여러 장 가능)</label>
-            <input type="file" id="proposalFileInput" accept=".pdf,image/*" multiple style="display:none;">
-            <span id="proposalFileStatus" style="font-size:12px; color:var(--paper-mute);"></span>
-          </div>
-          <div id="proposalFilePreviewWrap" style="display:none; margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;"></div>
+          <label>색상 테마 <span class="opt">고객 성향에 맞게 (여성 고객 → 핑크, 어린이보험 → 옐로우 등)</span></label>
+          <select id="proposalColorSelect">
+            <option value="blue">블루 (기본)</option>
+            <option value="pink">핑크</option>
+            <option value="yellow">옐로우</option>
+            <option value="purple">퍼플</option>
+            <option value="green">그린</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>설계사/채널명 (선택)</label>
+          <input type="text" id="proposalAgentInput" value="보험탈출구" placeholder="예: 보험탈출구 · 안재영">
         </div>
       </div>
 
@@ -1552,11 +1557,9 @@
           <label>고객명 (선택)</label>
           <input type="text" id="proposalClientInput" placeholder="예: 배준열">
         </div>
-        <div class="field">
-          <label>설계사/채널명 (선택)</label>
-          <input type="text" id="proposalAgentInput" value="보험탈출구" placeholder="예: 보험탈출구 · 안재영">
-        </div>
       </div>
+
+      <div id="proposalDesignBlocks"></div>
 
       <button class="generate" id="proposalGenBtn">제안서 만들기</button>
       <p id="proposalGenStatus" style="font-size:12px; color:var(--paper-mute); margin-top:10px;"></p>
@@ -2847,19 +2850,52 @@ document.getElementById('cardHistoryToggle').addEventListener('click', () => {
 
 /* ===================== 제안서 생성 ===================== */
 let proposalHistoryLoaded = false;
-window.__proposalFiles = [];
+window.__proposalFiles = { A: [], B: [] };
 
-document.getElementById('proposalFileInput').addEventListener('change', (e) => {
-  const files = Array.from(e.target.files || []);
-  if (!files.length) return;
-  window.__proposalFiles = window.__proposalFiles.concat(files).slice(0, 8);
-  renderProposalFilePreview();
-  e.target.value = '';
-});
+const PROPOSAL_DESIGN_LABELS = { A: 'A안', B: 'B안' };
 
-function renderProposalFilePreview() {
-  const wrap = document.getElementById('proposalFilePreviewWrap');
-  const files = window.__proposalFiles;
+function renderProposalDesignBlocks() {
+  const wrap = document.getElementById('proposalDesignBlocks');
+  wrap.innerHTML = ['A', 'B'].map(key => `
+    <div class="panel" style="background:var(--paper-soft); margin-bottom:14px;">
+      <p class="panel-title" style="font-size:14px;">${PROPOSAL_DESIGN_LABELS[key]} ${key === 'B' ? '<span class="opt">(선택 — 두 안을 비교하지 않으면 비워두세요)</span>' : ''}</p>
+      <div class="row">
+        <div class="field">
+          <label>보험사 조합 <span class="opt">예: DB손해 + 메리츠화재</span></label>
+          <input type="text" id="proposalCarriers_${key}" placeholder="예: DB손해 + 메리츠화재">
+        </div>
+        <div class="field">
+          <label>월 보험료 <span class="opt">비워두면 첨부 이미지에서 자동으로 읽어요</span></label>
+          <input type="text" id="proposalPremium_${key}" placeholder="예: 52,340원">
+        </div>
+      </div>
+      <div class="field">
+        <label>설계안 첨부 <span class="opt">이 안(案)의 캡처 이미지 여러 장 또는 PDF</span></label>
+        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+          <label for="proposalFileInput_${key}" class="copy-btn" style="cursor:pointer; display:inline-block;">+ 이미지 / PDF 첨부 (여러 장 가능)</label>
+          <input type="file" id="proposalFileInput_${key}" accept=".pdf,image/*" multiple style="display:none;">
+          <span id="proposalFileStatus_${key}" style="font-size:12px; color:var(--paper-mute);"></span>
+        </div>
+        <div id="proposalFilePreviewWrap_${key}" style="display:none; margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;"></div>
+      </div>
+    </div>
+  `).join('');
+
+  ['A', 'B'].forEach(key => {
+    document.getElementById(`proposalFileInput_${key}`).addEventListener('change', (e) => {
+      const files = Array.from(e.target.files || []);
+      if (!files.length) return;
+      window.__proposalFiles[key] = window.__proposalFiles[key].concat(files).slice(0, 8);
+      renderProposalFilePreview(key);
+      e.target.value = '';
+    });
+  });
+}
+renderProposalDesignBlocks();
+
+function renderProposalFilePreview(key) {
+  const wrap = document.getElementById(`proposalFilePreviewWrap_${key}`);
+  const files = window.__proposalFiles[key];
   if (!files.length) { wrap.style.display = 'none'; wrap.innerHTML = ''; return; }
   wrap.style.display = 'flex';
   wrap.innerHTML = files.map((f, i) => `
@@ -2878,8 +2914,8 @@ function renderProposalFilePreview() {
   });
   wrap.querySelectorAll('[data-remove]').forEach(btn => {
     btn.addEventListener('click', () => {
-      window.__proposalFiles.splice(Number(btn.dataset.remove), 1);
-      renderProposalFilePreview();
+      window.__proposalFiles[key].splice(Number(btn.dataset.remove), 1);
+      renderProposalFilePreview(key);
     });
   });
 }
@@ -2904,34 +2940,35 @@ async function pdfToImageBase64List(file, maxPages = 6) {
   return results;
 }
 
-async function extractProposalData(imagesBase64List) {
-  const system = `당신은 보험 설계안(제안서) 이미지를 구조화된 데이터로 정리하는 전문가입니다. 여러 장의 스크린샷/페이지가 주어질 수 있습니다 — 같은 설계안의 여러 화면일 수도 있고, 서로 다른 플랜(예: 고급형/프리미엄형)을 비교하는 화면일 수도 있습니다. 내용을 보고 논리적으로 하나의 제안서로 합쳐서 아래 JSON 스키마로만 출력하세요.
+// 조합설계(2개 보험사) 한 개 안(案)의 이미지들을 보고, 보험사별로 특약을 묶어서 구조화한다
+async function extractProposalDesignData(imagesBase64List, carriersHint) {
+  const system = `당신은 보험 조합설계(2개 보험사를 함께 가입하는 설계) 캡처를 구조화된 데이터로 정리하는 전문가입니다. 여러 장의 스크린샷/페이지가 주어질 수 있습니다 — 같은 설계안의 여러 화면일 수 있습니다.
 
-스키마:
+${carriersHint ? `이 설계안은 "${carriersHint}" 조합입니다. 각 담보가 어느 보험사 것인지 이미지 안의 회사명·로고·구분선 등을 보고 정확히 구분하세요.` : '이미지 안에서 보험사명을 직접 찾아서 구분하세요. 보험사가 2곳 이상 섞여 있으면 보험사별로 섹션을 나누세요.'}
+
+아래 JSON 스키마로만 출력하세요:
 {
-  "title": "제안서 제목 (예: OOO님 맞춤 설계안)",
-  "clientName": "고객 이름 (이미지에 있으면, 없으면 빈 문자열)",
-  "plans": [{"label": "플랜 이름 (예: 고급형 플랜)", "premium": "월 보험료 (예: 35,590원)"}],
+  "carriers": "실제 확인된 보험사 조합 (예: DB손해 + 메리츠화재)",
+  "premium": "월 보험료 합계 (예: 52,340원, 이미지에 합계가 없으면 각 보험사 보험료를 더해서 계산)",
   "sections": [
     {
-      "name": "카테고리명 (예: 상해사고플랜)",
+      "carrierName": "보험사명 (예: DB손해보험)",
       "rows": [
-        {"no": 1, "label": "담보명", "term": "납기·만기 정보", "amounts": ["플랜별 가입금액을 plans 배열과 같은 순서로"]}
+        {"no": 1, "label": "담보명", "term": "납기·만기 정보", "amount": "가입금액"}
       ]
     }
   ]
 }
 
 [규칙]
-- 이미지에 있는 담보명·금액·숫자를 정확히 그대로 옮긴다. 지어내지 않는다.
-- 이미지가 여러 장이면, 같은 담보 항목이 중복되지 않게 병합한다.
-- plans가 1개뿐이면 amounts 배열도 원소 1개로 통일한다.
-- 카테고리(section) 구분이 이미지에 색상/구분선으로 되어 있으면 그 구분을 따른다. 불명확하면 담보 성격에 따라 적절히 묶는다.
+- 이미지에 있는 담보명·금액·숫자·보험사명을 정확히 그대로 옮긴다. 지어내지 않는다.
+- 이미지가 여러 장이면 같은 담보 항목이 중복되지 않게 병합한다.
+- 어느 보험사인지 끝내 구분이 안 되는 담보는 마지막 섹션에 몰아넣지 말고, 문맥상 가장 가능성 높은 보험사에 배정한다.
 - 글자를 알아보기 어려운 부분은 억지로 추측해서 채우지 말고, 확실히 읽히는 내용 위주로 정리한다.
 - 다른 설명, 코드블록 기호 없이 JSON만 출력한다.`;
 
   const content = imagesBase64List.map(b64 => ({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: b64 } }));
-  content.push({ type: 'text', text: '위 이미지(들)을 보고 제안서 JSON 스키마로 정리해줘.' });
+  content.push({ type: 'text', text: '위 이미지(들)을 보고 보험사별로 구분한 JSON 스키마로 정리해줘.' });
 
   const raw = await callClaude(system, [{ role: 'user', content }], 2, null, 4000);
   const cleaned = raw.replace(/```json|```/g, '').trim();
@@ -2943,38 +2980,54 @@ document.getElementById('proposalGenBtn').addEventListener('click', async () => 
   const statusEl = document.getElementById('proposalGenStatus');
   const clientName = document.getElementById('proposalClientInput').value.trim();
   const agentName = document.getElementById('proposalAgentInput').value.trim() || '보험탈출구';
-  const files = window.__proposalFiles;
+  const colorKey = document.getElementById('proposalColorSelect').value;
 
-  if (!files.length) { alert('설계안 이미지나 PDF를 먼저 첨부해주세요.'); return; }
+  const activeKeys = ['A', 'B'].filter(key => window.__proposalFiles[key].length > 0);
+  if (!activeKeys.length) { alert('A안 설계안 이미지나 PDF를 먼저 첨부해주세요.'); return; }
 
   btn.disabled = true;
   statusEl.textContent = '';
   try {
-    btn.textContent = '설계안 읽는 중...';
-    let images = [];
-    for (const file of files) {
-      if (/^image\//.test(file.type)) {
-        const dataUrl = await new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result);
-          reader.onerror = reject;
-          reader.readAsDataURL(file);
-        });
-        const resized = await resizeImageToBase64(dataUrl.split(',')[1], file.type, 1400, 0.85);
-        images.push(resized);
-      } else if (file.name.toLowerCase().endsWith('.pdf')) {
-        const pages = await pdfToImageBase64List(file);
-        images = images.concat(pages);
+    const designs = [];
+    for (const key of activeKeys) {
+      btn.textContent = `${PROPOSAL_DESIGN_LABELS[key]} 설계안 읽는 중...`;
+      const files = window.__proposalFiles[key];
+      let images = [];
+      for (const file of files) {
+        if (/^image\//.test(file.type)) {
+          const dataUrl = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          });
+          const resized = await resizeImageToBase64(dataUrl.split(',')[1], file.type, 1400, 0.85);
+          images.push(resized);
+        } else if (file.name.toLowerCase().endsWith('.pdf')) {
+          const pages = await pdfToImageBase64List(file);
+          images = images.concat(pages);
+        }
       }
-    }
-    images = images.slice(0, 10);
-    if (!images.length) throw new Error('처리할 수 있는 이미지가 없어요.');
+      images = images.slice(0, 10);
+      if (!images.length) continue;
 
-    btn.textContent = '내용 분석 중...';
-    const data = await extractProposalData(images);
-    if (clientName) data.clientName = clientName;
-    data.agentName = agentName;
-    if (!data.title) data.title = (clientName ? clientName + '님 ' : '') + '맞춤 설계 제안서';
+      btn.textContent = `${PROPOSAL_DESIGN_LABELS[key]} 내용 분석 중...`;
+      const carriersInput = document.getElementById(`proposalCarriers_${key}`).value.trim();
+      const premiumInput = document.getElementById(`proposalPremium_${key}`).value.trim();
+      const parsed = await extractProposalDesignData(images, carriersInput);
+      designs.push({
+        label: PROPOSAL_DESIGN_LABELS[key],
+        carriers: carriersInput || parsed.carriers || '',
+        premium: premiumInput || parsed.premium || '',
+        sections: parsed.sections || []
+      });
+    }
+    if (!designs.length) throw new Error('처리할 수 있는 이미지가 없어요.');
+
+    const data = {
+      title: (clientName ? clientName + '님 ' : '') + '맞춤 설계 제안서',
+      clientName, agentName, colorKey, designs
+    };
 
     btn.textContent = '제안서 이미지 만드는 중...';
     const result = await apiPost('/api/generate-proposal', data);
