@@ -1391,6 +1391,14 @@
 
       <div class="row">
         <div class="field">
+          <label>디자인 테마 (선택) <span class="opt">카드 전체 배경·톤이 바뀌어요</span></label>
+          <select id="cardThemeSelect">
+            <option value="minimal" selected>미니멀 화이트</option>
+            <option value="darkMagazine">다크 매거진</option>
+            <option value="gradientPop">그라데이션 팝</option>
+          </select>
+        </div>
+        <div class="field">
           <label>포인트 컬러 (선택) <span class="opt">강조 색상 — 비워두면 노란색(형광펜 느낌)으로 만들어요</span></label>
           <select id="cardAccentSelect">
             <option value="F5E028">노란색 (기본)</option>
@@ -1400,13 +1408,35 @@
             <option value="E37BA0">핑크</option>
           </select>
         </div>
+      </div>
+
+      <div class="row">
         <div class="field">
-          <label>카드 장수 (선택)</label>
+          <label>카드 장수 (선택) <span class="opt">최대 10장까지 만들 수 있어요</span></label>
           <select id="cardCountSelect">
             <option value="6">짧게 (약 6장)</option>
             <option value="8" selected>보통 (약 8장)</option>
-            <option value="10">길게 (약 10장)</option>
+            <option value="10">길게 (최대 10장)</option>
           </select>
+        </div>
+        <div class="field">
+          <label>채널명 (워터마크) <span class="opt">모든 카드 우측 하단에 작게 은은하게 들어가요</span></label>
+          <input type="text" id="cardChannelInput" value="보험탈출구" placeholder="예: 보험탈출구">
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label>레퍼런스 이미지 (선택) <span class="opt">"이런 느낌이면 좋겠다" 하는 이미지를 올려주세요 — 그 사진 자체를 쓰진 않고, 색감·분위기만 참고해서 반영해요</span></label>
+          <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+            <label for="cardRefImageInput" class="copy-btn" style="cursor:pointer; display:inline-block;">+ 이미지 첨부</label>
+            <input type="file" id="cardRefImageInput" accept="image/png,image/jpeg,image/webp" style="display:none;">
+            <span id="cardRefImageStatus" style="font-size:12px; color:var(--paper-mute);"></span>
+            <button type="button" id="cardRefImageClearBtn" class="copy-btn" style="display:none;">이미지 제거</button>
+          </div>
+          <div id="cardRefImagePreviewWrap" style="display:none; margin-top:10px;">
+            <img id="cardRefImagePreview" style="max-width:140px; max-height:140px; border-radius:8px; border:1px solid var(--line);">
+          </div>
         </div>
       </div>
 
@@ -1461,6 +1491,16 @@
 
       <button class="generate" id="cardGenBtn">카드뉴스 생성하기</button>
       <p id="cardGenStatus" style="font-size:12px; color:var(--paper-mute); margin-top:10px;"></p>
+    </div>
+
+    <div class="panel" id="cardPrompterPanel" style="display:none;">
+      <div class="result-head">
+        <div class="result-head-left">
+          <p class="panel-title" id="cardPrompterLabel">촬영용 프롬프터 대본 <span style="color:var(--paper-mute); font-weight:400; font-size:12px;">— 카드 문구를 그대로 읽지 않고, 카메라 앞에서 자연스럽게 말하듯 풀어쓴 버전이에요</span></p>
+        </div>
+        <button class="copy-btn" id="cardPrompterCopyBtn">대본 복사</button>
+      </div>
+      <div id="cardPrompterBody" class="script-body" style="white-space:pre-wrap; line-height:1.75;"></div>
     </div>
 
   </div>
@@ -2470,7 +2510,27 @@ const CARD_TEMPLATE_GUIDE = `사용 가능한 카드 타입은 아래 6개뿐이
 5. "ctaShare" — 어두운 배경 참여 유도 카드(댓글/DM/공유 등). { type, title, body }
 6. "outro" — 마지막 고정 카드. { type } 만 넣으면 된다 (브랜드/심의문구는 서버가 자동으로 채운다 — title/body 등 다른 필드 넣지 않는다)`;
 
-async function buildCardPlan(request, designData, clauseText, cardCount) {
+// 레퍼런스 이미지를 보고 색감·분위기·톤만 텍스트로 뽑아낸다 (사진 자체는 재사용하지 않음 — 저작권 안전)
+async function analyzeReferenceImage(base64Data, mediaType) {
+  const system = `당신은 인스타그램 카드뉴스 디자이너입니다. 사용자가 올린 참고 이미지를 보고, 그 이미지의 "느낌"을 다른 카드뉴스 제작에 참고할 수 있도록 텍스트로만 설명합니다. 이미지 속 인물·상표·텍스트를 그대로 옮기거나 묘사하지 말고, 오직 색감·분위기·톤·무드 관점에서만 설명하세요.
+
+다음 형식의 JSON으로만 답하세요 (다른 텍스트 금지):
+{"moodKeywords": "차분한/고급스러운/따뜻한 등 3~5개 형용사를 쉼표로", "colorNote": "이미지에서 느껴지는 주요 색감을 말로 설명 (예: 딥네이비와 골드 포인트)", "suggestedAccentHex": "위 색감과 어울리는 강조색 하나를 6자리 hex 코드로 (# 제외)"}`;
+
+  const messages = [{
+    role: 'user',
+    content: [
+      { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64Data } },
+      { type: 'text', text: '이 이미지의 분위기를 위 형식의 JSON으로 알려주세요.' }
+    ]
+  }];
+
+  const raw = await callClaude(system, messages, 1, null, 500);
+  const cleaned = raw.replace(/```json|```/g, '').trim();
+  return JSON.parse(cleaned);
+}
+
+async function buildCardPlan(request, designData, clauseText, cardCount, styleNote) {
   const system = `당신은 보험설계사의 인스타그램 카드뉴스를 기획하는 전문가입니다. "보험탈출구" 계정 스타일(어두운 배경 + 밝은 배경을 번갈아, 굵고 큰 텍스트, 노란 강조, 숫자 중심)을 참고해서 사용자의 요청에 맞는 카드 순서를 JSON으로만 출력합니다.
 
 ${CARD_TEMPLATE_GUIDE}
@@ -2481,13 +2541,14 @@ ${CARD_TEMPLATE_GUIDE}
 - 요청에 "설계안/실제 숫자 자료"가 주어지면, 그 숫자를 절대 지어내지 않고 그대로 caseFormula의 rows에 정확히 반영한다.
 - 요청에 "약관 발췌"가 주어지면 그 문구를 존중해서 활용하고, 안 주어졌으면 일반적으로 알려진 수준에서 자연스럽게 직접 풀어써도 된다(과장·확정적 문구 금지).
 - 한 카드에 텍스트를 너무 많이 몰아넣지 않는다 — 카드 하나당 메시지 하나만.
-- 총 ${cardCount}장 내외(outro 포함)로 구성한다.
+- 총 ${cardCount}장 내외(outro 포함)로 구성하되, 절대 10장을 넘기지 않는다. 내용이 많아도 10장 안에 가독성 좋게 압축한다.
 - outro 카드는 { "type": "outro" } 형태로만 넣는다.
 - 결과는 오직 JSON 배열만 출력한다. 다른 설명, 마크다운, 코드블록 기호는 절대 붙이지 않는다.`;
 
   const userParts = [`[요청 내용]\n${request}`];
   if (designData) userParts.push(`[설계안 / 실제 숫자 자료]\n${designData}`);
   if (clauseText) userParts.push(`[약관 발췌 — 이 문구를 활용]\n${clauseText}`);
+  if (styleNote) userParts.push(`[참고 이미지 분위기 — 카피의 톤·어휘 선택에 은근히 반영, 사실관계는 그대로]\n${styleNote}`);
   const userPrompt = userParts.join('\n\n');
 
   const raw = await callClaude(system, [{ role: 'user', content: userPrompt }], 2, null, 3500);
@@ -2510,6 +2571,36 @@ ${CARD_TEMPLATE_GUIDE}
   });
 }
 
+async function buildPrompterScript(plan, request) {
+  const system = `당신은 보험설계사가 인스타그램 카드뉴스를 촬영할 때 쓸 텔레프롬프터(프롬프터) 대본을 만드는 전문가입니다.
+
+아래 [카드뉴스 기획안 JSON]은 이미 완성된 카드뉴스입니다. 카드 안의 문구는 화면에 크게 보이도록 압축·생략한 짧은 문장이라, 그 문구를 그대로 소리 내어 읽으면 매우 어색합니다.
+
+같은 순서, 같은 정보, 같은 논리 흐름과 톤을 유지하면서, 카메라 앞에서 사람이 실제로 자연스럽게 말하듯이 구어체로 풀어써주세요.
+
+[규칙]
+- 카드 순서를 그대로 따라가며, 카드 하나당 한 문단을 작성한다. 각 문단 맨 앞에 "[카드 N]" 표시를 붙인다 (N은 카드 순번, 1부터 시작).
+- 카드에 없는 정보·숫자·사실을 새로 지어내지 않는다. 과장되거나 확정적인 표현(무조건, 100%, 반드시 등)도 쓰지 않는다.
+- darkCover 카드는 시청자의 시선을 끄는 도입 멘트로 자연스럽게 푼다.
+- caseFormula 카드는 표에 있는 숫자를 정확히 그대로 언급하되, 말하듯이 풀어서 설명한다 (계산식을 기호 그대로 읽지 말고 "여기서 얼마가 차이 나요" 식으로).
+- ctaShare 카드는 실제로 사람이 부탁하듯 자연스러운 구어체로 바꾼다.
+- outro 카드는 심의번호·유의사항을 줄줄 읽는 대신, "이 내용은 심의를 받았고, 자세한 유의사항은 화면을 참고해주세요" 정도로 짧게 안내하는 멘트로만 처리한다 (법적 문구 원문을 대본에 그대로 옮기지 않는다).
+- 문장은 짧게 끊어서, 실제 말할 때 숨쉬기 편하게 구성한다.
+- 결과는 순수 텍스트만 출력한다. 마크다운, 코드블록 기호, 별도 설명을 붙이지 않는다.`;
+
+  const userPrompt = `[원래 요청 내용]\n${request}\n\n[카드뉴스 기획안 JSON]\n${JSON.stringify(plan)}`;
+  const raw = await callClaude(system, [{ role: 'user', content: userPrompt }], 2, null, 3000);
+  return raw.trim();
+}
+
+function renderPrompterScript(scriptText) {
+  const panel = document.getElementById('cardPrompterPanel');
+  const body = document.getElementById('cardPrompterBody');
+  if (!scriptText) { panel.style.display = 'none'; body.textContent = ''; return; }
+  panel.style.display = 'block';
+  body.textContent = scriptText;
+}
+
 function downloadZipFromBase64(base64, filename) {
   const byteChars = atob(base64);
   const byteNumbers = new Array(byteChars.length);
@@ -2528,10 +2619,13 @@ function downloadZipFromBase64(base64, filename) {
 
 document.getElementById('cardGenBtn').addEventListener('click', async () => {
   const request = document.getElementById('cardRequestInput').value.trim();
+  const theme = document.getElementById('cardThemeSelect').value;
   const accent = document.getElementById('cardAccentSelect').value;
   const cardCount = document.getElementById('cardCountSelect').value;
+  const channelName = document.getElementById('cardChannelInput').value.trim();
   const designData = document.getElementById('cardDesignInput').value.trim();
   const clauseText = document.getElementById('cardClauseInput').value.trim();
+  const styleNote = window.__cardRefStyleNote || '';
   const btn = document.getElementById('cardGenBtn');
   const statusEl = document.getElementById('cardGenStatus');
 
@@ -2540,17 +2634,22 @@ document.getElementById('cardGenBtn').addEventListener('click', async () => {
   btn.disabled = true;
   btn.textContent = '카드 구성 짜는 중...';
   statusEl.textContent = '';
+  renderPrompterScript('');
   try {
-    const plan = await buildCardPlan(request, designData, clauseText, cardCount);
+    const plan = await buildCardPlan(request, designData, clauseText, cardCount, styleNote);
     btn.textContent = '이미지 만드는 중... (시간이 좀 걸려요)';
-    const result = await apiPost('/api/generate-cardnews', { plan, accent });
+    const [result, prompterScript] = await Promise.all([
+      apiPost('/api/generate-cardnews', { plan, accent, theme, channelName }),
+      buildPrompterScript(plan, request).catch(err => { console.error('프롬프터 생성 실패:', err); return ''; })
+    ]);
     const filename = request.slice(0, 30).replace(/[\\/:*?"<>|]/g, '') + '_카드뉴스.zip';
     downloadZipFromBase64(result.base64, filename);
     statusEl.textContent = `완료! (${result.count}장) — 자동으로 다운로드됐어요.`;
+    renderPrompterScript(prompterScript);
 
     await addToHistory({
       id: Date.now(), topic: request.slice(0, 60), category: `${result.count}장`, format: 'card',
-      script: JSON.stringify({ plan, accent, filename })
+      script: JSON.stringify({ plan, accent, theme, channelName, filename, prompterScript })
     });
     await renderCardHistory();
   } catch (err) {
@@ -2560,6 +2659,15 @@ document.getElementById('cardGenBtn').addEventListener('click', async () => {
     btn.disabled = false;
     btn.textContent = '카드뉴스 생성하기';
   }
+});
+
+document.getElementById('cardPrompterCopyBtn').addEventListener('click', () => {
+  const text = document.getElementById('cardPrompterBody').innerText;
+  navigator.clipboard.writeText(text);
+  const btn = document.getElementById('cardPrompterCopyBtn');
+  const old = btn.textContent;
+  btn.textContent = '복사됨';
+  setTimeout(() => btn.textContent = old, 1200);
 });
 
 async function renderCardHistory() {
@@ -2595,8 +2703,9 @@ async function renderCardHistory() {
       btn.disabled = true;
       btn.textContent = '만드는 중...';
       try {
-        const result = await apiPost('/api/generate-cardnews', { plan: parsed.plan, accent: parsed.accent });
+        const result = await apiPost('/api/generate-cardnews', { plan: parsed.plan, accent: parsed.accent, theme: parsed.theme, channelName: parsed.channelName });
         downloadZipFromBase64(result.base64, parsed.filename || 'cardnews.zip');
+        renderPrompterScript(parsed.prompterScript || '');
       } catch (e) {
         alert('다운로드 실패: ' + e.message);
       } finally {
@@ -3312,6 +3421,61 @@ async function handleCardClauseFileUpload(e) {
   }
 }
 document.getElementById('cardClauseFileInput').addEventListener('change', handleCardClauseFileUpload);
+
+/* 레퍼런스 이미지: 사진 자체는 쓰지 않고, 색감·분위기만 텍스트로 뽑아서 카드뉴스 톤에 반영 */
+function resetCardRefImage() {
+  window.__cardRefStyleNote = '';
+  document.getElementById('cardRefImageInput').value = '';
+  document.getElementById('cardRefImagePreviewWrap').style.display = 'none';
+  document.getElementById('cardRefImageClearBtn').style.display = 'none';
+  document.getElementById('cardRefImageStatus').textContent = '';
+}
+
+document.getElementById('cardRefImageInput').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const statusEl = document.getElementById('cardRefImageStatus');
+  const previewWrap = document.getElementById('cardRefImagePreviewWrap');
+  const previewImg = document.getElementById('cardRefImagePreview');
+
+  const dataUrl = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+  previewImg.src = dataUrl;
+  previewWrap.style.display = 'block';
+  document.getElementById('cardRefImageClearBtn').style.display = 'inline-block';
+
+  const base64Data = dataUrl.split(',')[1];
+  const mediaType = file.type || 'image/jpeg';
+
+  statusEl.textContent = '이미지 분위기 분석 중...';
+  try {
+    const analysis = await analyzeReferenceImage(base64Data, mediaType);
+    window.__cardRefStyleNote = `분위기: ${analysis.moodKeywords || ''} / 색감: ${analysis.colorNote || ''}`;
+    statusEl.textContent = `분석 완료 — ${analysis.moodKeywords || ''}`;
+
+    if (analysis.suggestedAccentHex && /^[0-9A-Fa-f]{6}$/.test(analysis.suggestedAccentHex)) {
+      const select = document.getElementById('cardAccentSelect');
+      let opt = select.querySelector('option[value="' + analysis.suggestedAccentHex.toUpperCase() + '"]');
+      if (!opt) {
+        opt = document.createElement('option');
+        opt.value = analysis.suggestedAccentHex.toUpperCase();
+        opt.textContent = '레퍼런스 추천색';
+        select.appendChild(opt);
+      }
+      select.value = analysis.suggestedAccentHex.toUpperCase();
+    }
+  } catch (err) {
+    console.error('레퍼런스 이미지 분석 실패:', err);
+    statusEl.textContent = '분위기 분석에 실패했어요 (이미지 없이 계속 진행돼요).';
+    window.__cardRefStyleNote = '';
+  }
+});
+
+document.getElementById('cardRefImageClearBtn').addEventListener('click', resetCardRefImage);
 
 
 document.getElementById('source').addEventListener('input', updateSourceCounter);
