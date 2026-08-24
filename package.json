@@ -4,6 +4,7 @@
   "private": true,
   "dependencies": {
     "@supabase/supabase-js": "^2.110.8",
-    "google-auth-library": "^9.14.1"
+    "google-auth-library": "^9.14.1",
+    "pptxgenjs": "^3.12.0"
   }
 }

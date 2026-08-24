@@ -5,6 +5,9 @@
     },
     "api/sync-sheets.js": {
       "maxDuration": 280
+    },
+    "api/generate-pptx.js": {
+      "maxDuration": 60
     }
   }
 }
