@@ -1,17 +1,114 @@
 const { checkAppPassword } = require('./_auth');
 const sharp = require('sharp');
+const opentype = require('opentype.js');
 
 const CW = 1200; // 캔버스 폭 고정, 높이는 내용에 따라 동적으로 계산
 
-const FONT = 'NotoSansKR';
+/* ================= 폰트: 텍스트를 벡터 경로(도형)로 직접 그린다 =================
+   generate-cardnews.js와 동일한 방식 — SVG @font-face는 서버리스 환경(librsvg)에
+   따라 지원 여부가 갈려서 실제로 깨지는 사례가 있었기 때문에, opentype.js로 글자
+   하나하나를 <path>(벡터 도형)로 직접 그린다. 렌더링 서버에 폰트가 설치되어
+   있는지와 완전히 무관하게 항상 100% 동일하게 나온다. */
 const FONT_REGULAR_B64 = require('./fonts/notosans-regular.b64.js');
 const FONT_BOLD_B64 = require('./fonts/notosans-bold.b64.js');
 const FONT_EXTRABOLD_B64 = require('./fonts/notosans-black.b64.js');
-const FONT_FACE_DEFS = `<style>
-  @font-face { font-family:'${FONT}'; font-weight:400; src:url(data:font/truetype;base64,${FONT_REGULAR_B64}) format('truetype'); }
-  @font-face { font-family:'${FONT}'; font-weight:700; src:url(data:font/truetype;base64,${FONT_BOLD_B64}) format('truetype'); }
-  @font-face { font-family:'${FONT}'; font-weight:800; src:url(data:font/truetype;base64,${FONT_EXTRABOLD_B64}) format('truetype'); }
-</style>`;
+
+function b64ToArrayBuffer(b64) {
+  const buf = Buffer.from(b64, 'base64');
+  return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
+}
+const FONT_REGULAR = opentype.parse(b64ToArrayBuffer(FONT_REGULAR_B64));
+const FONT_BOLD = opentype.parse(b64ToArrayBuffer(FONT_BOLD_B64));
+const FONT_EXTRABOLD = opentype.parse(b64ToArrayBuffer(FONT_EXTRABOLD_B64));
+
+function pickFont(weight) {
+  if (weight >= 800) return FONT_EXTRABOLD;
+  if (weight >= 700) return FONT_BOLD;
+  return FONT_REGULAR;
+}
+
+function sanitizeForFont(text) {
+  return String(text == null ? '' : text)
+    .replace(/→/g, '-')
+    .replace(/←/g, '-')
+    .replace(/⇒/g, '=')
+    .replace(/▶/g, '>')
+    .replace(/[·ㆍ∙・]/g, '•')
+    .replace(/[★☆]/g, '•')
+    .replace(/[✓✔]/g, 'V')
+    .replace(/✗/g, 'X')
+    .replace(/×/g, 'x')
+    .replace(/÷/g, '/')
+    .replace(/±/g, '+/-')
+    .replace(/≒/g, '약')
+    .replace(/≠/g, '!=')
+    .replace(/℃/g, '도')
+    .replace(/㎡/g, 'm2')
+    .replace(/㎏/g, 'kg')
+    .replace(/㎜/g, 'mm')
+    .replace(/㎝/g, 'cm')
+    .replace(/㎞/g, 'km')
+    .replace(/₩/g, '원 ')
+    .replace(/°/g, '도');
+}
+const glyphCache = new Map();
+function hasGlyph(font, ch) {
+  const key = (font === FONT_REGULAR ? 'R' : font === FONT_BOLD ? 'B' : 'E') + ch;
+  if (glyphCache.has(key)) return glyphCache.get(key);
+  const ok = ch === ' ' || ch === '\n' || font.charToGlyph(ch).index !== 0;
+  glyphCache.set(key, ok);
+  return ok;
+}
+
+// opentype.js는 getPath(text,x,y,size)에 오프셋을 직접 넘기면 특정 좌표 조합에서
+// 곡선 근사 계산이 NaN을 내는 버그가 있어(SVG path가 그 지점에서 통째로 잘려나감),
+// 항상 원점(0,0) 기준 outline만 얻고 이동은 우리가 직접 계산한다.
+function commandsToPathD(commands, dx, dy, decimals) {
+  const m = Math.pow(10, decimals);
+  const round = n => Math.round((n + Number.EPSILON) * m) / m;
+  let d = '';
+  commands.forEach(c => {
+    if (c.type === 'M') d += 'M' + round(c.x + dx) + ' ' + round(c.y + dy);
+    else if (c.type === 'L') d += 'L' + round(c.x + dx) + ' ' + round(c.y + dy);
+    else if (c.type === 'C') d += 'C' + round(c.x1 + dx) + ' ' + round(c.y1 + dy) + ' ' + round(c.x2 + dx) + ' ' + round(c.y2 + dy) + ' ' + round(c.x + dx) + ' ' + round(c.y + dy);
+    else if (c.type === 'Q') d += 'Q' + round(c.x1 + dx) + ' ' + round(c.y1 + dy) + ' ' + round(c.x + dx) + ' ' + round(c.y + dy);
+    else if (c.type === 'Z') d += 'Z';
+  });
+  return d;
+}
+
+function measureText(text, fontSize, weight) {
+  const font = pickFont(weight);
+  const chars = Array.from(sanitizeForFont(text));
+  let w = 0;
+  chars.forEach(ch => { w += hasGlyph(font, ch) ? font.getAdvanceWidth(ch, fontSize) : fontSize * 0.5; });
+  return w;
+}
+
+function drawText(text, x, y, fontSize, weight, fillHex, opts = {}) {
+  const { align = 'left', width = 0, fillOpacity } = opts;
+  const str = sanitizeForFont(text);
+  if (!str) return '';
+  const font = pickFont(weight);
+  let startX = x;
+  if (align === 'middle') startX = x - measureText(str, fontSize, weight) / 2;
+  else if (align === 'end') startX = x - measureText(str, fontSize, weight);
+  let cursorX = startX;
+  let d = '';
+  for (const ch of str) {
+    if (!hasGlyph(font, ch)) { cursorX += fontSize * 0.5; continue; }
+    const glyphPath = font.getPath(ch, 0, 0, fontSize);
+    d += commandsToPathD(glyphPath.commands, cursorX, y, 1);
+    cursorX += font.getAdvanceWidth(ch, fontSize);
+  }
+  if (!d) return '';
+  const op = fillOpacity != null ? ` fill-opacity="${fillOpacity}"` : '';
+  return `<path d="${d}" fill="#${fillHex}"${op}/>`;
+}
+
+function esc(s) {
+  return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
 
 // 담보 카테고리별 색상 팔레트 (예시 이미지의 파랑/보라/초록/노랑/분홍 그룹 컬러 느낌 참고)
 const SECTION_COLORS = [
@@ -22,36 +119,6 @@ const SECTION_COLORS = [
   { bg: 'FFEEF3', accent: 'E0508E', text: '7A1E45' }, // 핑크
   { bg: 'FFF1EA', accent: 'E06B2F', text: '7A3714' }  // 오렌지
 ];
-
-function esc(s) {
-  return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
-
-function textWidth(text, fontSize, weight) {
-  // 대략치: 한글은 fontSize에 가깝고, 영문/숫자는 좁음 — 근사 계산
-  let w = 0;
-  for (const ch of String(text)) {
-    w += /[\u3131-\uD79D]/.test(ch) ? fontSize * (weight >= 700 ? 1.02 : 1.0) : fontSize * 0.58;
-  }
-  return w;
-}
-
-function wrapByWidth(text, maxWidth, fontSize, weight) {
-  const words = String(text).split(/( )/);
-  const lines = [];
-  let line = '';
-  words.forEach(w => {
-    const test = line + w;
-    if (textWidth(test, fontSize, weight) > maxWidth && line.trim()) {
-      lines.push(line.trim());
-      line = w;
-    } else {
-      line = test;
-    }
-  });
-  if (line.trim()) lines.push(line.trim());
-  return lines.length ? lines : [''];
-}
 
 module.exports = async function handler(req, res) {
   if (!checkAppPassword(req)) {
@@ -97,10 +164,10 @@ module.exports = async function handler(req, res) {
 
     // 헤더 배너
     body += `<rect width="${CW}" height="${HEADER_H}" fill="url(#headerGrad)"/>`;
-    body += `<text x="${MARGIN}" y="72" font-family="${FONT}" font-size="24" font-weight="700" fill="#FFFFFF" fill-opacity="0.85">${esc(agentName || '')}</text>`;
-    body += `<text x="${MARGIN}" y="128" font-family="${FONT}" font-size="42" font-weight="800" fill="#FFFFFF">${esc(title || '맞춤 설계 제안서')}</text>`;
+    body += drawText(agentName || '', MARGIN, 72, 24, 700, 'FFFFFF', { fillOpacity: 0.85 });
+    body += drawText(title || '맞춤 설계 제안서', MARGIN, 128, 42, 800, 'FFFFFF');
     if (clientName) {
-      body += `<text x="${MARGIN}" y="168" font-family="${FONT}" font-size="24" font-weight="400" fill="#FFFFFF" fill-opacity="0.85">${esc(clientName)}님을 위한 설계안</text>`;
+      body += drawText(`${clientName}님을 위한 설계안`, MARGIN, 168, 24, 400, 'FFFFFF', { fillOpacity: 0.85 });
     }
     // 플랜 프리미엄 박스 (우측 정렬)
     const boxW = 220, boxGap = 16;
@@ -108,20 +175,20 @@ module.exports = async function handler(req, res) {
     planList.forEach((p, i) => {
       const bx = boxX + i * (boxW + boxGap);
       body += `<rect x="${bx}" y="30" width="${boxW}" height="150" rx="14" fill="#FFFFFF" fill-opacity="0.12" stroke="#FFFFFF" stroke-opacity="0.4"/>`;
-      body += `<text x="${bx + boxW/2}" y="66" font-family="${FONT}" font-size="19" font-weight="700" fill="#FFFFFF" text-anchor="middle">${esc(p.label || '')}</text>`;
-      body += `<text x="${bx + boxW/2}" y="100" font-family="${FONT}" font-size="14" font-weight="400" fill="#FFFFFF" fill-opacity="0.8" text-anchor="middle">월 보험료</text>`;
-      body += `<text x="${bx + boxW/2}" y="140" font-family="${FONT}" font-size="30" font-weight="800" fill="#FFFFFF" text-anchor="middle">${esc(p.premium || '-')}</text>`;
+      body += drawText(p.label || '', bx + boxW / 2, 66, 19, 700, 'FFFFFF', { align: 'middle' });
+      body += drawText('월 보험료', bx + boxW / 2, 100, 14, 400, 'FFFFFF', { align: 'middle', fillOpacity: 0.8 });
+      body += drawText(p.premium || '-', bx + boxW / 2, 140, 30, 800, 'FFFFFF', { align: 'middle' });
     });
 
     // 표 헤더 행 (컬럼명)
     let cy = HEADER_H + 4;
     body += `<rect x="${MARGIN}" y="${cy}" width="${tableW}" height="36" fill="#F4F5F7"/>`;
-    body += `<text x="${MARGIN + NO_W/2}" y="${cy+24}" font-family="${FONT}" font-size="14" font-weight="700" fill="#555" text-anchor="middle">NO</text>`;
-    body += `<text x="${MARGIN + NO_W + 16}" y="${cy+24}" font-family="${FONT}" font-size="14" font-weight="700" fill="#555">담보명 및 보장내용</text>`;
-    body += `<text x="${MARGIN + NO_W + LABEL_W_BASE + TERM_W/2}" y="${cy+24}" font-family="${FONT}" font-size="14" font-weight="700" fill="#555" text-anchor="middle">납기·만기</text>`;
+    body += drawText('NO', MARGIN + NO_W / 2, cy + 24, 14, 700, '555555', { align: 'middle' });
+    body += drawText('담보명 및 보장내용', MARGIN + NO_W + 16, cy + 24, 14, 700, '555555');
+    body += drawText('납기·만기', MARGIN + NO_W + LABEL_W_BASE + TERM_W / 2, cy + 24, 14, 700, '555555', { align: 'middle' });
     planList.forEach((p, i) => {
-      const cx = MARGIN + NO_W + LABEL_W_BASE + TERM_W + amountColW * i + amountColW/2;
-      body += `<text x="${cx}" y="${cy+24}" font-family="${FONT}" font-size="14" font-weight="700" fill="#555" text-anchor="middle">${esc(p.label || '가입금액')}</text>`;
+      const cx = MARGIN + NO_W + LABEL_W_BASE + TERM_W + amountColW * i + amountColW / 2;
+      body += drawText(p.label || '가입금액', cx, cy + 24, 14, 700, '555555', { align: 'middle' });
     });
     cy += 36;
 
@@ -130,21 +197,21 @@ module.exports = async function handler(req, res) {
       const color = SECTION_COLORS[sIdx % SECTION_COLORS.length];
       body += `<rect x="${MARGIN}" y="${cy}" width="${tableW}" height="${SECTION_HEADER_H}" fill="#${color.bg}"/>`;
       body += `<rect x="${MARGIN}" y="${cy}" width="6" height="${SECTION_HEADER_H}" fill="#${color.accent}"/>`;
-      body += `<text x="${MARGIN + 24}" y="${cy + SECTION_HEADER_H/2 + 7}" font-family="${FONT}" font-size="19" font-weight="800" fill="#${color.text}">★ ${esc(sec.name || '')}</text>`;
+      body += drawText(`• ${sec.name || ''}`, MARGIN + 24, cy + SECTION_HEADER_H / 2 + 7, 19, 800, color.text);
       cy += SECTION_HEADER_H;
 
       (sec.rows || []).forEach((row, rIdx) => {
         const rowBg = rIdx % 2 === 0 ? 'FFFFFF' : 'FAFAFA';
         body += `<rect x="${MARGIN}" y="${cy}" width="${tableW}" height="${ROW_H}" fill="#${rowBg}"/>`;
         body += `<line x1="${MARGIN}" y1="${cy+ROW_H}" x2="${MARGIN+tableW}" y2="${cy+ROW_H}" stroke="#EDEDEF" stroke-width="1"/>`;
-        body += `<text x="${MARGIN + NO_W/2}" y="${cy+ROW_H/2+6}" font-family="${FONT}" font-size="14" fill="#888" text-anchor="middle">${esc(row.no != null ? row.no : rIdx+1)}</text>`;
-        body += `<text x="${MARGIN + NO_W + 16}" y="${cy+ROW_H/2+6}" font-family="${FONT}" font-size="16" font-weight="500" fill="#222">${esc(row.label || '')}</text>`;
-        body += `<text x="${MARGIN + NO_W + LABEL_W_BASE + TERM_W/2}" y="${cy+ROW_H/2+6}" font-family="${FONT}" font-size="13" fill="#777" text-anchor="middle">${esc(row.term || '')}</text>`;
+        body += drawText(String(row.no != null ? row.no : rIdx + 1), MARGIN + NO_W / 2, cy + ROW_H / 2 + 6, 14, 400, '888888', { align: 'middle' });
+        body += drawText(row.label || '', MARGIN + NO_W + 16, cy + ROW_H / 2 + 6, 16, 500, '222222');
+        body += drawText(row.term || '', MARGIN + NO_W + LABEL_W_BASE + TERM_W / 2, cy + ROW_H / 2 + 6, 13, 400, '777777', { align: 'middle' });
         const amounts = Array.isArray(row.amounts) ? row.amounts : [row.amount || ''];
         planList.forEach((p, i) => {
-          const cx = MARGIN + NO_W + LABEL_W_BASE + TERM_W + amountColW * i + amountColW/2;
+          const cx = MARGIN + NO_W + LABEL_W_BASE + TERM_W + amountColW * i + amountColW / 2;
           const val = amounts[i] || amounts[0] || '';
-          body += `<text x="${cx}" y="${cy+ROW_H/2+6}" font-family="${FONT}" font-size="15" font-weight="700" fill="#${color.text}" text-anchor="middle">${esc(val)}</text>`;
+          body += drawText(val, cx, cy + ROW_H / 2 + 6, 15, 700, color.text, { align: 'middle' });
         });
         cy += ROW_H;
       });
@@ -153,11 +220,10 @@ module.exports = async function handler(req, res) {
     // 푸터
     cy += 24;
     body += `<line x1="${MARGIN}" y1="${cy}" x2="${CW-MARGIN}" y2="${cy}" stroke="#E4E4E7" stroke-width="1"/>`;
-    body += `<text x="${MARGIN}" y="${cy+40}" font-family="${FONT}" font-size="14" fill="#999">본 제안서는 참고용이며, 실제 가입 시 약관 및 상품설명서를 기준으로 안내드립니다.</text>`;
+    body += drawText('본 제안서는 참고용이며, 실제 가입 시 약관 및 상품설명서를 기준으로 안내드립니다.', MARGIN, cy + 40, 14, 400, '999999');
 
     const svg = `<svg width="${CW}" height="${totalH}" viewBox="0 0 ${CW} ${totalH}" xmlns="http://www.w3.org/2000/svg">
       <defs>
-        ${FONT_FACE_DEFS}
         <linearGradient id="headerGrad" x1="0" y1="0" x2="1" y2="1">
           <stop offset="0%" stop-color="#1E3A8A"/>
           <stop offset="100%" stop-color="#3B6FE0"/>

@@ -1,25 +1,127 @@
 const { checkAppPassword } = require('./_auth');
 const sharp = require('sharp');
 const archiver = require('archiver');
+const opentype = require('opentype.js');
 const { PassThrough } = require('stream');
 
 const CW = 1080, CH = 1350; // 4:5 인스타그램 카드뉴스 표준 사이즈
 const MAX_CARDS = 10; // 카드뉴스는 최대 10장까지만 만든다 (하드 캡)
 
-/* ================= 폰트 임베딩 (Noto Sans KR, OFL 라이선스) =================
-   서버(Vercel)에는 한글 폰트가 기본으로 없어서, SVG 안에 폰트 파일 자체를
-   base64로 심어(@font-face) 어떤 환경에서도 항상 같은 폰트로 렌더링되게 한다.
+/* ================= 폰트: 텍스트를 벡터 경로(도형)로 직접 그린다 =================
+   서버(Vercel)에는 한글 폰트가 기본으로 없고, SVG의 @font-face 임베딩은 서버리스
+   환경(librsvg)에 따라 지원 여부가 갈려서 실제로 깨지는 사례가 있었다.
+   그래서 텍스트를 <text>로 그리는 대신, opentype.js로 폰트 파일을 직접 읽어서
+   글자 하나하나를 <path>(벡터 도형)로 변환해 그린다 — 렌더링 서버에 폰트가
+   설치되어 있는지와 완전히 무관하게, 항상 100% 동일하게 나온다.
    .ttf 바이너리 대신 .js 파일 안에 base64 텍스트로 담아둔다 — GitHub 웹 업로드로
-   바이너리 파일이 누락되는 사고를 원천적으로 막기 위함 (다른 .js 코드 파일과 동일하게 취급됨). */
-const FONT = 'NotoSansKR';
+   바이너리 파일이 누락되는 사고를 막기 위함 (다른 .js 코드 파일과 동일하게 취급됨). */
 const FONT_REGULAR_B64 = require('./fonts/notosans-regular.b64.js');
 const FONT_BOLD_B64 = require('./fonts/notosans-bold.b64.js');
 const FONT_EXTRABOLD_B64 = require('./fonts/notosans-black.b64.js');
-const FONT_FACE_DEFS = `<style>
-  @font-face { font-family:'${FONT}'; font-weight:400; src:url(data:font/truetype;base64,${FONT_REGULAR_B64}) format('truetype'); }
-  @font-face { font-family:'${FONT}'; font-weight:700; src:url(data:font/truetype;base64,${FONT_BOLD_B64}) format('truetype'); }
-  @font-face { font-family:'${FONT}'; font-weight:800; src:url(data:font/truetype;base64,${FONT_EXTRABOLD_B64}) format('truetype'); }
-</style>`;
+
+function b64ToArrayBuffer(b64) {
+  const buf = Buffer.from(b64, 'base64');
+  return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
+}
+const FONT_REGULAR = opentype.parse(b64ToArrayBuffer(FONT_REGULAR_B64));
+const FONT_BOLD = opentype.parse(b64ToArrayBuffer(FONT_BOLD_B64));
+const FONT_EXTRABOLD = opentype.parse(b64ToArrayBuffer(FONT_EXTRABOLD_B64));
+
+function pickFont(weight) {
+  if (weight >= 800) return FONT_EXTRABOLD;
+  if (weight >= 700) return FONT_BOLD;
+  return FONT_REGULAR;
+}
+
+// Noto Sans KR에는 화살표·이모지·일부 기호가 없어서(.notdef, 빈 네모로 깨짐) —
+// 자주 쓰는 기호는 안전한 대체 표기로 미리 바꿔두고,
+// 그래도 폰트에 없는 글자가 남아 있으면 draw 단계에서 건너뛴다 (아래 hasGlyph 참고).
+function sanitizeForFont(text) {
+  return String(text == null ? '' : text)
+    .replace(/→/g, '-')
+    .replace(/←/g, '-')
+    .replace(/⇒/g, '=')
+    .replace(/▶/g, '>')
+    .replace(/[·ㆍ∙・]/g, '•')
+    .replace(/[★☆]/g, '•')
+    .replace(/[✓✔]/g, 'V')
+    .replace(/✗/g, 'X')
+    .replace(/×/g, 'x')
+    .replace(/÷/g, '/')
+    .replace(/±/g, '+/-')
+    .replace(/≒/g, '약')
+    .replace(/≠/g, '!=')
+    .replace(/℃/g, '도')
+    .replace(/㎡/g, 'm2')
+    .replace(/㎏/g, 'kg')
+    .replace(/㎜/g, 'mm')
+    .replace(/㎝/g, 'cm')
+    .replace(/㎞/g, 'km')
+    .replace(/₩/g, '원 ')
+    .replace(/°/g, '도');
+}
+const glyphCache = new Map();
+function hasGlyph(font, ch) {
+  const key = font === FONT_REGULAR ? 'R' : font === FONT_BOLD ? 'B' : 'E';
+  const cacheKey = key + ch;
+  if (glyphCache.has(cacheKey)) return glyphCache.get(cacheKey);
+  const ok = ch === ' ' || ch === '\n' || font.charToGlyph(ch).index !== 0;
+  glyphCache.set(cacheKey, ok);
+  return ok;
+}
+
+// 폰트 파일 하나에서 나온 glyph outline commands를, 우리가 직접 좌표를 더해가며
+// path 'd' 문자열로 만든다 — opentype.js의 getPath(text,x,y,size)에 오프셋을
+// 직접 넘기면 특정 좌표 조합에서 곡선 근사 계산이 NaN을 내는 버그가 있어서,
+// 항상 원점(0,0) 기준 outline만 얻고 이동은 우리가 직접 계산한다 (버그 회피).
+function commandsToPathD(commands, dx, dy, decimals) {
+  const m = Math.pow(10, decimals);
+  const round = n => Math.round((n + Number.EPSILON) * m) / m;
+  let d = '';
+  commands.forEach(c => {
+    if (c.type === 'M') d += 'M' + round(c.x + dx) + ' ' + round(c.y + dy);
+    else if (c.type === 'L') d += 'L' + round(c.x + dx) + ' ' + round(c.y + dy);
+    else if (c.type === 'C') d += 'C' + round(c.x1 + dx) + ' ' + round(c.y1 + dy) + ' ' + round(c.x2 + dx) + ' ' + round(c.y2 + dy) + ' ' + round(c.x + dx) + ' ' + round(c.y + dy);
+    else if (c.type === 'Q') d += 'Q' + round(c.x1 + dx) + ' ' + round(c.y1 + dy) + ' ' + round(c.x + dx) + ' ' + round(c.y + dy);
+    else if (c.type === 'Z') d += 'Z';
+  });
+  return d;
+}
+
+// 문자열 폭 측정 (letterSpacing 포함). 폰트에 없는 글자(이모지 등)는 공백 정도의 폭으로 취급.
+function measureText(text, fontSize, weight, letterSpacing = 0) {
+  const font = pickFont(weight);
+  const chars = Array.from(sanitizeForFont(text));
+  if (!chars.length) return 0;
+  let w = 0;
+  chars.forEach(ch => {
+    w += (hasGlyph(font, ch) ? font.getAdvanceWidth(ch, fontSize) : fontSize * 0.5) + letterSpacing;
+  });
+  return w - letterSpacing;
+}
+
+// 텍스트를 <path> 도형으로 그려서 svg 조각 문자열을 반환. 폰트에 없는 글자는
+// 깨진 네모(.notdef)로 그리는 대신 건너뛴다 (자리만 비워둠).
+function drawText(text, x, y, fontSize, weight, fillHex, opts = {}) {
+  const { letterSpacing = 0, fillOpacity } = opts;
+  const str = sanitizeForFont(text);
+  if (!str) return '';
+  const font = pickFont(weight);
+  let cursorX = x;
+  let d = '';
+  for (const ch of str) {
+    if (!hasGlyph(font, ch)) {
+      cursorX += fontSize * 0.5 + letterSpacing; // 폰트에 없는 글자는 공백만큼만 이동하고 건너뛴다
+      continue;
+    }
+    const glyphPath = font.getPath(ch, 0, 0, fontSize); // 항상 원점 기준으로만 얻는다 (NaN 버그 회피)
+    d += commandsToPathD(glyphPath.commands, cursorX, y, 1);
+    cursorX += font.getAdvanceWidth(ch, fontSize) + letterSpacing;
+  }
+  if (!d) return '';
+  const op = fillOpacity != null ? ` fill-opacity="${fillOpacity}"` : '';
+  return `<path d="${d}" fill="#${fillHex}"${op}/>`;
+}
 
 /* ================= 디자인 테마 3종 ================= */
 const THEMES = {
@@ -61,14 +163,10 @@ function getTheme(key) {
   return THEMES[key] || THEMES[DEFAULT_THEME];
 }
 
-function esc(s) {
-  return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
-
-// 긴 텍스트를 대략적인 폭 기준으로 줄바꿈 (한글 기준 근사치)
+// 긴 텍스트를 대략적인 폭 기준으로 줄바꿈 (한글 기준 근사치 — 문자 수 기반)
 function wrapText(text, maxCharsPerLine) {
   const lines = [];
-  String(text).split('\n').forEach(paragraph => {
+  String(sanitizeForFont(text)).split('\n').forEach(paragraph => {
     let line = '';
     for (const ch of paragraph) {
       line += ch;
@@ -86,7 +184,7 @@ function wrapText(text, maxCharsPerLine) {
 // 텍스트를 (내용, bold여부) 토큰으로 분해 (**bold** 마크다운을 미리 파싱해서, 줄바꿈이 마크다운 경계를 깨지 않게 한다)
 function tokenizeRich(text) {
   const tokens = []; // {text, bold}
-  const parts = String(text).split(/(\*\*[^*]+\*\*)/g);
+  const parts = String(sanitizeForFont(text)).split(/(\*\*[^*]+\*\*)/g);
   parts.forEach(p => {
     if (!p) return;
     const bold = p.startsWith('**') && p.endsWith('**');
@@ -128,17 +226,20 @@ function renderRichLines(x, y, width, text, opts) {
   const lines = packLines(tokens, maxCharsPerLine);
   let svg = '';
   let cursorY = y;
-  const anchor = align === 'center' ? 'middle' : 'start';
-  const tx = align === 'center' ? x + width / 2 : x;
   lines.forEach(lineTokens => {
     if (!lineTokens.length) { cursorY += fontSize * lineHeight; return; }
-    let tspanContent = '';
+    let totalWidth = 0;
     lineTokens.forEach(tok => {
-      const color = tok.bold ? `#${accent}` : `#${fill}`;
       const w = tok.bold ? 800 : weight;
-      tspanContent += `<tspan font-weight="${w}" fill="${color}" xml:space="preserve">${esc(tok.text)}</tspan>`;
+      totalWidth += measureText(tok.text, fontSize, w);
     });
-    svg += `<text x="${tx}" y="${cursorY}" font-family="${FONT}" font-size="${fontSize}" text-anchor="${anchor}" xml:space="preserve">${tspanContent}</text>\n`;
+    let cursorX = align === 'center' ? (x + width / 2 - totalWidth / 2) : x;
+    lineTokens.forEach(tok => {
+      const w = tok.bold ? 800 : weight;
+      const color = tok.bold ? accent : fill;
+      svg += drawText(tok.text, cursorX, cursorY, fontSize, w, color);
+      cursorX += measureText(tok.text, fontSize, w);
+    });
     cursorY += fontSize * lineHeight;
   });
   return { svg, endY: cursorY };
@@ -153,14 +254,15 @@ function titleWithHighlight(x, y, width, runs, opts) {
   const { fontSize = 64, accent = DEFAULT_ACCENT, fill = 'FFFFFF', align = 'left', lineHeight = 1.2, maxCharsPerLine = 9, red = 'E8382E' } = opts;
   let cursorY = y;
   let svg = '';
-  const anchor = align === 'center' ? 'middle' : 'start';
-  const tx = align === 'center' ? x + width / 2 : x;
+  const letterSpacing = -1;
   runs.forEach(run => {
     const lines = wrapText(run.text, maxCharsPerLine);
-    const color = run.tone === 'accent' ? `#${accent}` : run.tone === 'red' ? `#${red}` : `#${fill}`;
+    const color = run.tone === 'accent' ? accent : run.tone === 'red' ? red : fill;
     lines.forEach(line => {
-      if (!line) return;
-      svg += `<text x="${tx}" y="${cursorY}" font-family="${FONT}" font-size="${fontSize}" font-weight="800" text-anchor="${anchor}" fill="${color}" letter-spacing="-1" xml:space="preserve">${esc(line)}</text>\n`;
+      if (!line) { cursorY += fontSize * lineHeight; return; }
+      const w = measureText(line, fontSize, 800, letterSpacing);
+      const lx = align === 'center' ? (x + width / 2 - w / 2) : x;
+      svg += drawText(line, lx, cursorY, fontSize, 800, color, { letterSpacing });
       cursorY += fontSize * lineHeight;
     });
   });
@@ -169,12 +271,12 @@ function titleWithHighlight(x, y, width, runs, opts) {
 
 function badgePill(x, y, text, opts = {}) {
   const { fill = 'none', stroke = 'FFFFFF', textColor = 'FFFFFF', fontSize = 24 } = opts;
-  const w = text.length * fontSize * 0.62 + 50;
+  const textW = measureText(text, fontSize, 700);
+  const w = textW + 50;
   const h = fontSize + 26;
-  return `
-    <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${h/2}" fill="${fill === 'none' ? 'none' : '#' + fill}" stroke="#${stroke}" stroke-width="2.5"/>
-    <text x="${x + w/2}" y="${y + h/2 + fontSize*0.35}" font-family="${FONT}" font-size="${fontSize}" font-weight="700" fill="#${textColor}" text-anchor="middle">${esc(text)}</text>
-  `;
+  let svg = `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${h / 2}" fill="${fill === 'none' ? 'none' : '#' + fill}" stroke="#${stroke}" stroke-width="2.5"/>`;
+  svg += drawText(text, x + (w - textW) / 2, y + h / 2 + fontSize * 0.35, fontSize, 700, textColor);
+  return svg;
 }
 
 // 카드 우측 하단에 은은하게 찍는 채널명 워터마크
@@ -182,7 +284,9 @@ function watermarkStamp(channelName, theme, variant) {
   const name = String(channelName || '').trim();
   if (!name) return '';
   const color = variant === 'dark' ? theme.mutedOnDark : theme.mutedOnLight;
-  return `<text x="${CW - 46}" y="${CH - 40}" font-family="${FONT}" font-size="21" font-weight="700" letter-spacing="0.5" text-anchor="end" fill="#${color}" fill-opacity="0.5">${esc(name)}</text>`;
+  const fontSize = 21, letterSpacing = 0.5;
+  const w = measureText(name, fontSize, 700, letterSpacing);
+  return drawText(name, CW - 46 - w, CH - 40, fontSize, 700, color, { letterSpacing, fillOpacity: 0.5 });
 }
 
 // 배경(단색 또는 테마의 그라데이션)을 반환
@@ -201,10 +305,10 @@ function bgLayer(theme, variant) {
   return { defs: '', rect: `<rect width="${CW}" height="${CH}" fill="#${fillColor}"/>` };
 }
 
-// 모든 템플릿이 공통으로 쓰는 svg 문서 래퍼: 폰트 임베딩 + 배경 defs + 본문 + 워터마크
+// 모든 템플릿이 공통으로 쓰는 svg 문서 래퍼: 배경 defs + 본문 + 워터마크
 function svgDoc(bg, inner, watermarkSvg) {
   return `<svg width="${CW}" height="${CH}" viewBox="0 0 ${CW} ${CH}" xmlns="http://www.w3.org/2000/svg">
-    <defs>${FONT_FACE_DEFS}${bg.defs}</defs>
+    <defs>${bg.defs}</defs>
     ${bg.rect}
     ${inner}
     ${watermarkSvg}
@@ -287,7 +391,9 @@ function tpl_caseFormula(d, accent, theme, channelName) {
   });
   if (d.totalLabel) {
     y += 30;
-    inner += `<text x="${CW/2}" y="${y+40}" font-family="${FONT}" font-size="60" font-weight="800" text-anchor="middle" fill="#${theme.red}">${esc(d.totalLabel)}</text>`;
+    const fontSize = 60;
+    const w = measureText(d.totalLabel, fontSize, 800);
+    inner += drawText(d.totalLabel, CW / 2 - w / 2, y + 40, fontSize, 800, theme.red);
   }
   return svgDoc(bg, inner, watermarkStamp(channelName, theme, 'light'));
 }
@@ -311,7 +417,10 @@ function tpl_ctaShare(d, accent, theme, channelName) {
 function tpl_outro(d, accent, theme, channelName) {
   // 심의/법적 문구가 들어가는 마지막 장은 가독성이 최우선이라, 테마와 무관하게 항상 흰 배경 + 진한 텍스트로 고정한다.
   const bg = { defs: '', rect: `<rect width="${CW}" height="${CH}" fill="#FFFFFF"/>` };
-  let inner = `<text x="${CW/2}" y="330" font-family="${FONT}" font-size="56" font-weight="800" text-anchor="middle" fill="#2A5DB0">${esc(d.brandName || channelName || '보험탈출구')}</text>`;
+  const brandName = d.brandName || channelName || '보험탈출구';
+  const brandFontSize = 56;
+  const brandW = measureText(brandName, brandFontSize, 800);
+  let inner = drawText(brandName, CW / 2 - brandW / 2, 330, brandFontSize, 800, '2A5DB0');
   let y = 470;
   const disclaimer = d.disclaimer || '';
   const dl = svgParagraph(70, y, CW - 140, disclaimer, { fontSize: 27, fill: '191919', weight: 700, align: 'center', lineHeight: 1.65, maxCharsPerLine: 24 });
