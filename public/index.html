@@ -153,6 +153,17 @@
   .sb-usage-track { height: 4px; background: var(--rail-line); border-radius: 99px; overflow: hidden; }
   .sb-usage-bar { height: 100%; background: var(--green-bright); }
 
+  .sb-visits { margin-top: 14px; }
+  .sb-visits-toggle {
+    width: 100%; background: transparent; border: none; cursor: pointer;
+    display: flex; align-items: center; justify-content: space-between; padding: 0;
+  }
+  .sb-visits-total { font-size: 12px; font-weight: 700; color: #F2FBF7; }
+  .sb-visits-list { margin-top: 10px; max-height: 180px; overflow-y: auto; }
+  .sb-visit-row { display: flex; justify-content: space-between; align-items: baseline; padding: 6px 0; border-top: 1px solid var(--rail-line); font-size: 11.5px; }
+  .sb-visit-name { color: var(--rail-text); }
+  .sb-visit-count { color: var(--rail-label); font-size: 10.5px; }
+
   .app-main { min-width: 0; padding: 0 0 60px; background: var(--shell); }
   .app-history {
     background: var(--card); border-left: 1px solid var(--border-soft0);
@@ -669,6 +680,16 @@
   </div>
 </div>
 
+<div id="nameGate" style="position:fixed; inset:0; background:var(--ink); z-index:998; display:none; align-items:center; justify-content:center;">
+  <div style="width:100%; max-width:340px; padding:30px; background:var(--panel); border:1px solid var(--line); border-radius:12px; box-shadow:0 8px 30px -12px rgba(28,35,33,0.15);">
+    <p class="eyebrow" style="margin-bottom:14px;">방문 기록</p>
+    <p style="font-size:14px; color:var(--paper-dim); margin:0 0 18px;">방문 기록에 남길 성함(실명)을 입력해주세요. 입력해야 이용하실 수 있어요.</p>
+    <input type="text" id="nameGateInput" placeholder="예: 홍길동" style="width:100%; background:var(--panel-2); border:1px solid var(--line); border-radius:4px; color:var(--paper); padding:11px 13px; font-size:14px; margin-bottom:12px;">
+    <button class="generate" id="nameGateSubmitBtn" style="width:100%;">확인</button>
+    <p id="nameGateError" style="color:var(--seal); font-size:12.5px; margin-top:10px; display:none;">이름을 2자 이상 입력해주세요.</p>
+  </div>
+</div>
+
 <div class="app-shell" id="appShell" style="display:none;">
 
   <div class="app-sidebar">
@@ -699,6 +720,13 @@
       <div class="sb-usage-label">등록된 구글시트</div>
       <div class="sb-usage-value" id="sbUsageValue">-</div>
       <div class="sb-usage-track"><div class="sb-usage-bar" id="sbUsageBar" style="width:60%;"></div></div>
+    </div>
+    <div class="sb-visits" id="sbVisits">
+      <button type="button" class="sb-visits-toggle" id="sbVisitsToggle">
+        <span class="sb-usage-label">방문 기록</span>
+        <span class="sb-visits-total" id="sbVisitsTotal">-</span>
+      </button>
+      <div class="sb-visits-list" id="sbVisitsList" style="display:none;"></div>
     </div>
   </div>
 
@@ -1428,6 +1456,7 @@ async function tryEnter(pw) {
       document.getElementById('appShell').style.display = 'grid';
       loadAnnouncement();
       refreshSidebarCounts();
+      logVisit();
       return true;
     }
     errEl.style.display = 'block';
@@ -1450,6 +1479,65 @@ tryEnter(appPassword);
 
 /* ===================== 공지사항 ===================== */
 /* ===================== 사이드바 카운트 (실제 이력 기반) ===================== */
+/* ===================== 방문 기록 ===================== */
+async function logVisit() {
+  const name = localStorage.getItem('ins_visitor_name');
+  if (!name) {
+    document.getElementById('appShell').style.display = 'none';
+    document.getElementById('nameGate').style.display = 'flex';
+    document.getElementById('nameGateInput').focus();
+    return;
+  }
+  try {
+    await apiPost('/api/visits', { visitor_name: name });
+  } catch (e) {
+    // 방문 기록 실패는 조용히 무시 — 앱 사용에 지장 없음
+  }
+  refreshVisitsWidget();
+}
+async function submitNameGate() {
+  const input = document.getElementById('nameGateInput');
+  const errEl = document.getElementById('nameGateError');
+  const name = input.value.trim();
+  if (name.length < 2) {
+    errEl.style.display = 'block';
+    return;
+  }
+  errEl.style.display = 'none';
+  localStorage.setItem('ins_visitor_name', name.slice(0, 40));
+  document.getElementById('nameGate').style.display = 'none';
+  document.getElementById('appShell').style.display = 'grid';
+  try {
+    await apiPost('/api/visits', { visitor_name: name });
+  } catch (e) {
+    // 방문 기록 실패는 조용히 무시
+  }
+  refreshVisitsWidget();
+}
+document.getElementById('nameGateSubmitBtn').addEventListener('click', submitNameGate);
+document.getElementById('nameGateInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') submitNameGate();
+});
+async function refreshVisitsWidget() {
+  try {
+    const data = await apiGet('/api/visits');
+    document.getElementById('sbVisitsTotal').textContent = `총 ${data.total || 0}회`;
+    const listEl = document.getElementById('sbVisitsList');
+    listEl.innerHTML = (data.visitors || []).map(v => `
+      <div class="sb-visit-row">
+        <span class="sb-visit-name">${escapeHtml(v.name)}</span>
+        <span class="sb-visit-count">${v.count}회${v.last ? ' · ' + new Date(v.last).toLocaleDateString('ko-KR') : ''}</span>
+      </div>
+    `).join('') || '<div class="sb-visit-row"><span class="sb-visit-name">기록 없음</span></div>';
+  } catch (e) {
+    document.getElementById('sbVisitsTotal').textContent = '-';
+  }
+}
+document.getElementById('sbVisitsToggle').addEventListener('click', () => {
+  const list = document.getElementById('sbVisitsList');
+  list.style.display = list.style.display === 'none' ? 'block' : 'none';
+});
+
 async function refreshSidebarCounts() {
   try {
     const all = await fetchAllHistory();
