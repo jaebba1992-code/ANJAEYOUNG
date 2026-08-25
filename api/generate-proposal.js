@@ -243,6 +243,34 @@ function stripFillerTokens(label) {
 // 카테고리 표시 순서를 고정한다 (기본계약 → 진단비 → 치료비 → 수술비 → 상해관련 → 간병 → 그 외)
 const CATEGORY_ORDER = ['기본계약', '진단비', '치료비', '수술비', '상해관련', '간병'];
 
+// AI가 "치료비"/"진단비" 분류를 헷갈려도, 담보명에 그 단어가 그대로 들어있으면 서버가 무조건 바로잡는다
+// (항암약물치료비·표적항암약물치료비 등이 진단비 칸에 잘못 들어가는 문제 방지).
+function correctCategory(row) {
+  const label = row.label || '';
+  if (/치료비/.test(label)) return '치료비';
+  if (/진단비/.test(label)) return '진단비';
+  return row.category;
+}
+
+// 금액 문자열("1백만원", "5천만원", "15만원", "21,113원" 등)을 숫자로 변환한다 (내림차순 정렬용)
+function parseAmountValue(str) {
+  if (!str) return 0;
+  const s = String(str);
+  let mult = 1;
+  if (/억/.test(s)) mult = 100000000;
+  else if (/천만/.test(s)) mult = 10000000;
+  else if (/백만/.test(s)) mult = 1000000;
+  else if (/십만/.test(s)) mult = 100000;
+  else if (/만/.test(s)) mult = 10000;
+  const numMatch = s.match(/[\d,]+(?:\.\d+)?/);
+  const num = numMatch ? parseFloat(numMatch[0].replace(/,/g, '')) : 0;
+  return num * mult;
+}
+function firstAmount(row) {
+  const amounts = Array.isArray(row.amounts) ? row.amounts : [row.amount || ''];
+  return parseAmountValue(amounts.find(a => a && String(a).trim()) || '');
+}
+
 // 같은 카테고리(진단비/치료비 등) 안에서도 질병군 순서를 암 → 뇌 → 심장 → 그 외로 고정한다
 const DISEASE_ORDER = [
   { key: 0, test: /암|항암|유사암/ },
@@ -254,11 +282,40 @@ function diseaseRank(label) {
   return found ? found.key : 99;
 }
 
+// 기본계약 안에서는 상해사망·상해후유장해류를 맨 앞(1~2번대), 납입면제·납입지원류를 그다음(3~4번대)에 오도록 고정한다
+const BASIC_CONTRACT_ORDER = [
+  { key: 0, test: /상해\s*사망/ },
+  { key: 1, test: /후유장해/ },
+  { key: 2, test: /납입\s*면제/ },
+  { key: 3, test: /납입\s*지원/ }
+];
+function basicContractRank(label) {
+  const found = BASIC_CONTRACT_ORDER.find(d => d.test.test(label || ''));
+  return found ? found.key : 99;
+}
+
+// 간병(및 상해관련) 카테고리는 "상해 vs 질병" → "보장일수(180일/181일 등, 작은 값 먼저)" → "가입금액(큰 금액 먼저)" 순으로 정렬한다
+function careSortTuple(row) {
+  const label = row.label || '';
+  const typeRank = /상해/.test(label) ? 0 : /질병/.test(label) ? 1 : 2;
+  const dayMatch = label.match(/(\d+)\s*일/);
+  const day = dayMatch ? parseInt(dayMatch[1], 10) : 999;
+  return [typeRank, day, -firstAmount(row)];
+}
+function compareTuples(a, b) {
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) return a[i] - b[i];
+  }
+  return 0;
+}
+
 // 담보 카테고리별로 묶는다 (고정 순서대로, 목록에 없는 카테고리는 맨 뒤에 등장 순서대로).
-// 각 카테고리 안에서는 암 → 뇌 → 심장 → 그 외 순서로, 같은 질병군끼리는 원래 순서를 유지한다(안정 정렬).
+// 카테고리마다 어울리는 세부 정렬 규칙을 적용한다: 기본계약은 상해→납입 순, 진단비/치료비는 암→뇌→심장 순,
+// 간병/상해관련은 상해·질병 구분 → 보장일수 → 금액 큰 순으로 정렬한다 (같은 순위끼리는 원래 순서 유지 = 안정 정렬).
 function groupRowsByCategory(rows) {
+  const corrected = rows.map(row => ({ ...row, category: correctCategory(row) }));
   const byCat = new Map();
-  rows.forEach((row, idx) => {
+  corrected.forEach((row, idx) => {
     const cat = (row.category || '기타').trim() || '기타';
     if (!byCat.has(cat)) byCat.set(cat, []);
     byCat.get(cat).push({ row, idx });
@@ -268,10 +325,25 @@ function groupRowsByCategory(rows) {
     ...[...byCat.keys()].filter(c => !CATEGORY_ORDER.includes(c))
   ];
   return orderedCats.map(cat => {
-    const entries = byCat.get(cat).slice().sort((a, b) => {
-      const diff = diseaseRank(a.row.label) - diseaseRank(b.row.label);
-      return diff !== 0 ? diff : a.idx - b.idx;
-    });
+    let entries = byCat.get(cat).slice();
+    if (cat === '기본계약') {
+      entries.sort((a, b) => {
+        const diff = basicContractRank(a.row.label) - basicContractRank(b.row.label);
+        return diff !== 0 ? diff : a.idx - b.idx;
+      });
+    } else if (cat === '진단비' || cat === '치료비') {
+      entries.sort((a, b) => {
+        const diff = diseaseRank(a.row.label) - diseaseRank(b.row.label);
+        return diff !== 0 ? diff : a.idx - b.idx;
+      });
+    } else if (cat === '간병' || cat === '상해관련') {
+      entries.sort((a, b) => {
+        const diff = compareTuples(careSortTuple(a.row), careSortTuple(b.row));
+        return diff !== 0 ? diff : a.idx - b.idx;
+      });
+    } else {
+      entries.sort((a, b) => a.idx - b.idx);
+    }
     return { category: cat, rows: entries.map(e => e.row) };
   });
 }

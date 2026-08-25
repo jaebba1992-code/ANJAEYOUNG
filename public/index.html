@@ -3208,7 +3208,9 @@ document.getElementById('proposalGenBtn').addEventListener('click', async () => 
           });
           // 제안서 캡처는 표 안에 작은 글씨가 빽빽해서, 일반 사진보다 해상도/품질을 높게 유지해야
           // 특약명이 다르게 읽히는 오류가 줄어든다.
-          const resized = await resizeImageToBase64(dataUrl.split(',')[1], file.type, 1800, 0.92);
+          // 제안서는 표 안에 특약명·금액이 빽빽해서, 웬만한 사진보다 훨씬 고해상도로 유지해야
+          // 담보명이 다르게 읽히거나 숫자가 틀리는 일을 최대한 줄일 수 있다.
+          const resized = await resizeImageToBase64(dataUrl.split(',')[1], file.type, 2200, 0.95);
           images.push(resized);
         } else if (file.name.toLowerCase().endsWith('.pdf')) {
           const pages = await pdfToImageBase64List(file);
