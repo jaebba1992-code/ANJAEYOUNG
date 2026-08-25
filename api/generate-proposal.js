@@ -179,7 +179,7 @@ function svgDocument(theme, totalH, body) {
   </svg>`;
 }
 
-// ===== 조합설계 (A안/B안 — 각각 여러 보험사를 묶은 안) =====
+// ===== 설계안 (A안/B안 — 조합설계든 단일설계든 항상 같은 단순한 한 줄 표로 보여준다) =====
 function renderCombinationProposal({ title, clientName, agentName, theme, designs }) {
   const tableW = CW - MARGIN * 2;
   const LABEL_W = tableW - NO_W - 170 - 200;
@@ -189,10 +189,8 @@ function renderCombinationProposal({ title, clientName, agentName, theme, design
   let contentHeight = 0;
   designs.forEach(dsn => {
     contentHeight += 64; // 안(案) 헤더 밴드
-    (dsn.sections || []).forEach(sec => {
-      contentHeight += SECTION_HEADER_H;
-      contentHeight += (sec.rows || []).length * ROW_H;
-    });
+    contentHeight += 36; // 표 헤더 행
+    contentHeight += (dsn.rows || []).length * ROW_H;
     contentHeight += 24; // 안 사이 간격
   });
 
@@ -204,8 +202,10 @@ function renderCombinationProposal({ title, clientName, agentName, theme, design
   let body = headerBannerSvg(theme, agentName, title, clientName, boxes);
 
   let cy = HEADER_H + 20;
-  designs.forEach(dsn => {
-    // 안(案) 헤더 밴드
+  designs.forEach((dsn, dIdx) => {
+    const themeAccent = SECTION_COLORS[dIdx % SECTION_COLORS.length];
+
+    // 안(案) 헤더 밴드: 보험사(조합) 이름 + 보험료만 심플하게
     body += `<rect x="${MARGIN}" y="${cy}" width="${tableW}" height="56" rx="8" fill="#${theme.grad[1]}" fill-opacity="0.08"/>`;
     body += `<rect x="${MARGIN}" y="${cy}" width="6" height="56" fill="#${theme.grad[1]}"/>`;
     const dsnTitle = [dsn.label, dsn.carriers].filter(Boolean).join(' · ');
@@ -223,29 +223,41 @@ function renderCombinationProposal({ title, clientName, agentName, theme, design
     body += drawText('가입금액', MARGIN + NO_W + LABEL_W + TERM_W + AMOUNT_W / 2, cy + 24, 14, 700, '555555', { align: 'middle' });
     cy += 36;
 
-    (dsn.sections || []).forEach((sec, sIdx) => {
-      const color = SECTION_COLORS[sIdx % SECTION_COLORS.length];
-      body += `<rect x="${MARGIN}" y="${cy}" width="${tableW}" height="${SECTION_HEADER_H}" fill="#${color.bg}"/>`;
-      body += `<rect x="${MARGIN}" y="${cy}" width="6" height="${SECTION_HEADER_H}" fill="#${color.accent}"/>`;
-      body += drawText(`• ${sec.carrierName || ''}`, MARGIN + 24, cy + SECTION_HEADER_H / 2 + 7, 19, 800, color.text);
-      cy += SECTION_HEADER_H;
-
-      (sec.rows || []).forEach((row, rIdx) => {
-        const rowBg = rIdx % 2 === 0 ? 'FFFFFF' : 'FAFAFA';
-        body += `<rect x="${MARGIN}" y="${cy}" width="${tableW}" height="${ROW_H}" fill="#${rowBg}"/>`;
-        body += `<line x1="${MARGIN}" y1="${cy+ROW_H}" x2="${MARGIN+tableW}" y2="${cy+ROW_H}" stroke="#EDEDEF" stroke-width="1"/>`;
-        body += drawText(String(row.no != null ? row.no : rIdx + 1), MARGIN + NO_W / 2, cy + ROW_H / 2 + 6, 14, 400, '888888', { align: 'middle' });
-        body += drawText(row.label || '', MARGIN + NO_W + 16, cy + ROW_H / 2 + 6, 16, 500, '222222');
-        body += drawText(row.term || '', MARGIN + NO_W + LABEL_W + TERM_W / 2, cy + ROW_H / 2 + 6, 13, 400, '777777', { align: 'middle' });
-        body += drawText(row.amount || '', MARGIN + NO_W + LABEL_W + TERM_W + AMOUNT_W / 2, cy + ROW_H / 2 + 6, 15, 700, color.text, { align: 'middle' });
-        cy += ROW_H;
-      });
+    // 담보 목록: 보험사 구분 없이 하나의 표로 쭉 나열
+    (dsn.rows || []).forEach((row, rIdx) => {
+      const rowBg = rIdx % 2 === 0 ? 'FFFFFF' : 'FAFAFA';
+      body += `<rect x="${MARGIN}" y="${cy}" width="${tableW}" height="${ROW_H}" fill="#${rowBg}"/>`;
+      body += `<line x1="${MARGIN}" y1="${cy+ROW_H}" x2="${MARGIN+tableW}" y2="${cy+ROW_H}" stroke="#EDEDEF" stroke-width="1"/>`;
+      body += drawText(String(row.no != null ? row.no : rIdx + 1), MARGIN + NO_W / 2, cy + ROW_H / 2 + 6, 14, 400, '888888', { align: 'middle' });
+      body += drawText(row.label || '', MARGIN + NO_W + 16, cy + ROW_H / 2 + 6, 16, 500, '222222');
+      body += drawText(row.term || '', MARGIN + NO_W + LABEL_W + TERM_W / 2, cy + ROW_H / 2 + 6, 13, 400, '777777', { align: 'middle' });
+      body += drawText(row.amount || '', MARGIN + NO_W + LABEL_W + TERM_W + AMOUNT_W / 2, cy + ROW_H / 2 + 6, 15, 700, themeAccent.text, { align: 'middle' });
+      cy += ROW_H;
     });
     cy += 24;
   });
 
   body += footerSvg(cy);
   return svgDocument(theme, totalH, body);
+}
+
+// ===== 구버전 호환: 예전 조합설계(보험사별 색상 그룹핑) 데이터가 저장돼 있으면 flat rows로 변환해서 그대로 렌더링 =====
+function normalizeDesigns(designs) {
+  return designs.map(d => {
+    if (Array.isArray(d.rows)) return d; // 이미 새 형식(flat rows)
+    if (Array.isArray(d.sections)) {
+      // 예전 형식(보험사별 sections) → flat rows로 병합
+      const rows = [];
+      let no = 1;
+      d.sections.forEach(sec => {
+        (sec.rows || []).forEach(r => {
+          rows.push({ no: no++, label: r.label, term: r.term, amount: r.amount });
+        });
+      });
+      return { label: d.label, carriers: d.carriers, premium: d.premium, rows };
+    }
+    return { ...d, rows: [] };
+  });
 }
 
 // ===== 구버전 호환: 단일 플랜 비교표 (plans + sections) =====
@@ -320,7 +332,7 @@ module.exports = async function handler(req, res) {
 
     let svg;
     if (Array.isArray(designs) && designs.length) {
-      svg = renderCombinationProposal({ title, clientName, agentName, theme, designs });
+      svg = renderCombinationProposal({ title, clientName, agentName, theme, designs: normalizeDesigns(designs) });
     } else if (Array.isArray(sections) && sections.length) {
       svg = renderLegacyProposal({ title, clientName, agentName, theme, plans, sections });
     } else {

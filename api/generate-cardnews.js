@@ -317,11 +317,14 @@ function svgDoc(bg, inner, watermarkSvg) {
 
 /* ================= 템플릿 ================= */
 
-function tpl_darkCover(d, accent, theme, channelName) {
+function tpl_darkCover(d, accent, theme, channelName, opts = {}) {
   const badge = d.badge || channelName || '보험탈출구';
   const titleRuns = Array.isArray(d.titleRuns) ? d.titleRuns : [{ text: d.title || '', tone: null }];
-  const bg = bgLayer(theme, 'dark');
   const [op1, op2, op3] = theme.coverOverlay;
+  // 사진 위에 합성할 때는 불투명 배경을 그리지 않는다 (그리면 사진이 완전히 가려짐).
+  // 사진이 없을 때만 테마 배경색을 채운다.
+  const usePhoto = !!opts.transparentBg;
+  const bg = usePhoto ? { defs: '', rect: '' } : bgLayer(theme, 'dark');
   let inner = `<rect width="${CW}" height="${CH}" fill="url(#coverGrad)"/>`;
   inner += badgePill(70, 90, badge, { stroke: theme.darkText, textColor: theme.darkText, fill: theme.badgeStroke ? 'none' : theme.red });
   const t = titleWithHighlight(70, 260, CW - 140, titleRuns, { fontSize: 78, accent, fill: theme.darkText, red: theme.red, maxCharsPerLine: 8 });
@@ -330,11 +333,21 @@ function tpl_darkCover(d, accent, theme, channelName) {
     const s = svgParagraph(70, t.endY + 30, CW - 140, d.subtitle, { fontSize: 32, fill: theme.mutedOnDark, maxCharsPerLine: 20 });
     inner += s.svg;
   }
+  // 사진 위에 얹을 때는 텍스트 가독성을 위해 그라데이션을 조금 더 진하게 준다.
+  const [pOp1, pOp2, pOp3] = usePhoto ? [Math.max(op1, 0.28), Math.max(op2, 0.55), Math.max(op3, 0.88)] : [op1, op2, op3];
   const gradDefs = `<linearGradient id="coverGrad" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#000000" stop-opacity="${op1}"/>
-      <stop offset="55%" stop-color="#000000" stop-opacity="${op2}"/>
-      <stop offset="100%" stop-color="#000000" stop-opacity="${op3}"/>
+      <stop offset="0%" stop-color="#000000" stop-opacity="${pOp1}"/>
+      <stop offset="55%" stop-color="#000000" stop-opacity="${pOp2}"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="${pOp3}"/>
     </linearGradient>`;
+  if (usePhoto) {
+    // 투명 배경 SVG (사진과 합성될 것이므로 캔버스 배경 없이 그라데이션+텍스트만)
+    return `<svg width="${CW}" height="${CH}" viewBox="0 0 ${CW} ${CH}" xmlns="http://www.w3.org/2000/svg">
+      <defs>${gradDefs}</defs>
+      ${inner}
+      ${watermarkStamp(channelName, theme, 'dark')}
+    </svg>`;
+  }
   return svgDoc({ defs: bg.defs + gradDefs, rect: bg.rect }, inner, watermarkStamp(channelName, theme, 'dark'));
 }
 
@@ -461,20 +474,24 @@ async function fetchUnsplashPhoto(query, accessKey) {
   }
 }
 
-async function renderCard(item, accent, theme, channelName) {
+async function renderCard(item, accent, theme, channelName, coverPhotoBuf) {
   const renderer = RENDERERS[item.type];
   if (!renderer) return null;
 
-  if (item.type === 'darkCover' && item.photoQuery) {
-    const accessKey = process.env.UNSPLASH_ACCESS_KEY;
-    const photoBuf = await fetchUnsplashPhoto(item.photoQuery, accessKey);
-    const overlaySvg = renderer(item, accent, theme, channelName);
+  if (item.type === 'darkCover') {
+    let photoBuf = coverPhotoBuf || null; // 사용자가 직접 올린 표지 사진이 우선
+    if (!photoBuf && item.photoQuery) {
+      const accessKey = process.env.UNSPLASH_ACCESS_KEY;
+      photoBuf = await fetchUnsplashPhoto(item.photoQuery, accessKey);
+    }
     if (photoBuf) {
+      const overlaySvg = tpl_darkCover(item, accent, theme, channelName, { transparentBg: true });
       const bg = await sharp(photoBuf).resize(CW, CH, { fit: 'cover' }).toBuffer();
       const overlayPng = await sharp(Buffer.from(overlaySvg)).png().toBuffer();
       return await sharp(bg).composite([{ input: overlayPng }]).png().toBuffer();
     }
-    return await sharp(Buffer.from(overlaySvg)).png().toBuffer();
+    const svg = renderer(item, accent, theme, channelName);
+    return await sharp(Buffer.from(svg)).png().toBuffer();
   }
 
   const svg = renderer(item, accent, theme, channelName);
@@ -489,17 +506,18 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: '지원하지 않는 메서드입니다.' });
   }
   try {
-    const { plan, accent, theme: themeKey, channelName } = req.body || {};
+    const { plan, accent, theme: themeKey, channelName, coverPhotoBase64 } = req.body || {};
     if (!Array.isArray(plan) || !plan.length) {
       return res.status(400).json({ error: 'plan(카드 배열)이 필요합니다.' });
     }
     const cappedPlan = plan.slice(0, MAX_CARDS); // 카드뉴스는 최대 10장까지만 만든다
     const accentColor = (accent || DEFAULT_ACCENT).replace('#', '');
     const theme = getTheme(themeKey);
+    const coverPhotoBuf = coverPhotoBase64 ? Buffer.from(coverPhotoBase64, 'base64') : null;
 
     const pngBuffers = [];
     for (const item of cappedPlan) {
-      const buf = await renderCard(item, accentColor, theme, channelName);
+      const buf = await renderCard(item, accentColor, theme, channelName, item.type === 'darkCover' ? coverPhotoBuf : null);
       if (buf) pngBuffers.push(buf);
     }
     if (!pngBuffers.length) {

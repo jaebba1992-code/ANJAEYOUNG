@@ -373,6 +373,7 @@
     font-family: 'Pretendard', sans-serif;
   }
   .copy-btn:hover { border-color: var(--brass-dim); color: var(--brass); }
+  .proposal-mode-btn.active { background: var(--brass); border-color: var(--brass); color: #fff; }
 
   .stamp {
     width: 46px; height: 46px;
@@ -1444,7 +1445,7 @@
 
       <div class="row">
         <div class="field">
-          <label>레퍼런스 이미지 (선택) <span class="opt">"이런 느낌이면 좋겠다" 하는 이미지를 올려주세요 — 그 사진 자체를 쓰진 않고, 색감·분위기만 참고해서 반영해요</span></label>
+          <label>레퍼런스 이미지 (선택) <span class="opt">"이런 느낌이면 좋겠다" 하는 이미지를 올려주세요</span></label>
           <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
             <label for="cardRefImageInput" class="copy-btn" style="cursor:pointer; display:inline-block;">+ 이미지 첨부</label>
             <input type="file" id="cardRefImageInput" accept="image/png,image/jpeg,image/webp" style="display:none;">
@@ -1453,7 +1454,20 @@
           </div>
           <div id="cardRefImagePreviewWrap" style="display:none; margin-top:10px;">
             <img id="cardRefImagePreview" style="max-width:140px; max-height:140px; border-radius:8px; border:1px solid var(--line);">
+            <label style="display:flex; align-items:center; gap:6px; margin-top:8px; font-size:12.5px; cursor:pointer;">
+              <input type="checkbox" id="cardRefUseAsCoverCheckbox">
+              이 사진을 표지(1장) 배경으로 직접 사용 <span class="opt">(체크 안 하면 색감·분위기만 참고해요)</span>
+            </label>
           </div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label>표지에 어울리는 무료 스톡 사진 자동 추천 <span class="opt">위 레퍼런스 이미지가 없을 때, 주제에 맞는 사진을 Unsplash에서 자동으로 찾아 표지 배경으로 써요</span></label>
+          <label style="display:flex; align-items:center; gap:6px; font-size:13px; cursor:pointer;">
+            <input type="checkbox" id="cardAutoPhotoCheckbox" checked>
+            자동으로 표지 사진 찾기
+          </label>
         </div>
       </div>
 
@@ -1533,7 +1547,17 @@
     </div>
 
     <div class="panel">
-      <p class="panel-title">제안서 생성 <span style="color:var(--paper-mute); font-weight:400; font-size:12px;">— 보험사 조합 설계안(A안/B안)을 각각 올리면, 보험사별로 특약을 정리한 비교 제안서를 만들어드려요</span></p>
+      <p class="panel-title">제안서 생성 <span style="color:var(--paper-mute); font-weight:400; font-size:12px;">— 설계안을 올리면, 담보·납기·가입금액을 깔끔한 표로 정리해드려요</span></p>
+
+      <div class="row">
+        <div class="field">
+          <label>설계 방식</label>
+          <div style="display:flex; gap:8px;">
+            <button type="button" class="copy-btn proposal-mode-btn active" data-mode="combo" id="proposalModeComboBtn" style="flex:1;">조합설계 (보험사 2곳+)</button>
+            <button type="button" class="copy-btn proposal-mode-btn" data-mode="single" id="proposalModeSingleBtn" style="flex:1;">단일설계 (보험사 1곳)</button>
+          </div>
+        </div>
+      </div>
 
       <div class="row">
         <div class="field">
@@ -2613,7 +2637,7 @@ let cardHistoryLoaded = false;
 
 const CARD_TEMPLATE_GUIDE = `사용 가능한 카드 타입은 아래 6개뿐이다. 반드시 이 중에서만 골라서 쓰고, 각 타입의 필드 이름을 정확히 지켜야 한다 (필드명 임의 변경 금지). 카드 하나 = 인스타그램 카드뉴스 1장(4:5 비율).
 
-1. "darkCover" — 표지(첫 장). 어두운 배경 + 브랜드 배지 + 큰 제목. { type, badge, titleRuns:[{text, tone}], subtitle } (tone: "accent"|null. titleRuns는 2~3개 조각으로 나눠서 강조하고 싶은 부분만 tone:"accent")
+1. "darkCover" — 표지(첫 장). 어두운 배경 + 브랜드 배지 + 큰 제목. { type, badge, titleRuns:[{text, tone}], subtitle, photoQuery } (tone: "accent"|null. titleRuns는 2~3개 조각으로 나눠서 강조하고 싶은 부분만 tone:"accent". photoQuery는 아래 설명 참고)
 2. "darkText" — 어두운 배경 설명 카드. { type, eyebrow, title, body } (body 안에서 강조하고 싶은 구간은 **이렇게** 감싼다)
 3. "lightText" — 밝은(크림색) 배경 설명 카드. { type, title, body }
 4. "caseFormula" — 밝은 배경 사례 비교 카드. { type, caseLabel, description, rows:["A상품 → 조건 → 계산식", "B상품 → 조건 → 계산식"], totalLabel:"최종 차액 문구" }
@@ -2640,19 +2664,20 @@ async function analyzeReferenceImage(base64Data, mediaType) {
   return JSON.parse(cleaned);
 }
 
-async function buildCardPlan(request, designData, clauseText, cardCount, styleNote) {
+async function buildCardPlan(request, designData, clauseText, cardCount, styleNote, useAutoPhoto) {
   const system = `당신은 보험설계사의 인스타그램 카드뉴스를 기획하는 전문가입니다. "보험탈출구" 계정 스타일(어두운 배경 + 밝은 배경을 번갈아, 굵고 큰 텍스트, 노란 강조, 숫자 중심)을 참고해서 사용자의 요청에 맞는 카드 순서를 JSON으로만 출력합니다.
 
 ${CARD_TEMPLATE_GUIDE}
 
 [구성 원칙]
 - 첫 장은 반드시 darkCover, 마지막 장은 반드시 outro로 끝낸다.
-- 어두운 카드(darkCover, darkText, ctaShare)와 밝은 카드(lightText, caseFormula)를 번갈아 배치해서 리듬감을 준다.
+- 어두운 카드(darkCover, darkText, ctaShare)와 밝은 카드(lightText, caseFormula)를 반드시 번갈아 배치한다 — 어두운 카드가 3장 연속으로 나오면 안 된다. 전체 카드의 절반 이상은 밝은 카드(lightText/caseFormula)로 구성해서, 카드뉴스 전체가 검은색 일색으로 보이지 않게 한다.
 - 요청에 "설계안/실제 숫자 자료"가 주어지면, 그 숫자를 절대 지어내지 않고 그대로 caseFormula의 rows에 정확히 반영한다.
 - 요청에 "약관 발췌"가 주어지면 그 문구를 존중해서 활용하고, 안 주어졌으면 일반적으로 알려진 수준에서 자연스럽게 직접 풀어써도 된다(과장·확정적 문구 금지).
 - 한 카드에 텍스트를 너무 많이 몰아넣지 않는다 — 카드 하나당 메시지 하나만.
 - 총 ${cardCount}장 내외(outro 포함)로 구성하되, 절대 10장을 넘기지 않는다. 내용이 많아도 10장 안에 가독성 좋게 압축한다.
 - outro 카드는 { "type": "outro" } 형태로만 넣는다.
+${useAutoPhoto ? '- darkCover 카드에는 반드시 photoQuery 필드를 넣는다. 배경으로 쓸 실제 사진을 검색할 영어 키워드 2~3단어로 (예: "elderly care hospital", "family insurance planning", "nursing home corridor"). 사람 얼굴이 크게 나오는 검색어보다는 분위기/장소 중심 키워드가 좋다.' : '- photoQuery 필드는 넣지 않는다.'}
 - 결과는 오직 JSON 배열만 출력한다. 다른 설명, 마크다운, 코드블록 기호는 절대 붙이지 않는다.`;
 
   const userParts = [`[요청 내용]\n${request}`];
@@ -2748,6 +2773,9 @@ document.getElementById('cardGenBtn').addEventListener('click', async () => {
   const designData = document.getElementById('cardDesignInput').value.trim();
   const clauseText = document.getElementById('cardClauseInput').value.trim();
   const styleNote = window.__cardRefStyleNote || '';
+  const useUploadedAsCover = document.getElementById('cardRefUseAsCoverCheckbox').checked && !!window.__cardRefImageBase64;
+  const useAutoPhoto = document.getElementById('cardAutoPhotoCheckbox').checked && !useUploadedAsCover;
+  const coverPhotoBase64 = useUploadedAsCover ? window.__cardRefImageBase64 : null;
   const btn = document.getElementById('cardGenBtn');
   const statusEl = document.getElementById('cardGenStatus');
 
@@ -2758,10 +2786,10 @@ document.getElementById('cardGenBtn').addEventListener('click', async () => {
   statusEl.textContent = '';
   renderCardCaption('');
   try {
-    const plan = await buildCardPlan(request, designData, clauseText, cardCount, styleNote);
+    const plan = await buildCardPlan(request, designData, clauseText, cardCount, styleNote, useAutoPhoto);
     btn.textContent = '이미지 만드는 중... (시간이 좀 걸려요)';
     const [result, caption] = await Promise.all([
-      apiPost('/api/generate-cardnews', { plan, accent, theme, channelName }),
+      apiPost('/api/generate-cardnews', { plan, accent, theme, channelName, coverPhotoBase64: coverPhotoBase64 || undefined }),
       buildCardCaption(plan, request).catch(err => { console.error('캡션 생성 실패:', err); return ''; })
     ]);
     const filename = request.slice(0, 30).replace(/[\\/:*?"<>|]/g, '') + '_카드뉴스.zip';
@@ -2850,20 +2878,38 @@ document.getElementById('cardHistoryToggle').addEventListener('click', () => {
 
 /* ===================== 제안서 생성 ===================== */
 let proposalHistoryLoaded = false;
+let proposalMode = 'combo'; // 'combo' | 'single'
 window.__proposalFiles = { A: [], B: [] };
 
-const PROPOSAL_DESIGN_LABELS = { A: 'A안', B: 'B안' };
+const PROPOSAL_DEFAULT_LABELS = { A: 'A안', B: 'B안' };
+
+document.getElementById('proposalModeComboBtn').addEventListener('click', () => setProposalMode('combo'));
+document.getElementById('proposalModeSingleBtn').addEventListener('click', () => setProposalMode('single'));
+function setProposalMode(mode) {
+  proposalMode = mode;
+  document.getElementById('proposalModeComboBtn').classList.toggle('active', mode === 'combo');
+  document.getElementById('proposalModeSingleBtn').classList.toggle('active', mode === 'single');
+  ['A', 'B'].forEach(key => {
+    const el = document.getElementById(`proposalCarriers_${key}`);
+    if (el) el.placeholder = mode === 'combo' ? '예: DB손해 + 메리츠화재' : '예: 삼성화재';
+  });
+}
 
 function renderProposalDesignBlocks() {
   const wrap = document.getElementById('proposalDesignBlocks');
   wrap.innerHTML = ['A', 'B'].map(key => `
     <div class="panel" style="background:var(--paper-soft); margin-bottom:14px;">
-      <p class="panel-title" style="font-size:14px;">${PROPOSAL_DESIGN_LABELS[key]} ${key === 'B' ? '<span class="opt">(선택 — 두 안을 비교하지 않으면 비워두세요)</span>' : ''}</p>
       <div class="row">
         <div class="field">
-          <label>보험사 조합 <span class="opt">예: DB손해 + 메리츠화재</span></label>
+          <label>안(案) 이름 ${key === 'B' ? '<span class="opt">(선택 — 비워두면 이 안은 만들지 않아요)</span>' : ''}</label>
+          <input type="text" id="proposalLabel_${key}" placeholder="예: 프리미엄형, 가성비형" value="${PROPOSAL_DEFAULT_LABELS[key]}">
+        </div>
+        <div class="field">
+          <label>보험사 <span class="opt">비워두면 첨부 이미지에서 자동으로 읽어요</span></label>
           <input type="text" id="proposalCarriers_${key}" placeholder="예: DB손해 + 메리츠화재">
         </div>
+      </div>
+      <div class="row">
         <div class="field">
           <label>월 보험료 <span class="opt">비워두면 첨부 이미지에서 자동으로 읽어요</span></label>
           <input type="text" id="proposalPremium_${key}" placeholder="예: 52,340원">
@@ -2940,35 +2986,35 @@ async function pdfToImageBase64List(file, maxPages = 6) {
   return results;
 }
 
-// 조합설계(2개 보험사) 한 개 안(案)의 이미지들을 보고, 보험사별로 특약을 묶어서 구조화한다
-async function extractProposalDesignData(imagesBase64List, carriersHint) {
-  const system = `당신은 보험 조합설계(2개 보험사를 함께 가입하는 설계) 캡처를 구조화된 데이터로 정리하는 전문가입니다. 여러 장의 스크린샷/페이지가 주어질 수 있습니다 — 같은 설계안의 여러 화면일 수 있습니다.
+// 설계안 이미지들을 보고, 담보/납기/가입금액을 하나의 표(flat list)로 정리한다
+// (조합설계든 단일설계든 화면에는 항상 같은 단순한 한 줄짜리 표로 보여준다 — 보험사별로 나눠서 보여주면 오히려 가독성이 떨어진다는 피드백 반영)
+async function extractProposalDesignData(imagesBase64List, carriersHint, mode) {
+  const modeNote = mode === 'single'
+    ? '이 설계안은 보험사 1곳 단일 상품입니다.'
+    : '이 설계안은 보험사 2곳 이상을 조합한 설계입니다. 여러 보험사의 담보가 섞여 있을 수 있습니다.';
+  const system = `당신은 보험 설계안 캡처를 구조화된 데이터로 정리하는 전문가입니다. 여러 장의 스크린샷/페이지가 주어질 수 있습니다 — 같은 설계안의 여러 화면일 수 있습니다.
 
-${carriersHint ? `이 설계안은 "${carriersHint}" 조합입니다. 각 담보가 어느 보험사 것인지 이미지 안의 회사명·로고·구분선 등을 보고 정확히 구분하세요.` : '이미지 안에서 보험사명을 직접 찾아서 구분하세요. 보험사가 2곳 이상 섞여 있으면 보험사별로 섹션을 나누세요.'}
+${modeNote}
+${carriersHint ? `보험사(조합)는 "${carriersHint}" 로 이미 확인되었습니다.` : '이미지 안에서 보험사명을 찾아서 알려주세요.'}
 
 아래 JSON 스키마로만 출력하세요:
 {
-  "carriers": "실제 확인된 보험사 조합 (예: DB손해 + 메리츠화재)",
-  "premium": "월 보험료 합계 (예: 52,340원, 이미지에 합계가 없으면 각 보험사 보험료를 더해서 계산)",
-  "sections": [
-    {
-      "carrierName": "보험사명 (예: DB손해보험)",
-      "rows": [
-        {"no": 1, "label": "담보명", "term": "납기·만기 정보", "amount": "가입금액"}
-      ]
-    }
+  "carriers": "확인된 보험사(조합) 이름 (예: DB손해 + 메리츠화재, 또는 삼성화재)",
+  "premium": "월 보험료 합계 (예: 52,340원, 이미지에 합계가 없으면 보이는 보험료를 모두 더해서 계산)",
+  "rows": [
+    {"no": 1, "label": "담보명", "term": "납기·만기 정보", "amount": "가입금액"}
   ]
 }
 
 [규칙]
 - 이미지에 있는 담보명·금액·숫자·보험사명을 정확히 그대로 옮긴다. 지어내지 않는다.
-- 이미지가 여러 장이면 같은 담보 항목이 중복되지 않게 병합한다.
-- 어느 보험사인지 끝내 구분이 안 되는 담보는 마지막 섹션에 몰아넣지 말고, 문맥상 가장 가능성 높은 보험사에 배정한다.
+- 이미지가 여러 장이거나 보험사가 여러 곳이어도, 담보 항목을 모두 합쳐서 하나의 rows 배열로 순서대로 나열한다 (보험사별로 별도 그룹을 만들지 않는다).
+- 같은 담보 항목이 중복되지 않게 병합한다.
 - 글자를 알아보기 어려운 부분은 억지로 추측해서 채우지 말고, 확실히 읽히는 내용 위주로 정리한다.
 - 다른 설명, 코드블록 기호 없이 JSON만 출력한다.`;
 
   const content = imagesBase64List.map(b64 => ({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: b64 } }));
-  content.push({ type: 'text', text: '위 이미지(들)을 보고 보험사별로 구분한 JSON 스키마로 정리해줘.' });
+  content.push({ type: 'text', text: '위 이미지(들)을 보고 JSON 스키마로 정리해줘.' });
 
   const raw = await callClaude(system, [{ role: 'user', content }], 2, null, 4000);
   const cleaned = raw.replace(/```json|```/g, '').trim();
@@ -2990,7 +3036,8 @@ document.getElementById('proposalGenBtn').addEventListener('click', async () => 
   try {
     const designs = [];
     for (const key of activeKeys) {
-      btn.textContent = `${PROPOSAL_DESIGN_LABELS[key]} 설계안 읽는 중...`;
+      const labelInput = document.getElementById(`proposalLabel_${key}`).value.trim() || PROPOSAL_DEFAULT_LABELS[key];
+      btn.textContent = `${labelInput} 설계안 읽는 중...`;
       const files = window.__proposalFiles[key];
       let images = [];
       for (const file of files) {
@@ -3011,15 +3058,15 @@ document.getElementById('proposalGenBtn').addEventListener('click', async () => 
       images = images.slice(0, 10);
       if (!images.length) continue;
 
-      btn.textContent = `${PROPOSAL_DESIGN_LABELS[key]} 내용 분석 중...`;
+      btn.textContent = `${labelInput} 내용 분석 중...`;
       const carriersInput = document.getElementById(`proposalCarriers_${key}`).value.trim();
       const premiumInput = document.getElementById(`proposalPremium_${key}`).value.trim();
-      const parsed = await extractProposalDesignData(images, carriersInput);
+      const parsed = await extractProposalDesignData(images, carriersInput, proposalMode);
       designs.push({
-        label: PROPOSAL_DESIGN_LABELS[key],
+        label: labelInput,
         carriers: carriersInput || parsed.carriers || '',
         premium: premiumInput || parsed.premium || '',
-        sections: parsed.sections || []
+        rows: parsed.rows || []
       });
     }
     if (!designs.length) throw new Error('처리할 수 있는 이미지가 없어요.');
@@ -3053,6 +3100,7 @@ document.getElementById('proposalGenBtn').addEventListener('click', async () => 
     btn.textContent = '제안서 만들기';
   }
 });
+
 
 async function renderProposalHistory() {
   proposalHistoryLoaded = true;
@@ -3874,10 +3922,12 @@ document.getElementById('cardClauseFileInput').addEventListener('change', handle
 /* 레퍼런스 이미지: 사진 자체는 쓰지 않고, 색감·분위기만 텍스트로 뽑아서 카드뉴스 톤에 반영 */
 function resetCardRefImage() {
   window.__cardRefStyleNote = '';
+  window.__cardRefImageBase64 = '';
   document.getElementById('cardRefImageInput').value = '';
   document.getElementById('cardRefImagePreviewWrap').style.display = 'none';
   document.getElementById('cardRefImageClearBtn').style.display = 'none';
   document.getElementById('cardRefImageStatus').textContent = '';
+  document.getElementById('cardRefUseAsCoverCheckbox').checked = false;
 }
 
 document.getElementById('cardRefImageInput').addEventListener('change', async (e) => {
@@ -3899,6 +3949,8 @@ document.getElementById('cardRefImageInput').addEventListener('change', async (e
 
   const base64Data = dataUrl.split(',')[1];
   const mediaType = file.type || 'image/jpeg';
+  // 표지 배경으로 바로 쓸 수 있게, 적당한 해상도로 리사이즈해서 저장해둔다
+  window.__cardRefImageBase64 = await resizeImageToBase64(base64Data, mediaType, 1200, 0.9);
 
   statusEl.textContent = '이미지 분위기 분석 중...';
   try {
