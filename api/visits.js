@@ -27,6 +27,37 @@ module.exports = async function handler(req, res) {
         .select('*', { count: 'exact', head: true });
       if (countErr) throw countErr;
 
+      // 오늘(한국시간 기준) 날짜 문자열
+      function toKstDateStr(iso) {
+        const kst = new Date(new Date(iso).getTime() + 9 * 60 * 60 * 1000);
+        return kst.toISOString().slice(0, 10);
+      }
+      const todayStr = toKstDateStr(new Date().toISOString());
+
+      // 전체 방문 기록을 한 번에 가져와서, 방문자별 누적 횟수 + 오늘 방문 횟수를 함께 집계한다
+      const { data: allVisits, error: allErr } = await supabase
+        .from('page_visits')
+        .select('visitor_name, visited_at');
+      if (allErr) throw allErr;
+
+      const totalsByVisitor = {};
+      const todayByVisitor = {};
+      const lastByVisitor = {};
+      (allVisits || []).forEach(v => {
+        const name = v.visitor_name || '익명';
+        totalsByVisitor[name] = (totalsByVisitor[name] || 0) + 1;
+        if (toKstDateStr(v.visited_at) === todayStr) {
+          todayByVisitor[name] = (todayByVisitor[name] || 0) + 1;
+        }
+        if (!lastByVisitor[name] || new Date(v.visited_at) > new Date(lastByVisitor[name])) {
+          lastByVisitor[name] = v.visited_at;
+        }
+      });
+      const visitors = Object.keys(totalsByVisitor)
+        .map(name => ({ name, count: totalsByVisitor[name], today: todayByVisitor[name] || 0, last: lastByVisitor[name] }))
+        .sort((a, b) => b.count - a.count);
+      const todayTotal = Object.values(todayByVisitor).reduce((a, b) => a + b, 0);
+
       const { data: recent, error: recentErr } = await supabase
         .from('page_visits')
         .select('visitor_name, visited_at')
@@ -34,25 +65,7 @@ module.exports = async function handler(req, res) {
         .limit(50);
       if (recentErr) throw recentErr;
 
-      // 방문자별 누적 횟수
-      const byVisitor = {};
-      (recent || []).forEach(v => {
-        const name = v.visitor_name || '익명';
-        if (!byVisitor[name]) byVisitor[name] = { name, count: 0, last: v.visited_at };
-        byVisitor[name].count += 1;
-      });
-      // recent 50건 기준 요약이라, 정확한 누적 횟수는 전체 조회로 보강
-      const { data: allNames } = await supabase.from('page_visits').select('visitor_name');
-      const totalsByVisitor = {};
-      (allNames || []).forEach(v => {
-        const name = v.visitor_name || '익명';
-        totalsByVisitor[name] = (totalsByVisitor[name] || 0) + 1;
-      });
-      const visitors = Object.keys(totalsByVisitor)
-        .map(name => ({ name, count: totalsByVisitor[name], last: byVisitor[name] ? byVisitor[name].last : null }))
-        .sort((a, b) => b.count - a.count);
-
-      return res.status(200).json({ total: count || 0, recent: recent || [], visitors });
+      return res.status(200).json({ total: count || 0, todayTotal, recent: recent || [], visitors });
     }
 
     return res.status(405).json({ error: '지원하지 않는 메서드입니다.' });

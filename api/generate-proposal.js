@@ -110,7 +110,7 @@ function esc(s) {
   return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-// 담보 카테고리(보험사)별 색상 팔레트 — 조합설계 안에서 보험사별로 구간을 구분하는 용도
+// 담보 카테고리별 색상 팔레트
 const SECTION_COLORS = [
   { bg: 'EAF1FF', accent: '3B6FE0', text: '1D3A7A' }, // 블루
   { bg: 'F1ECFF', accent: '7B4FE0', text: '3B2470' }, // 퍼플
@@ -119,6 +119,18 @@ const SECTION_COLORS = [
   { bg: 'FFEEF3', accent: 'E0508E', text: '7A1E45' }, // 핑크
   { bg: 'FFF1EA', accent: 'E06B2F', text: '7A3714' }  // 오렌지
 ];
+// 카테고리 이름마다 항상 같은 색이 나오도록 고정 매핑 (기타/새 카테고리는 순서대로 배정)
+const CATEGORY_COLOR_MAP = {
+  '기본계약': SECTION_COLORS[0],
+  '진단비': SECTION_COLORS[1],
+  '치료비': SECTION_COLORS[2],
+  '수술비': SECTION_COLORS[3],
+  '상해관련': SECTION_COLORS[4],
+  '간병': SECTION_COLORS[5]
+};
+function colorForCategory(category, fallbackIdx) {
+  return CATEGORY_COLOR_MAP[category] || SECTION_COLORS[fallbackIdx % SECTION_COLORS.length];
+}
 
 // 문서 전체 톤(헤더 배너 색) — 고객 성향에 맞게 선택
 const COLOR_THEMES = {
@@ -207,39 +219,87 @@ function filterMeaningfulRows(rows) {
   });
 }
 
-// 담보 카테고리별로 묶는다 (같은 카테고리끼리 인접해있지 않아도 순서를 유지하며 그룹핑)
+// 카테고리 표시 순서를 고정한다 (기본계약 → 진단비 → 치료비 → 수술비 → 상해관련 → 간병 → 그 외)
+const CATEGORY_ORDER = ['기본계약', '진단비', '치료비', '수술비', '상해관련', '간병'];
+
+// 담보 카테고리별로 묶는다 (고정 순서대로, 목록에 없는 카테고리는 맨 뒤에 등장 순서대로)
 function groupRowsByCategory(rows) {
-  const groups = [];
-  const indexByCat = new Map();
+  const byCat = new Map();
   rows.forEach(row => {
     const cat = (row.category || '기타').trim() || '기타';
-    if (!indexByCat.has(cat)) {
-      indexByCat.set(cat, groups.length);
-      groups.push({ category: cat, rows: [] });
-    }
-    groups[indexByCat.get(cat)].rows.push(row);
+    if (!byCat.has(cat)) byCat.set(cat, []);
+    byCat.get(cat).push(row);
   });
-  return groups;
+  const orderedCats = [
+    ...CATEGORY_ORDER.filter(c => byCat.has(c)),
+    ...[...byCat.keys()].filter(c => !CATEGORY_ORDER.includes(c))
+  ];
+  return orderedCats.map(cat => ({ category: cat, rows: byCat.get(cat) }));
+}
+
+// 사용자가 지정한 "중요 특약" 목록과 담보명을 대조해서, 별표/빨간색/설명을 붙일지 판단한다
+function matchHighlight(label, highlights) {
+  if (!label || !Array.isArray(highlights)) return null;
+  const target = String(label).toLowerCase();
+  for (const h of highlights) {
+    if (h && h.name && target.includes(String(h.name).toLowerCase().trim())) return h;
+  }
+  return null;
+}
+
+// 짧은 설명 텍스트를 주어진 폭에 맞춰 최대 2줄로 감싼다 (비고 칸용)
+function wrapPlainText(text, maxWidth, fontSize, weight, maxLines) {
+  const words = String(text || '').split(/\s+/).filter(Boolean);
+  const lines = [];
+  let current = '';
+  words.forEach(w => {
+    const test = current ? current + ' ' + w : w;
+    if (measureText(test, fontSize, weight) > maxWidth && current) {
+      lines.push(current);
+      current = w;
+    } else {
+      current = test;
+    }
+  });
+  if (current) lines.push(current);
+  if (lines.length > maxLines) {
+    return lines.slice(0, maxLines).map((l, i) => i === maxLines - 1 ? l.replace(/.{1,2}$/, '…') : l);
+  }
+  return lines;
 }
 
 // ===== 병합 표 (프리미엄형/가성비형처럼 같은 보험사 조합인 A/B안을 담보명 기준으로 한 표에 나란히) =====
 // 담보명은 한 번만, 옆으로 안(案)별 가입금액 컬럼만 나란히 붙는다 — 사용자가 요청한 세로형(항목 나열) + 가로 컬럼 비교 방식.
 // 카테고리(간병/3대진단비/상해/질병수술비 등)별로 색상 띠를 둘러서 구분한다.
-function renderMergedProposal({ title, clientName, agentName, theme, carriers, designLabels, premiums, rows }) {
+function renderMergedProposal({ title, clientName, agentName, theme, carriers, designLabels, premiums, rows, highlights }) {
   const tableW = CW - MARGIN * 2;
   const designCount = designLabels.length;
-  const LABEL_W = Math.max(280, tableW - NO_W - 170 - 150 * designCount);
+  const hlList = Array.isArray(highlights) ? highlights.filter(h => h && h.name && h.name.trim()) : [];
+  const hasNotes = hlList.some(h => h.description && h.description.trim());
+  const NOTE_W = hasNotes ? 260 : 0;
+  const LABEL_W = Math.max(260, tableW - NO_W - 170 - NOTE_W - 150 * designCount);
   const TERM_W = 170;
-  const amountColW = (tableW - NO_W - LABEL_W - TERM_W) / designCount;
+  const amountColW = (tableW - NO_W - LABEL_W - TERM_W - NOTE_W) / designCount;
+  const amountsStartX = MARGIN + NO_W + LABEL_W + TERM_W;
+  const noteStartX = amountsStartX + amountColW * designCount;
 
-  const cleanRows = filterMeaningfulRows(rows);
+  const cleanRows = filterMeaningfulRows(rows).map(row => {
+    const match = matchHighlight(row.label, hlList);
+    const noteLines = (match && match.description && match.description.trim())
+      ? wrapPlainText(match.description, NOTE_W - 24, 12, 400, 2)
+      : [];
+    return { ...row, __match: match, __noteLines: noteLines };
+  });
   const groups = groupRowsByCategory(cleanRows);
   const resolvedPremiums = premiums.map(resolvePremiumSum);
 
   const CARRIER_BAND_H = carriers ? 44 : 0;
   const CATEGORY_BAND_H = 40;
   let contentHeight = CARRIER_BAND_H + 36;
-  groups.forEach(g => { contentHeight += CATEGORY_BAND_H + g.rows.length * ROW_H; });
+  groups.forEach(g => {
+    contentHeight += CATEGORY_BAND_H;
+    g.rows.forEach(row => { contentHeight += Math.max(ROW_H, 26 + row.__noteLines.length * 15); });
+  });
   const totalH = HEADER_H + 20 + contentHeight + FOOTER_H + 40;
 
   const boxes = designLabels.map((label, i) => ({ label, premium: resolvedPremiums[i] || '' }));
@@ -260,34 +320,47 @@ function renderMergedProposal({ title, clientName, agentName, theme, carriers, d
   body += drawText('담보명 및 보장내용', MARGIN + NO_W + 16, cy + 24, 14, 700, '555555');
   body += drawText('납기·만기', MARGIN + NO_W + LABEL_W + TERM_W / 2, cy + 24, 14, 700, '555555', { align: 'middle' });
   designLabels.forEach((label, i) => {
-    const cx = MARGIN + NO_W + LABEL_W + TERM_W + amountColW * i + amountColW / 2;
+    const cx = amountsStartX + amountColW * i + amountColW / 2;
     body += drawText(label, cx, cy + 24, 14, 700, '555555', { align: 'middle' });
   });
+  if (hasNotes) body += drawText('비고', noteStartX + 16, cy + 24, 14, 700, '555555');
   cy += 36;
 
   // 카테고리별로 묶어서, 담보명은 한 번만 + 안(案)별 금액만 옆으로
   let rowCounter = 1;
   groups.forEach((group, gIdx) => {
-    const color = SECTION_COLORS[gIdx % SECTION_COLORS.length];
+    const color = colorForCategory(group.category, gIdx);
     body += `<rect x="${MARGIN}" y="${cy}" width="${tableW}" height="${CATEGORY_BAND_H}" fill="#${color.bg}"/>`;
     body += `<rect x="${MARGIN}" y="${cy}" width="6" height="${CATEGORY_BAND_H}" fill="#${color.accent}"/>`;
     body += drawText(group.category, MARGIN + 24, cy + CATEGORY_BAND_H / 2 + 6, 16, 800, color.text);
     cy += CATEGORY_BAND_H;
 
     group.rows.forEach((row, rIdx) => {
+      const rowH = Math.max(ROW_H, 26 + row.__noteLines.length * 15);
       const rowBg = rIdx % 2 === 0 ? 'FFFFFF' : 'FAFAFA';
-      body += `<rect x="${MARGIN}" y="${cy}" width="${tableW}" height="${ROW_H}" fill="#${rowBg}"/>`;
-      body += `<line x1="${MARGIN}" y1="${cy+ROW_H}" x2="${MARGIN+tableW}" y2="${cy+ROW_H}" stroke="#EDEDEF" stroke-width="1"/>`;
-      body += drawText(String(row.no != null ? row.no : rowCounter), MARGIN + NO_W / 2, cy + ROW_H / 2 + 6, 14, 400, '888888', { align: 'middle' });
-      body += drawText(row.label || '', MARGIN + NO_W + 16, cy + ROW_H / 2 + 6, 16, 500, '222222');
-      body += drawText(row.term || '', MARGIN + NO_W + LABEL_W + TERM_W / 2, cy + ROW_H / 2 + 6, 13, 400, '777777', { align: 'middle' });
+      body += `<rect x="${MARGIN}" y="${cy}" width="${tableW}" height="${rowH}" fill="#${rowBg}"/>`;
+      body += `<line x1="${MARGIN}" y1="${cy+rowH}" x2="${MARGIN+tableW}" y2="${cy+rowH}" stroke="#EDEDEF" stroke-width="1"/>`;
+      body += drawText(String(row.no != null ? row.no : rowCounter), MARGIN + NO_W / 2, cy + rowH / 2 + 6, 14, 400, '888888', { align: 'middle' });
+
+      // 사용자가 지정한 중요 특약이면 별표 + 빨간 글씨
+      const isHl = !!row.__match;
+      const labelText = (isHl && row.__match.star ? '★ ' : '') + (row.label || '');
+      body += drawText(labelText, MARGIN + NO_W + 16, cy + rowH / 2 + 6, 16, isHl ? 700 : 500, isHl ? 'D32F2F' : '222222');
+
+      body += drawText(row.term || '', MARGIN + NO_W + LABEL_W + TERM_W / 2, cy + rowH / 2 + 6, 13, 400, '777777', { align: 'middle' });
       const amounts = Array.isArray(row.amounts) ? row.amounts : [row.amount || ''];
       designLabels.forEach((label, i) => {
-        const cx = MARGIN + NO_W + LABEL_W + TERM_W + amountColW * i + amountColW / 2;
+        const cx = amountsStartX + amountColW * i + amountColW / 2;
         const val = amounts[i] || '';
-        body += drawText(val || '-', cx, cy + ROW_H / 2 + 6, 15, val ? 700 : 400, val ? color.text : 'CCCCCC', { align: 'middle' });
+        body += drawText(val || '-', cx, cy + rowH / 2 + 6, 15, val ? 700 : 400, val ? color.text : 'CCCCCC', { align: 'middle' });
       });
-      cy += ROW_H;
+      if (hasNotes && row.__noteLines.length) {
+        const noteY = cy + rowH / 2 - (row.__noteLines.length - 1) * 7.5 + 4;
+        row.__noteLines.forEach((line, li) => {
+          body += drawText(line, noteStartX + 16, noteY + li * 15, 12, 400, '888888');
+        });
+      }
+      cy += rowH;
       rowCounter++;
     });
   });
@@ -450,7 +523,7 @@ module.exports = async function handler(req, res) {
 
     let svg;
     if (Array.isArray(rows) && rows.length && Array.isArray(designLabels) && designLabels.length) {
-      svg = renderMergedProposal({ title, clientName, agentName, theme, carriers, designLabels, premiums: premiums || [], rows });
+      svg = renderMergedProposal({ title, clientName, agentName, theme, carriers, designLabels, premiums: premiums || [], rows, highlights: req.body.highlights });
     } else if (Array.isArray(designs) && designs.length) {
       svg = renderCombinationProposal({ title, clientName, agentName, theme, designs: normalizeDesigns(designs) });
     } else if (Array.isArray(sections) && sections.length) {
