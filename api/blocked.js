@@ -9,16 +9,31 @@ module.exports = async function handler(req, res) {
     const supabase = getSupabase();
 
     if (req.method === 'GET') {
-      // ?name=OOO 로 물어보면, 그 이름이 차단됐는지만 가볍게 확인 (강퇴 여부 체크용) — 모든 방문자가 자기 자신을 확인할 수 있어야 하므로 관리자 체크 없이 허용
-      const { name } = req.query || {};
-      if (name) {
-        const { data, error } = await supabase
-          .from('blocked_visitors')
-          .select('id')
-          .eq('name', String(name).trim())
-          .limit(1);
-        if (error) throw error;
-        return res.status(200).json({ blocked: !!(data && data.length) });
+      // ?name=OOO&device_id=XXX 로 물어보면, 이름 또는 기기ID 중 하나라도 차단 목록에 있는지 확인한다
+      // (차단된 사람이 이름만 바꿔서 같은 기기로 재접속하는 것도 같이 막기 위함) — 모든 방문자가
+      // 자기 자신을 확인할 수 있어야 하므로 관리자 체크 없이 허용한다.
+      const { name, device_id } = req.query || {};
+      if (name || device_id) {
+        let found = false;
+        if (name) {
+          const { data, error } = await supabase
+            .from('blocked_visitors')
+            .select('id')
+            .eq('name', String(name).trim())
+            .limit(1);
+          if (error) throw error;
+          if (data && data.length) found = true;
+        }
+        if (!found && device_id) {
+          const { data, error } = await supabase
+            .from('blocked_visitors')
+            .select('id')
+            .eq('device_id', String(device_id).trim())
+            .limit(1);
+          if (error) throw error;
+          if (data && data.length) found = true;
+        }
+        return res.status(200).json({ blocked: found });
       }
       // 전체 차단 목록 조회는 관리자만
       if (!checkAdminPassword(req)) {
@@ -38,10 +53,12 @@ module.exports = async function handler(req, res) {
     }
 
     if (req.method === 'POST') {
-      const { name } = req.body || {};
+      const { name, device_id } = req.body || {};
       const clean = (name || '').trim();
       if (clean.length < 1) return res.status(400).json({ error: '이름을 입력해주세요.' });
-      const { error } = await supabase.from('blocked_visitors').insert({ name: clean.slice(0, 40) });
+      const row = { name: clean.slice(0, 40) };
+      if (device_id) row.device_id = String(device_id).slice(0, 80); // 같은 기기에서 이름만 바꿔 재접속하는 것도 함께 차단
+      const { error } = await supabase.from('blocked_visitors').insert(row);
       if (error) {
         if (error.code === '23505') return res.status(400).json({ error: '이미 차단된 이름이에요.' });
         throw error;
