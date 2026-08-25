@@ -2986,37 +2986,55 @@ async function pdfToImageBase64List(file, maxPages = 6) {
   return results;
 }
 
-// 설계안 이미지들을 보고, 담보/납기/가입금액을 하나의 표(flat list)로 정리한다
-// (조합설계든 단일설계든 화면에는 항상 같은 단순한 한 줄짜리 표로 보여준다 — 보험사별로 나눠서 보여주면 오히려 가독성이 떨어진다는 피드백 반영)
-async function extractProposalDesignData(imagesBase64List, carriersHint, mode) {
+// 설계안 이미지들을 보고, 담보명은 한 번만 두고 안(案)별 가입금액을 옆으로 나란히 붙인 "병합 표"로 정리한다.
+// A안/B안이 같은 보험사 조합이면 담보 항목이 대부분 겹치는데, 각각 따로 표를 만들면 중복이 위아래로 반복돼서
+// 읽기 힘들다는 피드백을 반영해, 처음부터 AI가 두 안을 비교하면서 하나의 표로 합쳐서 정리하게 한다.
+async function extractMergedProposalData(designInputs, mode) {
+  // designInputs: [{ label, carriersHint, images: [base64,...] }, ...] (1~2개)
   const modeNote = mode === 'single'
-    ? '이 설계안은 보험사 1곳 단일 상품입니다.'
-    : '이 설계안은 보험사 2곳 이상을 조합한 설계입니다. 여러 보험사의 담보가 섞여 있을 수 있습니다.';
-  const system = `당신은 보험 설계안 캡처를 구조화된 데이터로 정리하는 전문가입니다. 여러 장의 스크린샷/페이지가 주어질 수 있습니다 — 같은 설계안의 여러 화면일 수 있습니다.
+    ? '이 설계안(들)은 보험사 1곳 단일 상품입니다.'
+    : '이 설계안(들)은 보험사 2곳 이상을 조합한 설계입니다. 여러 보험사의 담보가 섞여 있을 수 있습니다.';
+  const multiNote = designInputs.length > 1
+    ? `안(案)이 ${designInputs.length}개 주어집니다 (${designInputs.map(d => d.label).join(', ')}). 각 이미지 그룹 앞에 "[OO 이미지]"라는 표시가 있어 어느 안(案)인지 알 수 있습니다. 같은 담보 항목이 여러 안(案)에 걸쳐 겹치면, 담보명을 한 번만 쓰고 amounts 배열에 각 안(案)의 가입금액을 순서대로 채운다 (해당 안(案)에 없는 담보면 그 자리는 빈 문자열 "").`
+    : '';
+
+  const system = `당신은 보험 설계안 캡처를 구조화된 표로 정리하는 전문가입니다. 여러 장의 스크린샷/페이지가 주어질 수 있습니다.
 
 ${modeNote}
-${carriersHint ? `보험사(조합)는 "${carriersHint}" 로 이미 확인되었습니다.` : '이미지 안에서 보험사명을 찾아서 알려주세요.'}
+${multiNote}
+
+[특약명 축약 규칙 — 중요]
+보험 설계안의 담보명은 보험사마다 표기 방식이 다르고 매우 길다 (예: "간병인사용 일반상해입원일당(plus)(1일이상 180일한도)(요양병원제외)(제증형)(건강고지)"). 아래 원칙으로 축약해서 담보명을 정리한다:
+- "건강고지", "간편", "(plus)", "일반심사형" 같은 가입 방식/심사 관련 수식어는 제거한다.
+- "체증형", "요양병원", "180일한도"/"365일한도", "제외" 처럼 보장 내용 자체를 바꾸는 핵심 정보는 반드시 남긴다.
+- 예: "간병인사용 일반상해입원일당(plus)(1일이상 180일한도)(요양병원제외)(제증형)(건강고지)" → "상해입원일당(180일한도·요양병원제외·체증형)"
+- 예: "(건강고지)뇌혈관질환진단비" → "뇌혈관질환진단비"
+- 너무 축약해서 원래 의미가 달라지면 안 된다 — 헷갈리면 원래 표기를 유지한다.
 
 아래 JSON 스키마로만 출력하세요:
 {
   "carriers": "확인된 보험사(조합) 이름 (예: DB손해 + 메리츠화재, 또는 삼성화재)",
-  "premium": "월 보험료 합계 (예: 52,340원, 이미지에 합계가 없으면 보이는 보험료를 모두 더해서 계산)",
+  "premiums": ["안(案)별 월 보험료를 ${JSON.stringify(designInputs.map(d => d.label))} 순서와 동일하게"],
   "rows": [
-    {"no": 1, "label": "담보명", "term": "납기·만기 정보", "amount": "가입금액"}
+    {"no": 1, "label": "축약된 담보명", "term": "납기·만기 정보", "amounts": ["안(案)별 가입금액을 위 순서와 동일하게, 없으면 빈 문자열"]}
   ]
 }
 
 [규칙]
-- 이미지에 있는 담보명·금액·숫자·보험사명을 정확히 그대로 옮긴다. 지어내지 않는다.
-- 이미지가 여러 장이거나 보험사가 여러 곳이어도, 담보 항목을 모두 합쳐서 하나의 rows 배열로 순서대로 나열한다 (보험사별로 별도 그룹을 만들지 않는다).
-- 같은 담보 항목이 중복되지 않게 병합한다.
+- 이미지에 있는 금액·숫자·보험사명을 정확히 그대로 옮긴다. 지어내지 않는다.
+- 같은 담보 항목이 중복되지 않게 병합한다 (담보명이 살짝 달라도 같은 보장이면 하나로 합친다).
 - 글자를 알아보기 어려운 부분은 억지로 추측해서 채우지 말고, 확실히 읽히는 내용 위주로 정리한다.
 - 다른 설명, 코드블록 기호 없이 JSON만 출력한다.`;
 
-  const content = imagesBase64List.map(b64 => ({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: b64 } }));
+  const content = [];
+  designInputs.forEach(d => {
+    if (designInputs.length > 1) content.push({ type: 'text', text: `[${d.label} 이미지]` });
+    if (d.carriersHint) content.push({ type: 'text', text: `(${d.label}의 보험사는 "${d.carriersHint}"로 확인됨)` });
+    d.images.forEach(b64 => content.push({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: b64 } }));
+  });
   content.push({ type: 'text', text: '위 이미지(들)을 보고 JSON 스키마로 정리해줘.' });
 
-  const raw = await callClaude(system, [{ role: 'user', content }], 2, null, 4000);
+  const raw = await callClaude(system, [{ role: 'user', content }], 2, null, 4500);
   const cleaned = raw.replace(/```json|```/g, '').trim();
   return JSON.parse(cleaned);
 }
@@ -3034,10 +3052,11 @@ document.getElementById('proposalGenBtn').addEventListener('click', async () => 
   btn.disabled = true;
   statusEl.textContent = '';
   try {
-    const designs = [];
+    // 1) 안(案)별로 이미지를 모은다 (PDF는 페이지 이미지로 변환)
+    const designInputs = [];
     for (const key of activeKeys) {
       const labelInput = document.getElementById(`proposalLabel_${key}`).value.trim() || PROPOSAL_DEFAULT_LABELS[key];
-      btn.textContent = `${labelInput} 설계안 읽는 중...`;
+      btn.textContent = `${labelInput} 이미지 불러오는 중...`;
       const files = window.__proposalFiles[key];
       let images = [];
       for (const file of files) {
@@ -3055,25 +3074,28 @@ document.getElementById('proposalGenBtn').addEventListener('click', async () => 
           images = images.concat(pages);
         }
       }
-      images = images.slice(0, 10);
+      images = images.slice(0, 8);
       if (!images.length) continue;
-
-      btn.textContent = `${labelInput} 내용 분석 중...`;
-      const carriersInput = document.getElementById(`proposalCarriers_${key}`).value.trim();
-      const premiumInput = document.getElementById(`proposalPremium_${key}`).value.trim();
-      const parsed = await extractProposalDesignData(images, carriersInput, proposalMode);
-      designs.push({
-        label: labelInput,
-        carriers: carriersInput || parsed.carriers || '',
-        premium: premiumInput || parsed.premium || '',
-        rows: parsed.rows || []
+      designInputs.push({
+        key, label: labelInput, images,
+        carriersHint: document.getElementById(`proposalCarriers_${key}`).value.trim(),
+        premiumInput: document.getElementById(`proposalPremium_${key}`).value.trim()
       });
     }
-    if (!designs.length) throw new Error('처리할 수 있는 이미지가 없어요.');
+    if (!designInputs.length) throw new Error('처리할 수 있는 이미지가 없어요.');
+
+    // 2) 안(案)이 여러 개면, 담보명을 한 번만 두고 옆으로 비교할 수 있게 AI가 한 번에 병합해서 정리한다
+    btn.textContent = designInputs.length > 1 ? '두 안(案) 비교 분석 중...' : '내용 분석 중...';
+    const parsed = await extractMergedProposalData(designInputs, proposalMode);
+
+    const designLabels = designInputs.map(d => d.label);
+    const premiums = designInputs.map((d, i) => d.premiumInput || (parsed.premiums && parsed.premiums[i]) || '');
+    const carriers = designInputs.map(d => d.carriersHint).find(Boolean) || parsed.carriers || '';
 
     const data = {
       title: (clientName ? clientName + '님 ' : '') + '맞춤 설계 제안서',
-      clientName, agentName, colorKey, designs
+      clientName, agentName, colorKey,
+      carriers, designLabels, premiums, rows: parsed.rows || []
     };
 
     btn.textContent = '제안서 이미지 만드는 중...';
@@ -3100,7 +3122,6 @@ document.getElementById('proposalGenBtn').addEventListener('click', async () => 
     btn.textContent = '제안서 만들기';
   }
 });
-
 
 async function renderProposalHistory() {
   proposalHistoryLoaded = true;

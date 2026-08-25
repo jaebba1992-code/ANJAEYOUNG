@@ -179,7 +179,64 @@ function svgDocument(theme, totalH, body) {
   </svg>`;
 }
 
-// ===== 설계안 (A안/B안 — 조합설계든 단일설계든 항상 같은 단순한 한 줄 표로 보여준다) =====
+// ===== 병합 표 (프리미엄형/가성비형처럼 같은 보험사 조합인 A/B안을 담보명 기준으로 한 표에 나란히) =====
+// 담보명은 한 번만, 옆으로 안(案)별 가입금액 컬럼만 나란히 붙는다 — 사용자가 요청한 세로형(항목 나열) + 가로 컬럼 비교 방식.
+function renderMergedProposal({ title, clientName, agentName, theme, carriers, designLabels, premiums, rows }) {
+  const tableW = CW - MARGIN * 2;
+  const designCount = designLabels.length;
+  const LABEL_W = Math.max(280, tableW - NO_W - 170 - 150 * designCount);
+  const TERM_W = 170;
+  const amountColW = (tableW - NO_W - LABEL_W - TERM_W) / designCount;
+
+  const CARRIER_BAND_H = carriers ? 44 : 0;
+  const contentHeight = CARRIER_BAND_H + 36 + rows.length * ROW_H;
+  const totalH = HEADER_H + 20 + contentHeight + FOOTER_H + 40;
+
+  const boxes = designLabels.map((label, i) => ({ label, premium: premiums[i] || '' }));
+  let body = headerBannerSvg(theme, agentName, title, clientName, boxes);
+
+  let cy = HEADER_H + 20;
+
+  if (carriers) {
+    body += `<rect x="${MARGIN}" y="${cy}" width="${tableW}" height="${CARRIER_BAND_H}" rx="6" fill="#${theme.grad[1]}" fill-opacity="0.08"/>`;
+    body += `<rect x="${MARGIN}" y="${cy}" width="6" height="${CARRIER_BAND_H}" fill="#${theme.grad[1]}"/>`;
+    body += drawText(carriers, MARGIN + 24, cy + CARRIER_BAND_H / 2 + 6, 18, 800, theme.grad[0]);
+    cy += CARRIER_BAND_H + 8;
+  }
+
+  // 표 헤더 행
+  body += `<rect x="${MARGIN}" y="${cy}" width="${tableW}" height="36" fill="#F4F5F7"/>`;
+  body += drawText('NO', MARGIN + NO_W / 2, cy + 24, 14, 700, '555555', { align: 'middle' });
+  body += drawText('담보명 및 보장내용', MARGIN + NO_W + 16, cy + 24, 14, 700, '555555');
+  body += drawText('납기·만기', MARGIN + NO_W + LABEL_W + TERM_W / 2, cy + 24, 14, 700, '555555', { align: 'middle' });
+  designLabels.forEach((label, i) => {
+    const cx = MARGIN + NO_W + LABEL_W + TERM_W + amountColW * i + amountColW / 2;
+    body += drawText(label, cx, cy + 24, 14, 700, '555555', { align: 'middle' });
+  });
+  cy += 36;
+
+  // 담보 목록: 담보명은 한 번만, 안(案)별 금액만 옆으로
+  rows.forEach((row, rIdx) => {
+    const rowBg = rIdx % 2 === 0 ? 'FFFFFF' : 'FAFAFA';
+    body += `<rect x="${MARGIN}" y="${cy}" width="${tableW}" height="${ROW_H}" fill="#${rowBg}"/>`;
+    body += `<line x1="${MARGIN}" y1="${cy+ROW_H}" x2="${MARGIN+tableW}" y2="${cy+ROW_H}" stroke="#EDEDEF" stroke-width="1"/>`;
+    body += drawText(String(row.no != null ? row.no : rIdx + 1), MARGIN + NO_W / 2, cy + ROW_H / 2 + 6, 14, 400, '888888', { align: 'middle' });
+    body += drawText(row.label || '', MARGIN + NO_W + 16, cy + ROW_H / 2 + 6, 16, 500, '222222');
+    body += drawText(row.term || '', MARGIN + NO_W + LABEL_W + TERM_W / 2, cy + ROW_H / 2 + 6, 13, 400, '777777', { align: 'middle' });
+    const amounts = Array.isArray(row.amounts) ? row.amounts : [row.amount || ''];
+    designLabels.forEach((label, i) => {
+      const cx = MARGIN + NO_W + LABEL_W + TERM_W + amountColW * i + amountColW / 2;
+      const val = amounts[i] || '';
+      body += drawText(val || '-', cx, cy + ROW_H / 2 + 6, 15, val ? 700 : 400, val ? theme.grad[0] : 'CCCCCC', { align: 'middle' });
+    });
+    cy += ROW_H;
+  });
+
+  body += footerSvg(cy);
+  return svgDocument(theme, totalH, body);
+}
+
+// ===== 조합설계 (예전 형식 호환 — 안(案)별로 완전히 분리된 표를 위아래로 쌓음) =====
 function renderCombinationProposal({ title, clientName, agentName, theme, designs }) {
   const tableW = CW - MARGIN * 2;
   const LABEL_W = tableW - NO_W - 170 - 200;
@@ -327,16 +384,18 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: '지원하지 않는 메서드입니다.' });
   }
   try {
-    const { title, clientName, agentName, colorKey, designs, plans, sections } = req.body || {};
+    const { title, clientName, agentName, colorKey, carriers, designLabels, premiums, rows, designs, plans, sections } = req.body || {};
     const theme = getColorTheme(colorKey);
 
     let svg;
-    if (Array.isArray(designs) && designs.length) {
+    if (Array.isArray(rows) && rows.length && Array.isArray(designLabels) && designLabels.length) {
+      svg = renderMergedProposal({ title, clientName, agentName, theme, carriers, designLabels, premiums: premiums || [], rows });
+    } else if (Array.isArray(designs) && designs.length) {
       svg = renderCombinationProposal({ title, clientName, agentName, theme, designs: normalizeDesigns(designs) });
     } else if (Array.isArray(sections) && sections.length) {
       svg = renderLegacyProposal({ title, clientName, agentName, theme, plans, sections });
     } else {
-      return res.status(400).json({ error: 'designs 또는 sections 데이터가 필요합니다.' });
+      return res.status(400).json({ error: 'rows 또는 designs 또는 sections 데이터가 필요합니다.' });
     }
 
     const png = await sharp(Buffer.from(svg)).png().toBuffer();
