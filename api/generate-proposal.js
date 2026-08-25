@@ -234,25 +234,46 @@ function stripFillerTokens(label) {
     s = s.replace(new RegExp('[(\\[]\\s*' + esc + '\\s*[)\\]]', 'g'), ''); // (plus), [건강고지] 등
     s = s.replace(new RegExp('(^|[\\s(])' + esc + '(?=[\\s)]|$)', 'g'), '$1'); // 괄호 없이 단독으로 붙은 경우
   });
+  // "(1일이상 180일한도)"처럼 괄호 안에 다른 조건과 같이 붙어 있는 당연한 조건은 부분 치환으로 제거한다.
+  // 단, "181일이상"처럼 다른 숫자에 딸린 경우까지 잘못 지우면 안 되므로, 앞에 다른 숫자가 없을 때만 지운다.
+  s = s.replace(/(?<!\d)1일\s*이상\s*/g, '').replace(/(?<!\d)1회\s*한(?![가-힣])/g, '');
   return s.replace(/\(\s*\)/g, '').replace(/\[\s*\]/g, '').replace(/\s{2,}/g, ' ').trim();
 }
 
 // 카테고리 표시 순서를 고정한다 (기본계약 → 진단비 → 치료비 → 수술비 → 상해관련 → 간병 → 그 외)
 const CATEGORY_ORDER = ['기본계약', '진단비', '치료비', '수술비', '상해관련', '간병'];
 
-// 담보 카테고리별로 묶는다 (고정 순서대로, 목록에 없는 카테고리는 맨 뒤에 등장 순서대로)
+// 같은 카테고리(진단비/치료비 등) 안에서도 질병군 순서를 암 → 뇌 → 심장 → 그 외로 고정한다
+const DISEASE_ORDER = [
+  { key: 0, test: /암|항암|유사암/ },
+  { key: 1, test: /뇌|중풍/ },
+  { key: 2, test: /심장|심혈관|허혈|심근/ }
+];
+function diseaseRank(label) {
+  const found = DISEASE_ORDER.find(d => d.test.test(label || ''));
+  return found ? found.key : 99;
+}
+
+// 담보 카테고리별로 묶는다 (고정 순서대로, 목록에 없는 카테고리는 맨 뒤에 등장 순서대로).
+// 각 카테고리 안에서는 암 → 뇌 → 심장 → 그 외 순서로, 같은 질병군끼리는 원래 순서를 유지한다(안정 정렬).
 function groupRowsByCategory(rows) {
   const byCat = new Map();
-  rows.forEach(row => {
+  rows.forEach((row, idx) => {
     const cat = (row.category || '기타').trim() || '기타';
     if (!byCat.has(cat)) byCat.set(cat, []);
-    byCat.get(cat).push(row);
+    byCat.get(cat).push({ row, idx });
   });
   const orderedCats = [
     ...CATEGORY_ORDER.filter(c => byCat.has(c)),
     ...[...byCat.keys()].filter(c => !CATEGORY_ORDER.includes(c))
   ];
-  return orderedCats.map(cat => ({ category: cat, rows: byCat.get(cat) }));
+  return orderedCats.map(cat => {
+    const entries = byCat.get(cat).slice().sort((a, b) => {
+      const diff = diseaseRank(a.row.label) - diseaseRank(b.row.label);
+      return diff !== 0 ? diff : a.idx - b.idx;
+    });
+    return { category: cat, rows: entries.map(e => e.row) };
+  });
 }
 
 // 사용자가 지정한 "중요 특약" 목록과 담보명을 대조해서, 별표/빨간색/설명을 붙일지 판단한다
@@ -381,7 +402,8 @@ function renderMergedProposal({ title, clientName, agentName, theme, carriers, d
       const rowBg = rIdx % 2 === 0 ? 'FFFFFF' : 'FAFAFA';
       body += `<rect x="${MARGIN}" y="${cy}" width="${tableW}" height="${rowH}" fill="#${rowBg}"/>`;
       body += `<line x1="${MARGIN}" y1="${cy+rowH}" x2="${MARGIN+tableW}" y2="${cy+rowH}" stroke="#EDEDEF" stroke-width="1"/>`;
-      body += drawText(String(row.no != null ? row.no : rowCounter), MARGIN + NO_W / 2, cy + rowH / 2 + 6, 14, 400, '888888', { align: 'middle' });
+      // 카테고리·질병군 순서로 재정렬되므로, 원래 no 값 대신 화면에 보이는 순서 그대로 1부터 다시 매긴다
+      body += drawText(String(rowCounter), MARGIN + NO_W / 2, cy + rowH / 2 + 6, 14, 400, '888888', { align: 'middle' });
 
       // 담보명 — 칸을 넘기면 2줄까지 감싸서, 옆(납기·만기) 컬럼을 절대 침범하지 않는다
       const isHl = row.__isHl;
