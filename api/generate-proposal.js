@@ -166,11 +166,16 @@ function headerBannerSvg(theme, agentName, title, clientName, boxes) {
     s += `<rect x="${bx}" y="30" width="${boxW}" height="150" rx="14" fill="#FFFFFF" fill-opacity="0.12" stroke="#FFFFFF" stroke-opacity="0.4"/>`;
     s += drawText(b.label || '', bx + boxW / 2, 60, 18, 700, 'FFFFFF', { align: 'middle' });
     if (b.sub) s += drawText(b.sub, bx + boxW / 2, 82, 12, 400, 'FFFFFF', { align: 'middle', fillOpacity: 0.75 });
-    s += drawText('월 보험료', bx + boxW / 2, 108, 13, 400, 'FFFFFF', { align: 'middle', fillOpacity: 0.8 });
+    s += drawText('월 보험료', bx + boxW / 2, 104, 13, 400, 'FFFFFF', { align: 'middle', fillOpacity: 0.8 });
     // 보험료 숫자가 길면(여러 보험사 합산 등) 박스를 벗어나지 않게 글자 크기를 자동으로 줄인다.
     const premiumText = b.premium || '-';
     const premiumFontSize = premiumText.length > 12 ? 18 : premiumText.length > 9 ? 22 : 27;
-    s += drawText(premiumText, bx + boxW / 2, 142, premiumFontSize, 800, 'FFFFFF', { align: 'middle' });
+    s += drawText(premiumText, bx + boxW / 2, 136, premiumFontSize, 800, 'FFFFFF', { align: 'middle' });
+    // 보험사별 보험료 내역 (예: "메리츠화재 75,789원 + DB손해 42,220원") — 합계 숫자 아래 작게
+    if (b.breakdown) {
+      const bdFontSize = b.breakdown.length > 34 ? 9.5 : 11;
+      s += drawText(b.breakdown, bx + boxW / 2, 158, bdFontSize, 400, 'FFFFFF', { align: 'middle', fillOpacity: 0.75 });
+    }
   });
   return s;
 }
@@ -271,11 +276,24 @@ function wrapPlainText(text, maxWidth, fontSize, weight, maxLines) {
 // ===== 병합 표 (프리미엄형/가성비형처럼 같은 보험사 조합인 A/B안을 담보명 기준으로 한 표에 나란히) =====
 // 담보명은 한 번만, 옆으로 안(案)별 가입금액 컬럼만 나란히 붙는다 — 사용자가 요청한 세로형(항목 나열) + 가로 컬럼 비교 방식.
 // 카테고리(간병/3대진단비/상해/질병수술비 등)별로 색상 띠를 둘러서 구분한다.
-function renderMergedProposal({ title, clientName, agentName, theme, carriers, designLabels, premiums, rows, highlights }) {
+function renderMergedProposal({ title, clientName, agentName, theme, carriers, designLabels, premiums, premiumBreakdown, rows, highlights }) {
   const tableW = CW - MARGIN * 2;
   const designCount = designLabels.length;
   const hlList = Array.isArray(highlights) ? highlights.filter(h => h && h.name && h.name.trim()) : [];
-  const hasNotes = hlList.some(h => h.description && h.description.trim());
+
+  // AI가 직접 태깅한 row.highlightStar/highlightNote를 우선 사용하고(의미 기반 매칭이라 더 정확),
+  // 혹시 없으면 문자열 부분일치로 한 번 더 시도한다 (안전망).
+  const cleanRowsRaw = filterMeaningfulRows(rows).map(row => {
+    let star = !!row.highlightStar;
+    let note = (row.highlightNote || '').trim();
+    let isHl = star || !!note;
+    if (!isHl) {
+      const fallback = matchHighlight(row.label, hlList);
+      if (fallback) { star = !!fallback.star; note = (fallback.description || '').trim(); isHl = true; }
+    }
+    return { ...row, __isHl: isHl, __star: star, __note: note };
+  });
+  const hasNotes = cleanRowsRaw.some(r => r.__note);
   const NOTE_W = hasNotes ? 260 : 0;
   const LABEL_W = Math.max(260, tableW - NO_W - 170 - NOTE_W - 150 * designCount);
   const TERM_W = 170;
@@ -283,13 +301,10 @@ function renderMergedProposal({ title, clientName, agentName, theme, carriers, d
   const amountsStartX = MARGIN + NO_W + LABEL_W + TERM_W;
   const noteStartX = amountsStartX + amountColW * designCount;
 
-  const cleanRows = filterMeaningfulRows(rows).map(row => {
-    const match = matchHighlight(row.label, hlList);
-    const noteLines = (match && match.description && match.description.trim())
-      ? wrapPlainText(match.description, NOTE_W - 24, 12, 400, 2)
-      : [];
-    return { ...row, __match: match, __noteLines: noteLines };
-  });
+  const cleanRows = cleanRowsRaw.map(row => ({
+    ...row,
+    __noteLines: row.__note ? wrapPlainText(row.__note, NOTE_W - 24, 12, 400, 2) : []
+  }));
   const groups = groupRowsByCategory(cleanRows);
   const resolvedPremiums = premiums.map(resolvePremiumSum);
 
@@ -302,7 +317,8 @@ function renderMergedProposal({ title, clientName, agentName, theme, carriers, d
   });
   const totalH = HEADER_H + 20 + contentHeight + FOOTER_H + 40;
 
-  const boxes = designLabels.map((label, i) => ({ label, premium: resolvedPremiums[i] || '' }));
+  const breakdownList = Array.isArray(premiumBreakdown) ? premiumBreakdown : [];
+  const boxes = designLabels.map((label, i) => ({ label, premium: resolvedPremiums[i] || '', breakdown: (breakdownList[i] || '').trim() }));
   let body = headerBannerSvg(theme, agentName, title, clientName, boxes);
 
   let cy = HEADER_H + 20;
@@ -343,8 +359,8 @@ function renderMergedProposal({ title, clientName, agentName, theme, carriers, d
       body += drawText(String(row.no != null ? row.no : rowCounter), MARGIN + NO_W / 2, cy + rowH / 2 + 6, 14, 400, '888888', { align: 'middle' });
 
       // 사용자가 지정한 중요 특약이면 별표 + 빨간 글씨
-      const isHl = !!row.__match;
-      const labelText = (isHl && row.__match.star ? '★ ' : '') + (row.label || '');
+      const isHl = row.__isHl;
+      const labelText = (isHl && row.__star ? '★ ' : '') + (row.label || '');
       body += drawText(labelText, MARGIN + NO_W + 16, cy + rowH / 2 + 6, 16, isHl ? 700 : 500, isHl ? 'D32F2F' : '222222');
 
       body += drawText(row.term || '', MARGIN + NO_W + LABEL_W + TERM_W / 2, cy + rowH / 2 + 6, 13, 400, '777777', { align: 'middle' });
@@ -523,7 +539,7 @@ module.exports = async function handler(req, res) {
 
     let svg;
     if (Array.isArray(rows) && rows.length && Array.isArray(designLabels) && designLabels.length) {
-      svg = renderMergedProposal({ title, clientName, agentName, theme, carriers, designLabels, premiums: premiums || [], rows, highlights: req.body.highlights });
+      svg = renderMergedProposal({ title, clientName, agentName, theme, carriers, designLabels, premiums: premiums || [], premiumBreakdown: req.body.premiumBreakdown, rows, highlights: req.body.highlights });
     } else if (Array.isArray(designs) && designs.length) {
       svg = renderCombinationProposal({ title, clientName, agentName, theme, designs: normalizeDesigns(designs) });
     } else if (Array.isArray(sections) && sections.length) {
