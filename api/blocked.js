@@ -25,13 +25,17 @@ module.exports = async function handler(req, res) {
           if (data && data.length) found = true;
         }
         if (!found && device_id) {
-          const { data, error } = await supabase
-            .from('blocked_visitors')
-            .select('id')
-            .eq('device_id', String(device_id).trim())
-            .limit(1);
-          if (error) throw error;
-          if (data && data.length) found = true;
+          try {
+            const { data, error } = await supabase
+              .from('blocked_visitors')
+              .select('id')
+              .eq('device_id', String(device_id).trim())
+              .limit(1);
+            if (error) throw error;
+            if (data && data.length) found = true;
+          } catch (e) {
+            // device_id 컬럼이 아직 없는 DB(마이그레이션 전)일 수 있으니, 이 부분만 조용히 건너뛴다
+          }
         }
         return res.status(200).json({ blocked: found });
       }
@@ -58,7 +62,12 @@ module.exports = async function handler(req, res) {
       if (clean.length < 1) return res.status(400).json({ error: '이름을 입력해주세요.' });
       const row = { name: clean.slice(0, 40) };
       if (device_id) row.device_id = String(device_id).slice(0, 80); // 같은 기기에서 이름만 바꿔 재접속하는 것도 함께 차단
-      const { error } = await supabase.from('blocked_visitors').insert(row);
+      let { error } = await supabase.from('blocked_visitors').insert(row);
+      if (error && device_id && error.code !== '23505') {
+        // device_id 컬럼이 아직 없는 DB일 수 있으니, 그 필드만 빼고 한 번 더 시도한다 (이름 차단만이라도 확실히 되도록)
+        const retry = await supabase.from('blocked_visitors').insert({ name: row.name });
+        error = retry.error;
+      }
       if (error) {
         if (error.code === '23505') return res.status(400).json({ error: '이미 차단된 이름이에요.' });
         throw error;

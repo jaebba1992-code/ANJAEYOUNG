@@ -16,7 +16,12 @@ module.exports = async function handler(req, res) {
       }
       const row = { visitor_name: name.slice(0, 40) };
       if (device_id) row.device_id = String(device_id).slice(0, 80);
-      const { error } = await supabase.from('page_visits').insert(row);
+      let { error } = await supabase.from('page_visits').insert(row);
+      if (error && device_id) {
+        // device_id 컬럼이 아직 없는 DB일 수 있으니, 그 필드만 빼고 한 번 더 시도한다 (방문 기록 자체는 남게)
+        const retry = await supabase.from('page_visits').insert({ visitor_name: row.visitor_name });
+        error = retry.error;
+      }
       if (error) throw error;
       return res.status(200).json({ ok: true });
     }
@@ -34,10 +39,17 @@ module.exports = async function handler(req, res) {
       }
       const todayStr = toKstDateStr(new Date().toISOString());
 
-      // 전체 방문 기록을 한 번에 가져와서, 방문자별 누적 횟수 + 오늘 방문 횟수 + 최근 접속 기기ID를 함께 집계한다
-      const { data: allVisits, error: allErr } = await supabase
+      // 전체 방문 기록을 한 번에 가져와서, 방문자별 누적 횟수 + 오늘 방문 횟수 + 최근 접속 기기ID를 함께 집계한다.
+      // device_id 컬럼이 아직 없는 DB(마이그레이션 전)여도 방문자 목록 자체는 계속 보이도록, 컬럼 없이 한 번 더 시도하는 안전장치를 둔다.
+      let allVisits, allErr;
+      ({ data: allVisits, error: allErr } = await supabase
         .from('page_visits')
-        .select('visitor_name, visited_at, device_id');
+        .select('visitor_name, visited_at, device_id'));
+      if (allErr) {
+        ({ data: allVisits, error: allErr } = await supabase
+          .from('page_visits')
+          .select('visitor_name, visited_at'));
+      }
       if (allErr) throw allErr;
 
       const totalsByVisitor = {};
