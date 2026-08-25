@@ -27,6 +27,11 @@ module.exports = async function handler(req, res) {
     }
 
     if (req.method === 'GET') {
+      // 방문 기록(누가 언제 왔는지)은 관리자만 볼 수 있다. 관리자가 아니면 이름·목록 없이 빈 값만 준다.
+      if (!checkAdminPassword(req)) {
+        return res.status(200).json({ total: 0, todayTotal: 0, recent: [], visitors: [] });
+      }
+
       const { count, error: countErr } = await supabase
         .from('page_visits')
         .select('*', { count: 'exact', head: true });
