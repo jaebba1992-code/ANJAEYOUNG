@@ -146,7 +146,7 @@ function getColorTheme(key) {
 
 const MARGIN = 56;
 const NO_W = 56;
-const ROW_H = 50;
+const ROW_H = 56;
 const SECTION_HEADER_H = 46;
 const HEADER_H = 210;
 const FOOTER_H = 90;
@@ -182,7 +182,7 @@ function headerBannerSvg(theme, agentName, title, clientName, boxes) {
 
 function footerSvg(cy) {
   let s = `<line x1="${MARGIN}" y1="${cy}" x2="${CW-MARGIN}" y2="${cy}" stroke="#E4E4E7" stroke-width="1"/>`;
-  s += drawText('본 제안서는 참고용이며, 실제 가입 시 약관 및 상품설명서를 기준으로 안내드립니다.', MARGIN, cy + 40, 14, 400, '999999');
+  s += drawText('본 제안서는 참고용이며, 실제 가입 시 약관 및 상품설명서를 기준으로 안내드립니다.', MARGIN, cy + 40, 16, 400, '999999');
   return s;
 }
 
@@ -359,19 +359,22 @@ function matchHighlight(label, highlights) {
 }
 
 // 짧은 설명 텍스트를 주어진 폭에 맞춰 최대 2줄로 감싼다 (비고 칸용)
+// 텍스트를 주어진 폭에 맞춰 최대 maxLines줄로 감싼다. 한글 특약명은 공백 없이 긴 단어가 이어지는
+// 경우가 많아서(예: "일반상해입원일당(180일한도)...") 단어 단위로만 끊으면 중간에 못 끊고 삐져나간다.
+// 그래서 항상 글자 단위로 폭을 재면서 끊는다 — 어떤 텍스트를 넣어도 maxWidth를 절대 넘지 않는다.
 function wrapPlainText(text, maxWidth, fontSize, weight, maxLines) {
-  const words = String(text || '').split(/\s+/).filter(Boolean);
+  const str = String(text || '');
   const lines = [];
   let current = '';
-  words.forEach(w => {
-    const test = current ? current + ' ' + w : w;
+  for (const ch of str) {
+    const test = current + ch;
     if (measureText(test, fontSize, weight) > maxWidth && current) {
       lines.push(current);
-      current = w;
+      current = ch;
     } else {
       current = test;
     }
-  });
+  }
   if (current) lines.push(current);
   if (lines.length > maxLines) {
     return lines.slice(0, maxLines).map((l, i) => i === maxLines - 1 ? l.replace(/.{1,2}$/, '…') : l);
@@ -410,14 +413,16 @@ function renderMergedProposal({ title, clientName, agentName, theme, carriers, d
 
   // 담보명이 칸 폭을 넘기면 옆 컬럼(납기·만기)을 침범해서 겹쳐 보이던 문제 — 담보명을 최대 2줄로 감싸고,
   // 그만큼 행 높이를 늘려서 절대 다른 컬럼을 침범하지 않게 한다 (근본적 해결).
+  // 텍스트 크기를 전반적으로 +2 키우고 담보명은 더 굵게(볼드) 했다 — 줄바꿈 계산도 새 크기·굵기로 다시 재서,
+  // 커진 글자가 옆 컬럼을 침범하는 일이 없도록 항상 같은 기준으로 맞춘다.
   const cleanRows = cleanRowsRaw.map(row => {
-    const labelFontSize = 16, labelWeight = row.__isHl ? 700 : 500;
+    const labelFontSize = 18, labelWeight = 700; // 볼드 요청 반영: 강조 여부와 무관하게 기본도 굵게
     const prefix = row.__isHl && row.__star ? '★ ' : '';
     const labelLines = wrapPlainText(prefix + (row.label || ''), LABEL_W - 32, labelFontSize, labelWeight, 2);
     return {
       ...row,
       __labelLines: labelLines.length ? labelLines : [''],
-      __noteLines: row.__note ? wrapPlainText(row.__note, NOTE_W - 24, 12, 400, 2) : []
+      __noteLines: row.__note ? wrapPlainText(row.__note, NOTE_W - 24, 14, 400, 2) : []
     };
   });
   const groups = groupRowsByCategory(cleanRows);
@@ -429,7 +434,7 @@ function renderMergedProposal({ title, clientName, agentName, theme, carriers, d
   groups.forEach(g => {
     contentHeight += CATEGORY_BAND_H;
     g.rows.forEach(row => {
-      contentHeight += Math.max(ROW_H, 22 + Math.max(row.__labelLines.length, row.__noteLines.length) * 19);
+      contentHeight += Math.max(ROW_H, 24 + Math.max(row.__labelLines.length, row.__noteLines.length) * 21);
     });
   });
   const totalH = HEADER_H + 20 + contentHeight + FOOTER_H + 40;
@@ -443,20 +448,20 @@ function renderMergedProposal({ title, clientName, agentName, theme, carriers, d
   if (carriers) {
     body += `<rect x="${MARGIN}" y="${cy}" width="${tableW}" height="${CARRIER_BAND_H}" rx="6" fill="#${theme.grad[1]}" fill-opacity="0.08"/>`;
     body += `<rect x="${MARGIN}" y="${cy}" width="6" height="${CARRIER_BAND_H}" fill="#${theme.grad[1]}"/>`;
-    body += drawText(carriers, MARGIN + 24, cy + CARRIER_BAND_H / 2 + 6, 18, 800, theme.grad[0]);
+    body += drawText(carriers, MARGIN + 24, cy + CARRIER_BAND_H / 2 + 6, 20, 800, theme.grad[0]);
     cy += CARRIER_BAND_H + 8;
   }
 
   // 표 헤더 행
   body += `<rect x="${MARGIN}" y="${cy}" width="${tableW}" height="36" fill="#F4F5F7"/>`;
-  body += drawText('NO', MARGIN + NO_W / 2, cy + 24, 14, 700, '555555', { align: 'middle' });
-  body += drawText('담보명 및 보장내용', MARGIN + NO_W + 16, cy + 24, 14, 700, '555555');
-  body += drawText('납기·만기', MARGIN + NO_W + LABEL_W + TERM_W / 2, cy + 24, 14, 700, '555555', { align: 'middle' });
+  body += drawText('NO', MARGIN + NO_W / 2, cy + 24, 16, 700, '555555', { align: 'middle' });
+  body += drawText('담보명 및 보장내용', MARGIN + NO_W + 16, cy + 24, 16, 700, '555555');
+  body += drawText('납기·만기', MARGIN + NO_W + LABEL_W + TERM_W / 2, cy + 24, 16, 700, '555555', { align: 'middle' });
   designLabels.forEach((label, i) => {
     const cx = amountsStartX + amountColW * i + amountColW / 2;
-    body += drawText(label, cx, cy + 24, 14, 700, '555555', { align: 'middle' });
+    body += drawText(label, cx, cy + 24, 16, 700, '555555', { align: 'middle' });
   });
-  if (hasNotes) body += drawText('비고', noteStartX + 16, cy + 24, 14, 700, '555555');
+  if (hasNotes) body += drawText('비고', noteStartX + 16, cy + 24, 16, 700, '555555');
   cy += 36;
 
   // 카테고리별로 묶어서, 담보명은 한 번만 + 안(案)별 금액만 옆으로
@@ -465,36 +470,37 @@ function renderMergedProposal({ title, clientName, agentName, theme, carriers, d
     const color = colorForCategory(group.category, gIdx);
     body += `<rect x="${MARGIN}" y="${cy}" width="${tableW}" height="${CATEGORY_BAND_H}" fill="#${color.bg}"/>`;
     body += `<rect x="${MARGIN}" y="${cy}" width="6" height="${CATEGORY_BAND_H}" fill="#${color.accent}"/>`;
-    body += drawText(group.category, MARGIN + 24, cy + CATEGORY_BAND_H / 2 + 6, 16, 800, color.text);
+    body += drawText(group.category, MARGIN + 24, cy + CATEGORY_BAND_H / 2 + 6, 18, 800, color.text);
     cy += CATEGORY_BAND_H;
 
     group.rows.forEach((row, rIdx) => {
       const lineCount = Math.max(row.__labelLines.length, row.__noteLines.length);
-      const rowH = Math.max(ROW_H, 22 + lineCount * 19);
+      const rowH = Math.max(ROW_H, 24 + lineCount * 21);
       const rowBg = rIdx % 2 === 0 ? 'FFFFFF' : 'FAFAFA';
       body += `<rect x="${MARGIN}" y="${cy}" width="${tableW}" height="${rowH}" fill="#${rowBg}"/>`;
       body += `<line x1="${MARGIN}" y1="${cy+rowH}" x2="${MARGIN+tableW}" y2="${cy+rowH}" stroke="#EDEDEF" stroke-width="1"/>`;
       // 카테고리·질병군 순서로 재정렬되므로, 원래 no 값 대신 화면에 보이는 순서 그대로 1부터 다시 매긴다
-      body += drawText(String(rowCounter), MARGIN + NO_W / 2, cy + rowH / 2 + 6, 14, 400, '888888', { align: 'middle' });
+      body += drawText(String(rowCounter), MARGIN + NO_W / 2, cy + rowH / 2 + 6, 16, 400, '888888', { align: 'middle' });
 
-      // 담보명 — 칸을 넘기면 2줄까지 감싸서, 옆(납기·만기) 컬럼을 절대 침범하지 않는다
+      // 담보명 — 요청대로 항상 굵게(볼드), 강조된 행은 추가로 빨간색. 칸을 넘기면 2줄까지 감싸서
+      // 옆(납기·만기) 컬럼을 절대 침범하지 않는다.
       const isHl = row.__isHl;
-      const labelY = cy + rowH / 2 - (row.__labelLines.length - 1) * 9.5 + 5;
+      const labelY = cy + rowH / 2 - (row.__labelLines.length - 1) * 10.5 + 6;
       row.__labelLines.forEach((line, li) => {
-        body += drawText(line, MARGIN + NO_W + 16, labelY + li * 19, 16, isHl ? 700 : 500, isHl ? 'D32F2F' : '222222');
+        body += drawText(line, MARGIN + NO_W + 16, labelY + li * 21, 18, 700, isHl ? 'D32F2F' : '222222');
       });
 
-      body += drawText(row.term || '', MARGIN + NO_W + LABEL_W + TERM_W / 2, cy + rowH / 2 + 6, 13, 400, '777777', { align: 'middle' });
+      body += drawText(row.term || '', MARGIN + NO_W + LABEL_W + TERM_W / 2, cy + rowH / 2 + 6, 15, 400, '777777', { align: 'middle' });
       const amounts = Array.isArray(row.amounts) ? row.amounts : [row.amount || ''];
       designLabels.forEach((label, i) => {
         const cx = amountsStartX + amountColW * i + amountColW / 2;
         const val = amounts[i] || '';
-        body += drawText(val || '-', cx, cy + rowH / 2 + 6, 15, val ? 700 : 400, val ? color.text : 'CCCCCC', { align: 'middle' });
+        body += drawText(val || '-', cx, cy + rowH / 2 + 6, 17, val ? 700 : 400, val ? color.text : 'CCCCCC', { align: 'middle' });
       });
       if (hasNotes && row.__noteLines.length) {
-        const noteY = cy + rowH / 2 - (row.__noteLines.length - 1) * 7.5 + 4;
+        const noteY = cy + rowH / 2 - (row.__noteLines.length - 1) * 8.5 + 5;
         row.__noteLines.forEach((line, li) => {
-          body += drawText(line, noteStartX + 16, noteY + li * 15, 12, 400, '888888');
+          body += drawText(line, noteStartX + 16, noteY + li * 17, 14, 400, '888888');
         });
       }
       cy += rowH;

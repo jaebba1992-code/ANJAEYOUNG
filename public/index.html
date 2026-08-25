@@ -748,6 +748,20 @@
   </div>
 </div>
 
+<div id="adminContentModal" style="position:fixed; inset:0; background:rgba(10,46,34,0.45); z-index:998; display:none; align-items:center; justify-content:center; padding:20px;">
+  <div style="width:100%; max-width:640px; max-height:85vh; display:flex; flex-direction:column; padding:26px 28px; background:var(--card); border-radius:var(--r-card); box-shadow:var(--sh-card);">
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px; gap:12px;">
+      <div>
+        <p id="adminContentTitle" style="font-size:15px; font-weight:700; color:var(--ink0); margin:0 0 4px;">내용 보기</p>
+        <p id="adminContentMeta" style="font-size:12px; color:var(--muted0); margin:0;"></p>
+      </div>
+      <button type="button" id="adminContentCloseBtn" style="background:none; border:none; font-size:18px; color:var(--muted0); cursor:pointer; line-height:1;">×</button>
+    </div>
+    <div id="adminContentBody" style="overflow-y:auto; white-space:pre-wrap; font-size:13.5px; line-height:1.7; color:var(--ink0); border-top:1px solid var(--border0); padding-top:14px;"></div>
+    <button class="mini-btn" id="adminContentCopyBtn" style="margin-top:14px; align-self:flex-start;">복사</button>
+  </div>
+</div>
+
 <div class="mobile-topbar" id="mobileTopbar" style="display:none;">
   <div class="mobile-topbar-brand">
     <div class="sb-logo">안</div>
@@ -2650,8 +2664,8 @@ function renderAdminHistoryList() {
   const pageItems = items.slice(start, start + ADMIN_HISTORY_PAGE_SIZE);
 
   el.innerHTML = `<p style="font-size:12px; color:var(--paper-mute); margin-bottom:8px;">전체 ${total}개 중 ${start + 1}~${Math.min(start + ADMIN_HISTORY_PAGE_SIZE, total)}번째</p>` +
-    pageItems.map(h => `
-    <div class="hist-item">
+    pageItems.map((h, i) => `
+    <div class="hist-item" data-idx="${start + i}" style="cursor:pointer;">
       <div class="hist-item-head">
         <div>
           <div class="hist-item-title">${escapeHtml(h.topic || '(제목 없음)')}</div>
@@ -2664,6 +2678,9 @@ function renderAdminHistoryList() {
       </div>
     </div>
   `).join('');
+  el.querySelectorAll('.hist-item[data-idx]').forEach(row => {
+    row.addEventListener('click', () => showAdminContent(items[Number(row.dataset.idx)]));
+  });
 
   // 페이지네이션 버튼 (1, 2, 3 ... 식으로)
   let pagerHtml = '';
@@ -2688,6 +2705,65 @@ function renderAdminHistoryList() {
     });
   });
 }
+// 관리자가 팀원의 실제 작업 내용을 열어서 확인한다. 형식에 따라 다르게 정리해서 보여준다.
+function extractReadableContent(h) {
+  const raw = h.script || '';
+  // 카드뉴스/제안서/PPT처럼 JSON으로 저장된 형식은, 사람이 읽기 좋은 요약으로 풀어서 보여준다
+  if (h.format === 'card') {
+    try {
+      const parsed = JSON.parse(raw);
+      const plan = parsed.plan || [];
+      let out = plan.map((c, i) => {
+        const parts = [c.title, c.subtitle, c.body, c.caseLabel, c.description].filter(Boolean);
+        return `[카드 ${i + 1} · ${c.type || ''}]\n${parts.join('\n')}`;
+      }).join('\n\n');
+      if (parsed.caption) out += '\n\n[인스타 캡션]\n' + parsed.caption;
+      return out || raw;
+    } catch (e) { return raw; }
+  }
+  if (h.format === 'proposal') {
+    try {
+      const parsed = JSON.parse(raw);
+      const data = parsed.data || parsed;
+      let out = `제목: ${data.title || ''}\n고객명: ${data.clientName || ''}\n보험사: ${data.carriers || ''}\n`;
+      (data.designLabels || []).forEach((label, i) => {
+        out += `\n[${label}] 월 보험료: ${(data.premiums || [])[i] || ''}`;
+      });
+      out += '\n\n[담보 목록]\n' + (data.rows || []).map(r => `- ${r.label} (${r.term || ''}) : ${(r.amounts || [r.amount]).join(' / ')}`).join('\n');
+      return out;
+    } catch (e) { return raw; }
+  }
+  if (h.format === 'ppt') {
+    try {
+      const parsed = JSON.parse(raw);
+      return JSON.stringify(parsed, null, 2);
+    } catch (e) { return raw; }
+  }
+  // 대본/카페/블로그/추천상품/검색 결과는 이미 읽을 수 있는 텍스트 그대로다
+  return raw;
+}
+function showAdminContent(h) {
+  document.getElementById('adminContentTitle').textContent = h.topic || '(제목 없음)';
+  document.getElementById('adminContentMeta').textContent =
+    `${h.visitor_name || '이름 없음'} · ${ADMIN_HISTORY_FORMAT_LABEL[h.format] || h.format || ''} · ${new Date(h.created_at || h.id).toLocaleString('ko-KR')}`;
+  const content = extractReadableContent(h);
+  document.getElementById('adminContentBody').textContent = content || '(내용 없음)';
+  document.getElementById('adminContentModal').style.display = 'flex';
+  document.getElementById('adminContentCopyBtn').onclick = () => {
+    navigator.clipboard.writeText(content || '');
+    const btn = document.getElementById('adminContentCopyBtn');
+    const old = btn.textContent;
+    btn.textContent = '복사됨';
+    setTimeout(() => { btn.textContent = old; }, 1200);
+  };
+}
+document.getElementById('adminContentCloseBtn').addEventListener('click', () => {
+  document.getElementById('adminContentModal').style.display = 'none';
+});
+document.getElementById('adminContentModal').addEventListener('click', (e) => {
+  if (e.target.id === 'adminContentModal') document.getElementById('adminContentModal').style.display = 'none';
+});
+
 async function loadAdminHistoryOverview() {
   const el = document.getElementById('adminHistoryList');
   el.innerHTML = '불러오는 중...';
@@ -5002,21 +5078,22 @@ async function generateScript() {
         try {
           const researchSystem = `당신은 리서치 보조원입니다. 주어진 주제와 관련된 보험/금융 관련 실제 통계나 사실을 web_search 도구로 찾아서, 아래 형식으로만 정리해 출력하세요. 다른 설명 없이 목록만 출력합니다.
 형식: - [찾은 사실/수치 한 문장] (출처: 기관/사이트명, 정확한 전체 URL)
-신뢰할 수 있는 출처(정부기관, 공공데이터, 주요 언론사 등)만 사용하고, 3~6개 정도만 찾아서 정리하세요.
+신뢰할 수 있는 출처(정부기관, 공공데이터, 주요 언론사, 학회 등)만 사용하고, 3~6개 정도만 찾아서 정리하세요.
 
-중요 1 - 원출처 우선 원칙: 뉴스 기사는 대부분 정부기관·공공데이터의 통계를 가져다 쓴 것입니다. 뉴스 기사에서 "국민건강보험공단", "통계청", "금융감독원" 같은 원 출처 기관명이 언급되어 있으면, 그 뉴스 링크를 그대로 쓰지 말고 그 기관명 + 통계 이름으로 다시 검색해서 원본 통계 자료(공식 보고서, 통계연보, 보도자료 페이지)를 직접 찾아 그 링크를 쓰세요.
+중요 1 - 원출처 우선 원칙 (반드시 지킬 것): 뉴스 기사는 대부분 정부기관·공공데이터·학회의 통계를 가져다 쓴 것입니다. 처음 검색에서 뉴스 기사가 나왔다면, 그걸로 끝내지 말고 반드시 아래 순서를 따르세요.
+  1단계: 뉴스 기사 본문에서 원 출처 기관명을 찾는다 — "국민건강보험공단", "통계청", "금융감독원", "질병관리청", "국립암센터", "대한소화기내시경학회"처럼 조사·발표 주체가 있는지 확인한다. 보험/금융 통계뿐 아니라 건강검진·질병 통계도 이런 기관·학회가 원출처인 경우가 많다.
+  2단계: 원 출처 기관명을 찾았으면, "그 기관명 + 통계 이름"으로 다시 한 번 반드시 검색해서, 그 기관이 직접 발표한 원본 자료(보고서, 통계연보, 보도자료, 학회 발표자료)를 찾는다. 이 재검색을 생략하지 마세요 — 뉴스 링크만 쓰고 끝내는 것은 금지합니다.
+  3단계: 원본 자료를 찾았으면 그 링크를 쓰고, 그래도 원본 페이지를 못 찾았으면 뉴스 링크를 쓰되 반드시 "(출처: OO뉴스 보도, 원자료: OO기관/학회 OO통계)" 형식으로 원출처 기관명을 함께 적으세요. 원출처 기관명을 전혀 언급하지 않고 뉴스 링크만 적는 것은 절대 금지합니다 — 기사 안에 조사·발표 주체가 안 보이면, 그 통계 내용으로 별도 검색을 한 번 더 해서라도 주체를 찾아보세요.
 
 중요 2 - 링크는 최대한 구체적으로: 그 기관의 대표 홈페이지 주소(예: nhis.or.kr)로 뭉뚱그리지 말고, 가능한 한 아래 우선순위로 더 깊이 찾으세요.
-  1순위: 그 통계가 실린 보고서/통계연보 원문 PDF 다운로드 링크
+  1순위: 그 통계가 실린 보고서/통계연보/학회 발표자료 원문 PDF 다운로드 링크
   2순위: 국가통계포털(KOSIS, kosis.kr) 등에서 해당 표를 바로 보여주는 페이지 링크
-  3순위: 그 기관의 보도자료/통계 발표 페이지 링크
+  3순위: 그 기관·학회의 보도자료/통계 발표 페이지 링크
   이 중 어느 것도 못 찾으면, URL은 기관 대표 페이지로 하되, 반드시 "(정확한 문서명: 'OOOO년 OOO 통계연보' 또는 'OOO 보도자료, OOOO년 O월)"처럼 그 자료의 정확한 제목·발표 시기를 같이 적어서, 나중에 그 기관 홈페이지에서 검색만 하면 바로 찾을 수 있게 하세요.
-
-정말 여러 번 검색해도 원출처를 못 찾겠으면, 그때만 뉴스 링크를 쓰되 "(출처: OO뉴스 보도, 원자료: OO기관 OO통계)" 형식으로 원출처 기관명을 같이 밝히세요.
 
 중요 3 - URL은 검색 결과에 나온 그 정보가 실제로 있는 구체적인 페이지의 전체 주소를 정확히 그대로 적으세요. 홈페이지 도메인만 적거나 줄여 쓰지 마세요.`;
           const researchPrompt = `${contextLine}\n\n위 주제로 대본을 쓸 때 근거로 쓸 수 있는 실제 통계나 사실을 검색해서 찾아줘.`;
-          const researchResult = await callClaude(researchSystem, [{ role: 'user', content: researchPrompt }], 1, WEB_SEARCH_TOOL, 1800);
+          const researchResult = await callClaude(researchSystem, [{ role: 'user', content: researchPrompt }], 1, WEB_SEARCH_TOOL, 2600); // 원출처를 찾기 위해 검색을 여러 번 하므로 토큰 여유를 더 준다
           if (researchResult && researchResult.trim()) {
             researchBlock = `\n\n[웹 검색으로 찾은 관련 자료 — 필요할 때 이 안의 수치와 출처를 인용하세요]\n${researchResult.trim()}`;
           }
