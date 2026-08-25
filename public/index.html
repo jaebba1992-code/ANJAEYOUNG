@@ -2405,8 +2405,9 @@ async function apiGetAdmin(path) {
   return data;
 }
 
-// 차단 직후 바로 그 자리에서 취소(실수 방지)할 수 있게 해주는 공용 헬퍼.
-// 반환값: 차단이 최종적으로 유지되면 true, 실패하거나 바로 취소했으면 false.
+// 차단 실행 (실수 방지를 위한 "바로 취소" 확인창은 없앴다 — 확인창에서 반사적으로 [확인]을 누르면
+// 방금 한 차단이 그 자리에서 바로 풀려버리는 혼란스러운 UX였다. 대신 차단은 확실하게 적용하고,
+// 되돌리고 싶으면 "강퇴(차단) 관리 → 차단 목록 보기 → 차단 해제"에서 명확하게 별도 조작하도록 한다.
 async function blockVisitorWithUndoOption(name) {
   try {
     await apiPostAdmin('/api/blocked', { name });
@@ -2414,17 +2415,7 @@ async function blockVisitorWithUndoOption(name) {
     alert('차단 실패: ' + e.message);
     return false;
   }
-  const undo = confirm(`"${name}" 님을 차단했어요.\n\n잘못 차단하셨다면 지금 바로 취소할 수 있어요 — 취소하려면 [확인], 이대로 두려면 [취소]를 눌러주세요.`);
-  if (undo) {
-    try {
-      await apiDeleteAdmin('/api/blocked', { name });
-      alert('차단을 취소했어요. 다시 접속할 수 있어요.');
-      return false;
-    } catch (e) {
-      alert('취소 실패: ' + e.message + '\n\n"강퇴(차단) 관리" 목록에서 직접 해제해주세요.');
-      return true;
-    }
-  }
+  alert(`"${name}" 님을 차단했어요.\n\n혹시 실수로 차단했다면, "강퇴(차단) 관리 → 차단 목록 보기"에서 "차단 해제"를 눌러 되돌릴 수 있어요.`);
   return true;
 }
 
