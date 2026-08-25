@@ -224,6 +224,19 @@ function filterMeaningfulRows(rows) {
   });
 }
 
+// AI가 프롬프트를 놓쳐도 항상 걸러지도록, 가입방식/심사 관련 필러 토큰을 서버에서 결정론적으로 제거한다.
+const FILLER_TOKENS = ['plus', 'Plus', 'PLUS', '건강고지', '간편가입', '간편', '건강가입', '일반심사형', '일반가입', '무해지'];
+function stripFillerTokens(label) {
+  if (!label) return label;
+  let s = String(label);
+  FILLER_TOKENS.forEach(f => {
+    const esc = f.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    s = s.replace(new RegExp('[(\\[]\\s*' + esc + '\\s*[)\\]]', 'g'), ''); // (plus), [건강고지] 등
+    s = s.replace(new RegExp('(^|[\\s(])' + esc + '(?=[\\s)]|$)', 'g'), '$1'); // 괄호 없이 단독으로 붙은 경우
+  });
+  return s.replace(/\(\s*\)/g, '').replace(/\[\s*\]/g, '').replace(/\s{2,}/g, ' ').trim();
+}
+
 // 카테고리 표시 순서를 고정한다 (기본계약 → 진단비 → 치료비 → 수술비 → 상해관련 → 간병 → 그 외)
 const CATEGORY_ORDER = ['기본계약', '진단비', '치료비', '수술비', '상해관련', '간병'];
 
@@ -284,14 +297,15 @@ function renderMergedProposal({ title, clientName, agentName, theme, carriers, d
   // AI가 직접 태깅한 row.highlightStar/highlightNote를 우선 사용하고(의미 기반 매칭이라 더 정확),
   // 혹시 없으면 문자열 부분일치로 한 번 더 시도한다 (안전망).
   const cleanRowsRaw = filterMeaningfulRows(rows).map(row => {
+    const cleanLabel = stripFillerTokens(row.label); // AI가 놓친 (plus)/건강고지 등을 여기서 무조건 한 번 더 제거
     let star = !!row.highlightStar;
     let note = (row.highlightNote || '').trim();
     let isHl = star || !!note;
     if (!isHl) {
-      const fallback = matchHighlight(row.label, hlList);
+      const fallback = matchHighlight(cleanLabel, hlList);
       if (fallback) { star = !!fallback.star; note = (fallback.description || '').trim(); isHl = true; }
     }
-    return { ...row, __isHl: isHl, __star: star, __note: note };
+    return { ...row, label: cleanLabel, __isHl: isHl, __star: star, __note: note };
   });
   const hasNotes = cleanRowsRaw.some(r => r.__note);
   const NOTE_W = hasNotes ? 260 : 0;
@@ -301,10 +315,18 @@ function renderMergedProposal({ title, clientName, agentName, theme, carriers, d
   const amountsStartX = MARGIN + NO_W + LABEL_W + TERM_W;
   const noteStartX = amountsStartX + amountColW * designCount;
 
-  const cleanRows = cleanRowsRaw.map(row => ({
-    ...row,
-    __noteLines: row.__note ? wrapPlainText(row.__note, NOTE_W - 24, 12, 400, 2) : []
-  }));
+  // 담보명이 칸 폭을 넘기면 옆 컬럼(납기·만기)을 침범해서 겹쳐 보이던 문제 — 담보명을 최대 2줄로 감싸고,
+  // 그만큼 행 높이를 늘려서 절대 다른 컬럼을 침범하지 않게 한다 (근본적 해결).
+  const cleanRows = cleanRowsRaw.map(row => {
+    const labelFontSize = 16, labelWeight = row.__isHl ? 700 : 500;
+    const prefix = row.__isHl && row.__star ? '★ ' : '';
+    const labelLines = wrapPlainText(prefix + (row.label || ''), LABEL_W - 32, labelFontSize, labelWeight, 2);
+    return {
+      ...row,
+      __labelLines: labelLines.length ? labelLines : [''],
+      __noteLines: row.__note ? wrapPlainText(row.__note, NOTE_W - 24, 12, 400, 2) : []
+    };
+  });
   const groups = groupRowsByCategory(cleanRows);
   const resolvedPremiums = premiums.map(resolvePremiumSum);
 
@@ -313,7 +335,9 @@ function renderMergedProposal({ title, clientName, agentName, theme, carriers, d
   let contentHeight = CARRIER_BAND_H + 36;
   groups.forEach(g => {
     contentHeight += CATEGORY_BAND_H;
-    g.rows.forEach(row => { contentHeight += Math.max(ROW_H, 26 + row.__noteLines.length * 15); });
+    g.rows.forEach(row => {
+      contentHeight += Math.max(ROW_H, 22 + Math.max(row.__labelLines.length, row.__noteLines.length) * 19);
+    });
   });
   const totalH = HEADER_H + 20 + contentHeight + FOOTER_H + 40;
 
@@ -352,16 +376,19 @@ function renderMergedProposal({ title, clientName, agentName, theme, carriers, d
     cy += CATEGORY_BAND_H;
 
     group.rows.forEach((row, rIdx) => {
-      const rowH = Math.max(ROW_H, 26 + row.__noteLines.length * 15);
+      const lineCount = Math.max(row.__labelLines.length, row.__noteLines.length);
+      const rowH = Math.max(ROW_H, 22 + lineCount * 19);
       const rowBg = rIdx % 2 === 0 ? 'FFFFFF' : 'FAFAFA';
       body += `<rect x="${MARGIN}" y="${cy}" width="${tableW}" height="${rowH}" fill="#${rowBg}"/>`;
       body += `<line x1="${MARGIN}" y1="${cy+rowH}" x2="${MARGIN+tableW}" y2="${cy+rowH}" stroke="#EDEDEF" stroke-width="1"/>`;
       body += drawText(String(row.no != null ? row.no : rowCounter), MARGIN + NO_W / 2, cy + rowH / 2 + 6, 14, 400, '888888', { align: 'middle' });
 
-      // 사용자가 지정한 중요 특약이면 별표 + 빨간 글씨
+      // 담보명 — 칸을 넘기면 2줄까지 감싸서, 옆(납기·만기) 컬럼을 절대 침범하지 않는다
       const isHl = row.__isHl;
-      const labelText = (isHl && row.__star ? '★ ' : '') + (row.label || '');
-      body += drawText(labelText, MARGIN + NO_W + 16, cy + rowH / 2 + 6, 16, isHl ? 700 : 500, isHl ? 'D32F2F' : '222222');
+      const labelY = cy + rowH / 2 - (row.__labelLines.length - 1) * 9.5 + 5;
+      row.__labelLines.forEach((line, li) => {
+        body += drawText(line, MARGIN + NO_W + 16, labelY + li * 19, 16, isHl ? 700 : 500, isHl ? 'D32F2F' : '222222');
+      });
 
       body += drawText(row.term || '', MARGIN + NO_W + LABEL_W + TERM_W / 2, cy + rowH / 2 + 6, 13, 400, '777777', { align: 'middle' });
       const amounts = Array.isArray(row.amounts) ? row.amounts : [row.amount || ''];

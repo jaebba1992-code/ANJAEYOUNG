@@ -1588,7 +1588,11 @@
       <div class="panel" style="background:var(--paper-soft); margin-bottom:14px;">
         <p class="panel-title" style="font-size:14px;">중요 특약 강조 (선택) <span class="opt">이름을 적으면, 표에서 그 담보명에 자동으로 별표·빨간 글씨를 입혀요. 비워두면 아무 것도 강조하지 않아요</span></p>
         <div id="proposalHighlightList"></div>
-        <button type="button" class="copy-btn" id="proposalHighlightAddBtn">+ 특약 추가</button>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button type="button" class="copy-btn" id="proposalHighlightAddBtn">+ 특약 추가</button>
+          <button type="button" class="copy-btn" id="proposalHighlightSaveDefaultBtn" title="지금 목록을 앞으로 항상 자동으로 채워질 기본값으로 저장해요">★ 기본값으로 저장</button>
+          <button type="button" class="copy-btn" id="proposalHighlightResetBtn" title="이번에 지운 항목을 저장된 기본값으로 되돌려요">기본값 다시 불러오기</button>
+        </div>
       </div>
 
       <button class="generate" id="proposalGenBtn">제안서 만들기</button>
@@ -2953,8 +2957,34 @@ function renderProposalDesignBlocks() {
 }
 renderProposalDesignBlocks();
 
-/* 중요 특약 강조 목록: 특약명 - 별표체크 - 설명, "+특약 추가" 버튼으로 하나씩 늘어남 */
-let proposalHighlights = [{ name: '', star: false, description: '' }];
+/* 중요 특약 강조 목록: 특약명 - 별표체크 - 설명, "+특약 추가" 버튼으로 하나씩 늘어남.
+   보험료납입면제/납입지원처럼 매번 다시 입력하기 귀찮은 항목은 "기본값"으로 저장해두면,
+   페이지를 새로 열 때마다 자동으로 채워진다. 이번 제안서에서만 빼고 싶으면 삭제 버튼으로
+   빼면 되고, 그건 이번 한 번만 적용된다 — 기본값 자체는 "기본값으로 저장"을 눌러야만 바뀐다. */
+const PROPOSAL_HL_DEFAULTS_KEY = 'ins_proposal_highlight_defaults';
+const PROPOSAL_HL_SEED = [
+  { name: '보험료납입면제대상보장', star: true, description: '가입 후 암, 뇌혈관, 허혈성 진단 시 남은 기간의 보험료는 면제됩니다.' },
+  { name: '보험료납입지원보장', star: true, description: '가입 후 유사암 진단 시 보험료의 일부를 보험사에서 지원합니다.' }
+];
+function loadProposalHlDefaults() {
+  try {
+    const raw = localStorage.getItem(PROPOSAL_HL_DEFAULTS_KEY);
+    if (!raw) return JSON.parse(JSON.stringify(PROPOSAL_HL_SEED));
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) && parsed.length ? parsed : JSON.parse(JSON.stringify(PROPOSAL_HL_SEED));
+  } catch (e) {
+    return JSON.parse(JSON.stringify(PROPOSAL_HL_SEED));
+  }
+}
+function saveProposalHlDefaults(list) {
+  const cleaned = list.filter(h => h.name && h.name.trim());
+  localStorage.setItem(PROPOSAL_HL_DEFAULTS_KEY, JSON.stringify(cleaned));
+}
+
+// 페이지를 열 때마다 저장된 기본값을 불러와서 채운다 (세션 중 삭제해도 이 기본값 자체는 안 바뀜)
+let proposalHighlights = loadProposalHlDefaults();
+if (!proposalHighlights.length) proposalHighlights = [{ name: '', star: false, description: '' }];
+
 function renderProposalHighlightList() {
   const wrap = document.getElementById('proposalHighlightList');
   wrap.innerHTML = proposalHighlights.map((h, i) => `
@@ -2972,7 +3002,7 @@ function renderProposalHighlightList() {
         <label>${i === 0 ? '설명 (선택)' : ''}</label>
         <input type="text" class="hl-desc" value="${escapeHtml(h.description)}" placeholder="예: 5년마다 가입금액의 10% 증가">
       </div>
-      <button type="button" class="copy-btn hl-remove" style="margin-bottom:2px;" ${proposalHighlights.length <= 1 ? 'disabled' : ''}>삭제</button>
+      <button type="button" class="copy-btn hl-remove" style="margin-bottom:2px;" title="이번 제안서에서만 빼요 (기본값은 그대로 남아요)">삭제</button>
     </div>
   `).join('');
 
@@ -2982,8 +3012,8 @@ function renderProposalHighlightList() {
     row.querySelector('.hl-star').addEventListener('change', e => { proposalHighlights[idx].star = e.target.checked; });
     row.querySelector('.hl-desc').addEventListener('input', e => { proposalHighlights[idx].description = e.target.value; });
     row.querySelector('.hl-remove').addEventListener('click', () => {
-      if (proposalHighlights.length <= 1) return;
       proposalHighlights.splice(idx, 1);
+      if (!proposalHighlights.length) proposalHighlights.push({ name: '', star: false, description: '' });
       renderProposalHighlightList();
     });
   });
@@ -2991,6 +3021,18 @@ function renderProposalHighlightList() {
 renderProposalHighlightList();
 document.getElementById('proposalHighlightAddBtn').addEventListener('click', () => {
   proposalHighlights.push({ name: '', star: false, description: '' });
+  renderProposalHighlightList();
+});
+document.getElementById('proposalHighlightSaveDefaultBtn').addEventListener('click', () => {
+  saveProposalHlDefaults(proposalHighlights);
+  const btn = document.getElementById('proposalHighlightSaveDefaultBtn');
+  const old = btn.textContent;
+  btn.textContent = '저장됨! (다음에도 자동으로 채워져요)';
+  setTimeout(() => { btn.textContent = old; }, 1800);
+});
+document.getElementById('proposalHighlightResetBtn').addEventListener('click', () => {
+  proposalHighlights = loadProposalHlDefaults();
+  if (!proposalHighlights.length) proposalHighlights = [{ name: '', star: false, description: '' }];
   renderProposalHighlightList();
 });
 
@@ -3022,20 +3064,22 @@ function renderProposalFilePreview(key) {
 }
 
 // PDF 페이지를 이미지로 변환 (표 구조를 그대로 보존해서 vision에 넘기기 위함 — 텍스트만 뽑으면 표 구조가 깨짐)
-async function pdfToImageBase64List(file, maxPages = 6) {
+// 제안서 PDF가 보통 10장 안팎이라, 그걸 다 읽을 수 있게 페이지 수를 넉넉히 잡고, 표 안의 작은 글씨도
+// 잘 읽히도록 해상도(scale)와 압축 품질을 사진보다 높게 준다.
+async function pdfToImageBase64List(file, maxPages = 14) {
   const buffer = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
   const pagesToRead = Math.min(pdf.numPages, maxPages);
   const results = [];
   for (let p = 1; p <= pagesToRead; p++) {
     const page = await pdf.getPage(p);
-    const viewport = page.getViewport({ scale: 1.6 });
+    const viewport = page.getViewport({ scale: 2.2 });
     const canvas = document.createElement('canvas');
     canvas.width = viewport.width;
     canvas.height = viewport.height;
     const ctx = canvas.getContext('2d');
     await page.render({ canvasContext: ctx, viewport }).promise;
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
     results.push(dataUrl.split(',')[1]);
   }
   return results;
@@ -3118,7 +3162,8 @@ ${highlightNote}
   });
   content.push({ type: 'text', text: '위 이미지(들)을 보고 JSON 스키마로 정리해줘.' });
 
-  const raw = await callClaude(system, [{ role: 'user', content }], 2, null, 4500);
+  // 제안서가 10장 안팎으로 길어지면 담보 항목도 많아지므로, 출력 토큰을 넉넉히 준다
+  const raw = await callClaude(system, [{ role: 'user', content }], 2, null, 7000);
   const cleaned = raw.replace(/```json|```/g, '').trim();
   return JSON.parse(cleaned);
 }
@@ -3151,14 +3196,16 @@ document.getElementById('proposalGenBtn').addEventListener('click', async () => 
             reader.onerror = reject;
             reader.readAsDataURL(file);
           });
-          const resized = await resizeImageToBase64(dataUrl.split(',')[1], file.type, 1400, 0.85);
+          // 제안서 캡처는 표 안에 작은 글씨가 빽빽해서, 일반 사진보다 해상도/품질을 높게 유지해야
+          // 특약명이 다르게 읽히는 오류가 줄어든다.
+          const resized = await resizeImageToBase64(dataUrl.split(',')[1], file.type, 1800, 0.92);
           images.push(resized);
         } else if (file.name.toLowerCase().endsWith('.pdf')) {
           const pages = await pdfToImageBase64List(file);
           images = images.concat(pages);
         }
       }
-      images = images.slice(0, 8);
+      images = images.slice(0, 14); // 제안서 PDF가 보통 10장 안팎이라 여유 있게
       if (!images.length) continue;
       designInputs.push({
         key, label: labelInput, images,
