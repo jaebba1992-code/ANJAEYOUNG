@@ -1,5 +1,5 @@
 const { getSupabase } = require('./_supabaseClient');
-const { checkAppPassword } = require('./_auth');
+const { checkAppPassword, checkAdminPassword } = require('./_auth');
 
 module.exports = async function handler(req, res) {
   if (!checkAppPassword(req)) {
@@ -9,12 +9,18 @@ module.exports = async function handler(req, res) {
     const supabase = getSupabase();
 
     if (req.method === 'GET') {
+      // 이름 등록 화면에서 명단 대조를 위해 모든 방문자가 조회할 수 있어야 하므로 관리자 체크 없이 허용
       const { data, error } = await supabase
         .from('approved_staff')
         .select('*')
         .order('name', { ascending: true });
       if (error) throw error;
       return res.status(200).json({ items: data });
+    }
+
+    // 직원 명단 추가/삭제는 관리자 비밀번호가 있어야만 가능하다
+    if (!checkAdminPassword(req)) {
+      return res.status(403).json({ error: '관리자 비밀번호가 필요해요.' });
     }
 
     if (req.method === 'POST') {

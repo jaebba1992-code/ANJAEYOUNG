@@ -946,7 +946,7 @@
       </div>
 
       <div style="margin-top:22px; padding-top:18px; border-top:1px solid var(--line);">
-        <p style="font-size:12.5px; color:var(--brass); font-weight:600; margin:0 0 8px;">직원 이름 관리 (등록된 이름만 방문 시 입력 가능)</p>
+        <p style="font-size:12.5px; color:var(--brass); font-weight:600; margin:0 0 8px;">직원 이름 관리 (등록된 이름만 방문 시 입력 가능) <span style="color:var(--paper-mute); font-weight:400;">— 추가/삭제는 관리자 비밀번호 필요</span></p>
         <p style="font-size:12px; color:var(--paper-mute); line-height:1.7; margin:0 0 10px;">
           여기에 이름을 등록해두면, 처음 방문하는 사람은 이 목록에 있는 이름만 입력할 수 있어요. 목록이 비어있으면 누구나 아무 이름이나 입력할 수 있으니, 최소 한 명은 등록해두세요.
         </p>
@@ -958,6 +958,22 @@
         </div>
         <button class="mini-btn" id="staffAddBtn">추가</button>
         <div id="staffList" style="margin-top:14px;"></div>
+      </div>
+
+      <div style="margin-top:22px; padding-top:18px; border-top:1px solid var(--line);">
+        <p style="font-size:12.5px; color:var(--brass); font-weight:600; margin:0 0 8px;">강퇴(차단) 관리 <span style="color:var(--paper-mute); font-weight:400;">— 관리자 비밀번호 필요</span></p>
+        <p style="font-size:12px; color:var(--paper-mute); line-height:1.7; margin:0 0 10px;">
+          모르는 이름으로 들어온 사람을 발견하면 여기서 이름을 차단하세요. 차단된 이름은 다시 입장할 수 없고, 이미 접속해 있어도 곧 자동으로 튕겨나가요(최대 2분 이내). 관리자 비밀번호를 아는 사람만 사용할 수 있어요.
+        </p>
+        <div class="row">
+          <div class="field">
+            <label>차단할 이름</label>
+            <input type="text" id="blockedNameInput" placeholder="예: 모르는사람">
+          </div>
+        </div>
+        <button class="mini-btn danger" id="blockedAddBtn">강퇴(차단)</button>
+        <button class="mini-btn" id="blockedListShowBtn" style="margin-left:6px;">차단 목록 보기</button>
+        <div id="blockedList" style="margin-top:14px;"></div>
       </div>
 
     </div>
@@ -1898,11 +1914,27 @@ async function logVisit() {
     return;
   }
   try {
+    const { blocked } = await apiGet('/api/blocked?name=' + encodeURIComponent(name));
+    if (blocked) {
+      localStorage.removeItem('ins_visitor_name');
+      document.getElementById('appShell').style.display = 'none';
+      document.getElementById('mobileTopbar').style.display = 'none';
+      document.getElementById('nameGate').style.display = 'flex';
+      const errEl = document.getElementById('nameGateError');
+      errEl.textContent = '접근이 제한된 이름이에요. 관리자에게 문의해주세요.';
+      errEl.style.display = 'block';
+      return;
+    }
+  } catch (e) {
+    // 차단 목록 조회 실패 시에도 일단 통과
+  }
+  try {
     await apiPost('/api/visits', { visitor_name: name });
   } catch (e) {
     // 방문 기록 실패는 조용히 무시 — 앱 사용에 지장 없음
   }
   refreshVisitsWidget();
+  startBlockedNameWatcher();
 }
 async function submitNameGate() {
   const input = document.getElementById('nameGateInput');
@@ -1931,6 +1963,18 @@ async function submitNameGate() {
   } catch (e) {
     // 명단 조회 자체가 실패하면(네트워크 등) 일단 통과시킨다 — 앱 사용이 완전히 막히지 않게
   }
+  try {
+    const { blocked } = await apiGet('/api/blocked?name=' + encodeURIComponent(name));
+    if (blocked) {
+      errEl.textContent = '접근이 제한된 이름이에요. 관리자에게 문의해주세요.';
+      errEl.style.display = 'block';
+      btn.disabled = false;
+      btn.textContent = '확인';
+      return;
+    }
+  } catch (e) {
+    // 차단 목록 조회 실패 시에도 일단 통과 — 앱 사용이 완전히 막히지 않게
+  }
   errEl.style.display = 'none';
   localStorage.setItem('ins_visitor_name', name.slice(0, 40));
   document.getElementById('nameGate').style.display = 'none';
@@ -1942,8 +1986,34 @@ async function submitNameGate() {
     // 방문 기록 실패는 조용히 무시
   }
   refreshVisitsWidget();
+  startBlockedNameWatcher();
   btn.disabled = false;
   btn.textContent = '확인';
+}
+
+// 이미 접속해서 쓰고 있는 사람이 나중에 차단되면, 잠시 후 자동으로 튕겨나가게 주기적으로 확인한다.
+let blockedNameWatcherStarted = false;
+function startBlockedNameWatcher() {
+  if (blockedNameWatcherStarted) return;
+  blockedNameWatcherStarted = true;
+  setInterval(async () => {
+    const name = localStorage.getItem('ins_visitor_name');
+    if (!name) return;
+    try {
+      const { blocked } = await apiGet('/api/blocked?name=' + encodeURIComponent(name));
+      if (blocked) {
+        localStorage.removeItem('ins_visitor_name');
+        document.getElementById('appShell').style.display = 'none';
+        document.getElementById('mobileTopbar').style.display = 'none';
+        document.getElementById('nameGate').style.display = 'flex';
+        const errEl = document.getElementById('nameGateError');
+        errEl.textContent = '접근이 제한되어 자동으로 로그아웃되었습니다.';
+        errEl.style.display = 'block';
+      }
+    } catch (e) {
+      // 확인 실패 시 그냥 넘어감 (다음 주기에 재시도)
+    }
+  }, 90000); // 90초마다 확인
 }
 document.getElementById('nameGateSubmitBtn').addEventListener('click', submitNameGate);
 document.getElementById('nameGateInput').addEventListener('keydown', (e) => {
@@ -2042,7 +2112,13 @@ async function showUsageStats(name) {
           <span style="color:var(--green0); font-weight:700;">${counts[key]}건</span>
         </div>
       `).join('')}
+      <button class="mini-btn danger" id="usageStatsBlockBtn" style="margin-top:16px; width:100%;">이 사람 강퇴(차단)하기</button>
     `;
+    document.getElementById('usageStatsBlockBtn').addEventListener('click', async () => {
+      if (!confirm(`"${name}" 님을 차단할까요? 다시 접속할 수 없게 되고, 접속 중이면 곧 자동으로 로그아웃돼요.`)) return;
+      const blocked = await blockVisitorWithUndoOption(name);
+      if (blocked) { modal.style.display = 'none'; refreshVisitsWidget(); }
+    });
   } catch (e) {
     body.innerHTML = '<div class="error-box">불러오지 못했어요: ' + e.message + '</div>';
   }
@@ -2282,6 +2358,74 @@ async function apiDelete(path, body) {
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || '요청 실패');
   return data;
+}
+
+/* ===================== 관리자 전용 요청 (직원 명단 관리, 강퇴 등) =====================
+   앱 비밀번호를 아는 사람 누구나가 아니라, 별도의 관리자 비밀번호를 아는 사람만 쓸 수 있게 한다. */
+function getStoredAdminPassword() {
+  return localStorage.getItem('ins_admin_pw') || '';
+}
+function ensureAdminPassword() {
+  let pw = getStoredAdminPassword();
+  if (pw) return pw;
+  pw = prompt('관리자 비밀번호를 입력해주세요.');
+  if (!pw) return null;
+  localStorage.setItem('ins_admin_pw', pw);
+  return pw;
+}
+function adminHeaders() {
+  const pw = getStoredAdminPassword();
+  return pw ? { 'x-admin-password': pw } : {};
+}
+async function apiPostAdmin(path, body) {
+  const pw = ensureAdminPassword();
+  if (!pw) throw new Error('관리자 비밀번호가 필요해요.');
+  const res = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeaders(), ...adminHeaders() }, body: JSON.stringify(body) });
+  const data = await res.json();
+  if (res.status === 403) { localStorage.removeItem('ins_admin_pw'); throw new Error('관리자 비밀번호가 틀렸어요. 다시 시도해주세요.'); }
+  if (!res.ok) throw new Error(data.error || '요청 실패');
+  return data;
+}
+async function apiDeleteAdmin(path, body) {
+  const pw = ensureAdminPassword();
+  if (!pw) throw new Error('관리자 비밀번호가 필요해요.');
+  const res = await fetch(path, { method: 'DELETE', headers: { 'Content-Type': 'application/json', ...authHeaders(), ...adminHeaders() }, body: JSON.stringify(body) });
+  const data = await res.json();
+  if (res.status === 403) { localStorage.removeItem('ins_admin_pw'); throw new Error('관리자 비밀번호가 틀렸어요. 다시 시도해주세요.'); }
+  if (!res.ok) throw new Error(data.error || '요청 실패');
+  return data;
+}
+async function apiGetAdmin(path) {
+  const pw = ensureAdminPassword();
+  if (!pw) throw new Error('관리자 비밀번호가 필요해요.');
+  const res = await fetch(path, { headers: { ...authHeaders(), ...adminHeaders() } });
+  const data = await res.json();
+  if (res.status === 403) { localStorage.removeItem('ins_admin_pw'); throw new Error('관리자 비밀번호가 틀렸어요. 다시 시도해주세요.'); }
+  if (!res.ok) throw new Error(data.error || '요청 실패');
+  return data;
+}
+
+// 차단 직후 바로 그 자리에서 취소(실수 방지)할 수 있게 해주는 공용 헬퍼.
+// 반환값: 차단이 최종적으로 유지되면 true, 실패하거나 바로 취소했으면 false.
+async function blockVisitorWithUndoOption(name) {
+  try {
+    await apiPostAdmin('/api/blocked', { name });
+  } catch (e) {
+    alert('차단 실패: ' + e.message);
+    return false;
+  }
+  const undo = confirm(`"${name}" 님을 차단했어요.\n\n잘못 차단하셨다면 지금 바로 취소할 수 있어요 — 취소하려면 [확인], 이대로 두려면 [취소]를 눌러주세요.`);
+  if (undo) {
+    try {
+      await apiDeleteAdmin('/api/blocked', { name });
+      alert('차단을 취소했어요. 다시 접속할 수 있어요.');
+      return false;
+    } catch (e) {
+      alert('취소 실패: ' + e.message + '\n\n"강퇴(차단) 관리" 목록에서 직접 해제해주세요.');
+      return true;
+    }
+  }
+  return true;
 }
 
 async function refreshBanWords() {
@@ -3881,8 +4025,12 @@ async function refreshStaffList() {
     el.querySelectorAll('[data-id]').forEach(btn => {
       btn.addEventListener('click', async () => {
         if (!confirm('이 이름을 목록에서 삭제할까요?')) return;
-        await apiDelete('/api/staff', { id: Number(btn.dataset.id) });
-        await refreshStaffList();
+        try {
+          await apiDeleteAdmin('/api/staff', { id: Number(btn.dataset.id) });
+          await refreshStaffList();
+        } catch (e) {
+          alert('삭제 실패: ' + e.message);
+        }
       });
     });
   } catch (e) {
@@ -3897,7 +4045,7 @@ document.getElementById('staffAddBtn').addEventListener('click', async () => {
   const btn = document.getElementById('staffAddBtn');
   btn.disabled = true;
   try {
-    await apiPost('/api/staff', { name });
+    await apiPostAdmin('/api/staff', { name });
     input.value = '';
     await refreshStaffList();
   } catch (e) {
@@ -3908,6 +4056,64 @@ document.getElementById('staffAddBtn').addEventListener('click', async () => {
 });
 document.getElementById('staffNameInput').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') document.getElementById('staffAddBtn').click();
+});
+
+/* ===================== 강퇴(차단) 관리 ===================== */
+async function refreshBlockedList() {
+  const el = document.getElementById('blockedList');
+  try {
+    const { items } = await apiGetAdmin('/api/blocked');
+    if (!items || !items.length) {
+      el.innerHTML = '<p style="font-size:12px; color:var(--paper-mute);">차단된 이름이 없어요.</p>';
+      return;
+    }
+    el.innerHTML = items.map(it => `
+      <div class="lib-item">
+        <div class="lib-item-head">
+          <div class="lib-item-title">${escapeHtml(it.name)}</div>
+          <div class="lib-item-actions">
+            <button class="mini-btn" data-id="${it.id}">차단 해제</button>
+          </div>
+        </div>
+      </div>
+    `).join('');
+    el.querySelectorAll('[data-id]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (!confirm('이 이름의 차단을 해제할까요? 다시 접속할 수 있게 돼요.')) return;
+        try {
+          await apiDeleteAdmin('/api/blocked', { id: Number(btn.dataset.id) });
+          await refreshBlockedList();
+        } catch (e) {
+          alert('해제 실패: ' + e.message);
+        }
+      });
+    });
+  } catch (e) {
+    el.innerHTML = `<p style="font-size:12px; color:var(--paper-mute);">${escapeHtml(e.message)}</p><button class="mini-btn" id="blockedListRetryBtn">다시 시도</button>`;
+    const retryBtn = document.getElementById('blockedListRetryBtn');
+    if (retryBtn) retryBtn.addEventListener('click', refreshBlockedList);
+  }
+}
+// 페이지를 열자마자 관리자 비밀번호 팝업이 뜨면 방문자 전원이 불편하므로, 자동 조회하지 않고
+// "목록 보기" 버튼을 눌렀을 때만(= 관리자로 확인하려는 의도가 명확할 때만) 조회한다.
+document.getElementById('blockedListShowBtn').addEventListener('click', refreshBlockedList);
+document.getElementById('blockedAddBtn').addEventListener('click', async () => {
+  const input = document.getElementById('blockedNameInput');
+  const name = input.value.trim();
+  if (name.length < 1) { alert('차단할 이름을 입력해주세요.'); return; }
+  if (!confirm(`"${name}" 님을 차단할까요? 다시 접속할 수 없게 되고, 접속 중이면 곧 자동으로 로그아웃돼요.`)) return;
+  const btn = document.getElementById('blockedAddBtn');
+  btn.disabled = true;
+  try {
+    await blockVisitorWithUndoOption(name);
+    input.value = '';
+    await refreshBlockedList();
+  } finally {
+    btn.disabled = false;
+  }
+});
+document.getElementById('blockedNameInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') document.getElementById('blockedAddBtn').click();
 });
 
 document.getElementById('sheetAddBtn').addEventListener('click', async () => {
