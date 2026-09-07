@@ -305,14 +305,99 @@ function bgLayer(theme, variant) {
   return { defs: '', rect: `<rect width="${CW}" height="${CH}" fill="#${fillColor}"/>` };
 }
 
-// 모든 템플릿이 공통으로 쓰는 svg 문서 래퍼: 배경 defs + 본문 + 워터마크
-function svgDoc(bg, inner, watermarkSvg) {
+// 모든 템플릿이 공통으로 쓰는 svg 문서 래퍼: 배경 defs + 코너 액센트(같은 계정이라는 통일감) + 본문 + 워터마크
+function svgDoc(bg, inner, watermarkSvg, accentColor) {
+  const corner = accentColor ? cornerAccent(accentColor) : '';
   return `<svg width="${CW}" height="${CH}" viewBox="0 0 ${CW} ${CH}" xmlns="http://www.w3.org/2000/svg">
     <defs>${bg.defs}</defs>
     ${bg.rect}
+    ${corner}
     ${inner}
     ${watermarkSvg}
   </svg>`;
+}
+
+/* ================= 디자인 요소 (아이콘·배지·그래프를 폰트 글리프가 아니라 직접 벡터로 그린다) ================= */
+
+// 카드 우상단 구석에 은은한 사분원 — 모든 카드에 깔려서 "같은 계정" 통일감을 준다
+function cornerAccent(accentColor) {
+  return `<circle cx="${CW}" cy="0" r="140" fill="#${accentColor}" fill-opacity="0.08"/>`;
+}
+
+// 배경색에 대비되는 텍스트 색(검정/흰색)을 골라준다 — 밝은 강조색 위엔 검정, 어두운 색 위엔 흰색
+function contrastTextColor(hex) {
+  const r = parseInt(hex.slice(0, 2), 16), g = parseInt(hex.slice(2, 4), 16), b = parseInt(hex.slice(4, 6), 16);
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance > 0.6 ? '191919' : 'FFFFFF';
+}
+
+// 체크(✓) 아이콘을 직접 그린다 (폰트 글리프 아님 — 어떤 환경에서도 동일하게 나옴)
+function iconCheck(x, y, size, color) {
+  const s = size / 24;
+  return `<path d="M ${x+4*s} ${y+13*s} L ${x+9*s} ${y+18*s} L ${x+20*s} ${y+6*s}" stroke="#${color}" stroke-width="${3*s}" stroke-linecap="round" stroke-linejoin="round" fill="none"/>`;
+}
+// 엑스(✗) 아이콘을 직접 그린다
+function iconX(x, y, size, color) {
+  const s = size / 24;
+  return `<path d="M ${x+5*s} ${y+5*s} L ${x+19*s} ${y+19*s} M ${x+19*s} ${y+5*s} L ${x+5*s} ${y+19*s}" stroke="#${color}" stroke-width="${3*s}" stroke-linecap="round" fill="none"/>`;
+}
+function iconDot(x, y, size, color) {
+  const s = size / 24;
+  return `<circle cx="${x+12*s}" cy="${y+12*s}" r="${4*s}" fill="#${color}"/>`;
+}
+function drawMarkerIcon(mark, x, y, size, colors) {
+  if (mark === 'check') return iconCheck(x, y, size, colors.check || '2FA35C');
+  if (mark === 'x') return iconX(x, y, size, colors.x || 'E8382E');
+  return iconDot(x, y, size, colors.dot || colors.check || '888888');
+}
+
+// 체크/엑스 아이콘이 앞에 붙는 리스트 (여러 항목을 스캔하기 쉽게)
+function markerList(x, y, width, items, opts) {
+  const { fontSize = 30, lineHeight = 1.55, fill = '191919', weight = 500, maxCharsPerLine = 17, markColors = {} } = opts;
+  let cursorY = y;
+  let svg = '';
+  (items || []).forEach(item => {
+    const text = typeof item === 'string' ? item : (item.text || '');
+    const mark = typeof item === 'string' ? 'check' : (item.mark || 'check');
+    const lines = wrapText(text, maxCharsPerLine);
+    svg += drawMarkerIcon(mark, x, cursorY - fontSize * 0.78, fontSize * 0.9, markColors);
+    lines.forEach((line, i) => {
+      svg += drawText(line, x + fontSize * 1.25, cursorY, fontSize, weight, fill);
+      cursorY += fontSize * lineHeight;
+    });
+  });
+  return { svg, endY: cursorY };
+}
+
+// 큰 원 안에 숫자/퍼센트를 강조하는 "스탯 배지" — 보험 계정 특유의 시그니처 요소
+function statCircle(cx, cy, r, valueText, unitText, accentColor) {
+  const textColor = contrastTextColor(accentColor);
+  let svg = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="#${accentColor}"/>`;
+  const valueFontSize = r * 0.62;
+  const valueW = measureText(valueText, valueFontSize, 800, -2);
+  svg += drawText(valueText, cx - valueW / 2, cy + valueFontSize * 0.32, valueFontSize, 800, textColor, { letterSpacing: -2 });
+  if (unitText) {
+    const unitFontSize = r * 0.16;
+    const unitW = measureText(unitText, unitFontSize, 700);
+    svg += drawText(unitText, cx - unitW / 2, cy + valueFontSize * 0.32 + unitFontSize * 1.5, unitFontSize, 700, textColor, { fillOpacity: 0.85 });
+  }
+  return svg;
+}
+
+// 막대 길이로 두 값을 비교하는 그래프 (텍스트 나열보다 훨씬 직관적)
+function comparisonBar(x, y, width, label, valueText, ratio, barColor, labelColor, trackColor) {
+  const labelFontSize = 24, valueFontSize = 32, barH = 46;
+  let svg = drawText(label, x, y, labelFontSize, 600, labelColor);
+  const trackY = y + 16;
+  svg += `<rect x="${x}" y="${trackY}" width="${width}" height="${barH}" rx="${barH/2}" fill="#${trackColor}" fill-opacity="0.5"/>`;
+  const barW = Math.max(barH, width * Math.min(1, Math.max(0, ratio)));
+  svg += `<rect x="${x}" y="${trackY}" width="${barW}" height="${barH}" rx="${barH/2}" fill="#${barColor}"/>`;
+  const valueW = measureText(valueText, valueFontSize, 800);
+  const valueInsideBar = barW > valueW + 40;
+  const valueX = valueInsideBar ? x + barW - valueW - 22 : x + barW + 16;
+  const valueColor = valueInsideBar ? contrastTextColor(barColor) : labelColor;
+  svg += drawText(valueText, valueX, trackY + barH / 2 + valueFontSize * 0.34, valueFontSize, 800, valueColor);
+  return { svg, endY: trackY + barH };
 }
 
 /* ================= 템플릿 ================= */
@@ -348,12 +433,13 @@ function tpl_darkCover(d, accent, theme, channelName, opts = {}) {
       ${watermarkStamp(channelName, theme, 'dark')}
     </svg>`;
   }
-  return svgDoc({ defs: bg.defs + gradDefs, rect: bg.rect }, inner, watermarkStamp(channelName, theme, 'dark'));
+  return svgDoc({ defs: bg.defs + gradDefs, rect: bg.rect }, inner, watermarkStamp(channelName, theme, 'dark'), accent);
 }
 
-function tpl_darkText(d, accent, theme, channelName) {
-  const bg = bgLayer(theme, 'dark');
-  let inner = '';
+function tpl_darkText(d, accent, theme, channelName, opts = {}) {
+  const usePhoto = !!opts.transparentBg;
+  const bg = usePhoto ? { defs: '', rect: '' } : bgLayer(theme, 'dark');
+  let inner = usePhoto ? `<rect width="${CW}" height="${CH}" fill="#000000" fill-opacity="0.5"/>` : '';
   let y = 130;
   if (d.eyebrow) {
     const e = svgParagraph(70, y, CW - 140, d.eyebrow, { fontSize: 32, fill: accent, weight: 800, maxCharsPerLine: 18 });
@@ -365,41 +451,62 @@ function tpl_darkText(d, accent, theme, channelName) {
   }
   if (d.body) {
     const b = svgParagraph(70, y + 20, CW - 140, d.body, { fontSize: 33, fill: theme.mutedOnDark, weight: 500, accent, lineHeight: 1.65, maxCharsPerLine: 20 });
-    inner += b.svg;
+    inner += b.svg; y = b.endY;
   }
-  return svgDoc(bg, inner, watermarkStamp(channelName, theme, 'dark'));
+  if (Array.isArray(d.listItems) && d.listItems.length) {
+    const l = markerList(70, y + 30, CW - 140, d.listItems, { fontSize: 30, fill: theme.darkText, maxCharsPerLine: 17, markColors: { check: accent, x: theme.red } });
+    inner += l.svg;
+  }
+  if (usePhoto) {
+    return `<svg width="${CW}" height="${CH}" viewBox="0 0 ${CW} ${CH}" xmlns="http://www.w3.org/2000/svg">${inner}${watermarkStamp(channelName, theme, 'dark')}</svg>`;
+  }
+  return svgDoc(bg, inner, watermarkStamp(channelName, theme, 'dark'), accent);
 }
 
-function tpl_lightText(d, accent, theme, channelName) {
-  const bg = bgLayer(theme, 'light');
-  let inner = '';
+function tpl_lightText(d, accent, theme, channelName, opts = {}) {
+  const usePhoto = !!opts.transparentBg;
+  const bg = usePhoto ? { defs: '', rect: '' } : bgLayer(theme, 'light');
+  // 사진 위에 얹을 땐 밝은 배경 대신 어두운 오버레이 + 흰 글씨로 전환한다 (사진 위에 원래 색을 쓰면 안 보임)
+  const textColor = usePhoto ? 'FFFFFF' : theme.lightText;
+  const mutedColor = usePhoto ? 'E8E8E4' : theme.lightText;
+  let inner = usePhoto ? `<rect width="${CW}" height="${CH}" fill="#000000" fill-opacity="0.5"/>` : '';
   let y = 300;
   if (d.title) {
-    const t = titleWithHighlight(70, y, CW - 140, [{ text: d.title, tone: null }], { fontSize: 52, fill: theme.lightText, red: theme.red, maxCharsPerLine: 12 });
+    const t = titleWithHighlight(70, y, CW - 140, [{ text: d.title, tone: null }], { fontSize: 52, fill: textColor, red: theme.red, maxCharsPerLine: 12 });
     inner += t.svg; y = t.endY + 50;
   }
   if (d.body) {
-    const b = svgParagraph(70, y, CW - 140, d.body, { fontSize: 34, fill: theme.lightText, lineHeight: 1.7, maxCharsPerLine: 19, accent });
-    inner += b.svg;
+    const b = svgParagraph(70, y, CW - 140, d.body, { fontSize: 34, fill: mutedColor, lineHeight: 1.7, maxCharsPerLine: 19, accent });
+    inner += b.svg; y = b.endY;
   }
-  return svgDoc(bg, inner, watermarkStamp(channelName, theme, 'light'));
+  if (Array.isArray(d.listItems) && d.listItems.length) {
+    const l = markerList(70, y + 30, CW - 140, d.listItems, { fontSize: 30, fill: textColor, maxCharsPerLine: 17, markColors: { check: accent, x: theme.red } });
+    inner += l.svg;
+  }
+  if (usePhoto) {
+    return `<svg width="${CW}" height="${CH}" viewBox="0 0 ${CW} ${CH}" xmlns="http://www.w3.org/2000/svg">${inner}${watermarkStamp(channelName, theme, 'dark')}</svg>`;
+  }
+  return svgDoc(bg, inner, watermarkStamp(channelName, theme, 'light'), accent);
 }
 
-function tpl_caseFormula(d, accent, theme, channelName) {
-  const bg = bgLayer(theme, 'light');
-  let inner = '';
+function tpl_caseFormula(d, accent, theme, channelName, opts = {}) {
+  const usePhoto = !!opts.transparentBg;
+  const bg = usePhoto ? { defs: '', rect: '' } : bgLayer(theme, 'light');
+  const textColor = usePhoto ? 'FFFFFF' : theme.lightText;
+  const mutedColor = usePhoto ? 'E8E8E4' : theme.mutedOnLight;
+  let inner = usePhoto ? `<rect width="${CW}" height="${CH}" fill="#000000" fill-opacity="0.5"/>` : '';
   let y = 260;
   if (d.caseLabel) {
-    const cl = svgParagraph(70, y, CW - 140, d.caseLabel, { fontSize: 34, fill: theme.lightText, weight: 700, maxCharsPerLine: 20 });
+    const cl = svgParagraph(70, y, CW - 140, d.caseLabel, { fontSize: 34, fill: textColor, weight: 700, maxCharsPerLine: 20 });
     inner += cl.svg; y = cl.endY + 40;
   }
   if (d.description) {
-    const desc = svgParagraph(70, y, CW - 140, d.description, { fontSize: 30, fill: theme.mutedOnLight, lineHeight: 1.6, align: 'center', maxCharsPerLine: 20 });
+    const desc = svgParagraph(70, y, CW - 140, d.description, { fontSize: 30, fill: mutedColor, lineHeight: 1.6, align: 'center', maxCharsPerLine: 20 });
     inner += desc.svg; y = desc.endY + 40;
   }
   const rows = Array.isArray(d.rows) ? d.rows : [];
   rows.forEach(row => {
-    const r = svgParagraph(70, y, CW - 140, row, { fontSize: 30, fill: theme.lightText, lineHeight: 1.5, maxCharsPerLine: 22 });
+    const r = svgParagraph(70, y, CW - 140, row, { fontSize: 30, fill: textColor, lineHeight: 1.5, maxCharsPerLine: 22 });
     inner += r.svg; y = r.endY + 30;
   });
   if (d.totalLabel) {
@@ -408,12 +515,126 @@ function tpl_caseFormula(d, accent, theme, channelName) {
     const w = measureText(d.totalLabel, fontSize, 800);
     inner += drawText(d.totalLabel, CW / 2 - w / 2, y + 40, fontSize, 800, theme.red);
   }
-  return svgDoc(bg, inner, watermarkStamp(channelName, theme, 'light'));
+  if (usePhoto) {
+    return `<svg width="${CW}" height="${CH}" viewBox="0 0 ${CW} ${CH}" xmlns="http://www.w3.org/2000/svg">${inner}${watermarkStamp(channelName, theme, 'dark')}</svg>`;
+  }
+  return svgDoc(bg, inner, watermarkStamp(channelName, theme, 'light'), accent);
 }
 
-function tpl_ctaShare(d, accent, theme, channelName) {
+// 막대 길이로 두 값을 비교하는 카드 — 숫자만 나열하는 것보다 훨씬 눈에 잘 들어온다
+// "A vs B" 나란히 비교하는 두 박스 카드 — 보험 계정에서 정말 자주 쓰는 레이아웃
+// (구실손 vs 신실손, 우리 상품 vs 다른 상품처럼 항목별로 조목조목 비교할 때)
+function tpl_twoColumn(d, accent, theme, channelName) {
+  const bg = bgLayer(theme, 'light');
+  let inner = '';
+  let y = 130;
+  if (d.title) {
+    const t = titleWithHighlight(70, y, CW - 140, [{ text: d.title, tone: null }], { fontSize: 46, fill: theme.lightText, red: theme.red, maxCharsPerLine: 14 });
+    inner += t.svg; y = t.endY + 56;
+  }
+  const gap = 28;
+  const colW = (CW - 140 - gap) / 2;
+  const leftX = 70, rightX = 70 + colW + gap;
+  const boxTop = y;
+  const leftItems = Array.isArray(d.leftItems) ? d.leftItems : [];
+  const rightItems = Array.isArray(d.rightItems) ? d.rightItems : [];
+  const rowH = 76;
+  const headerH = 84;
+  const boxH = headerH + Math.max(leftItems.length, rightItems.length) * rowH + 36;
+
+  function drawColumn(x, label, items, headerBg, headerText) {
+    let s = `<rect x="${x}" y="${boxTop}" width="${colW}" height="${boxH}" rx="22" fill="#FFFFFF"/>`;
+    s += `<rect x="${x}" y="${boxTop}" width="${colW}" height="${boxH}" rx="22" fill="none" stroke="#000000" stroke-opacity="0.06" stroke-width="2"/>`;
+    s += `<rect x="${x}" y="${boxTop}" width="${colW}" height="${headerH}" rx="22" fill="#${headerBg}"/>`;
+    s += `<rect x="${x}" y="${boxTop + headerH - 22}" width="${colW}" height="22" fill="#${headerBg}"/>`; // 하단 라운드 가리기 방지
+    const labelFontSize = 30;
+    const labelW = measureText(label, labelFontSize, 800);
+    s += drawText(label, x + colW / 2 - labelW / 2, boxTop + headerH / 2 + labelFontSize * 0.35, labelFontSize, 800, headerText, { letterSpacing: -0.5 });
+    let iy = boxTop + headerH + 30;
+    items.forEach(item => {
+      const text = typeof item === 'string' ? item : (item.text || '');
+      const mark = typeof item === 'string' ? 'check' : (item.mark || 'check');
+      s += drawMarkerIcon(mark, x + 24, iy - 22, 26, { check: '2FA35C', x: theme.red });
+      const lines = wrapText(text, 11);
+      lines.forEach((line, li) => {
+        s += drawText(line, x + 60, iy + li * 34, 24, 600, theme.lightText);
+      });
+      iy += rowH;
+    });
+    return s;
+  }
+
+  inner += drawColumn(leftX, d.leftLabel || 'A', leftItems, d.leftColor || '9AA0A6', 'FFFFFF');
+  inner += drawColumn(rightX, d.rightLabel || 'B', rightItems, accent, contrastTextColor(accent));
+
+  // 가운데 VS 배지
+  const vsR = 38;
+  const vsCx = CW / 2, vsCy = boxTop + headerH;
+  inner += `<circle cx="${vsCx}" cy="${vsCy}" r="${vsR}" fill="#${theme.lightBg === 'FFFFFF' ? '191919' : theme.red}"/>`;
+  inner += `<circle cx="${vsCx}" cy="${vsCy}" r="${vsR}" fill="none" stroke="#${accent}" stroke-width="4"/>`;
+  const vsFontSize = 26;
+  const vsW = measureText('VS', vsFontSize, 800, 1);
+  inner += drawText('VS', vsCx - vsW / 2, vsCy + vsFontSize * 0.35, vsFontSize, 800, 'FFFFFF', { letterSpacing: 1 });
+
+  y = boxTop + boxH + 50;
+  if (d.note) {
+    const n = svgParagraph(70, y, CW - 140, d.note, { fontSize: 27, fill: theme.mutedOnLight, lineHeight: 1.6, align: 'center', maxCharsPerLine: 22 });
+    inner += n.svg;
+  }
+  return svgDoc(bg, inner, watermarkStamp(channelName, theme, 'light'), accent);
+}
+
+function tpl_compareBars(d, accent, theme, channelName) {
+  const bg = bgLayer(theme, 'light');
+  let inner = '';
+  let y = 220;
+  if (d.title) {
+    const t = titleWithHighlight(70, y, CW - 140, [{ text: d.title, tone: null }], { fontSize: 50, fill: theme.lightText, red: theme.red, maxCharsPerLine: 13 });
+    inner += t.svg; y = t.endY + 60;
+  }
+  const bars = Array.isArray(d.bars) ? d.bars.slice(0, 4) : [];
+  const maxVal = Math.max(1, ...bars.map(b => Number(b.value) || 0));
+  bars.forEach((b, i) => {
+    const ratio = (Number(b.value) || 0) / maxVal;
+    const barColor = i === bars.length - 1 && bars.length > 1 ? theme.red : accent;
+    const r = comparisonBar(70, y, CW - 140, b.label || '', b.valueText || String(b.value || ''), ratio, barColor, theme.lightText, theme.mutedOnLight);
+    inner += r.svg; y = r.endY + 50;
+  });
+  if (d.note) {
+    const n = svgParagraph(70, y + 10, CW - 140, d.note, { fontSize: 26, fill: theme.mutedOnLight, lineHeight: 1.6, maxCharsPerLine: 22 });
+    inner += n.svg;
+  }
+  return svgDoc(bg, inner, watermarkStamp(channelName, theme, 'light'), accent);
+}
+
+// 큰 원 안에 숫자를 강조하는 "스탯 배지" 카드 — 보험 계정 특유의 시그니처 카드
+function tpl_statBadge(d, accent, theme, channelName) {
   const bg = bgLayer(theme, 'dark');
   let inner = '';
+  let y = 130;
+  if (d.eyebrow) {
+    const e = svgParagraph(70, y, CW - 140, d.eyebrow, { fontSize: 30, fill: accent, weight: 800, maxCharsPerLine: 18 });
+    inner += e.svg; y = e.endY + 20;
+  }
+  if (d.title) {
+    const t = titleWithHighlight(70, y + 20, CW - 140, [{ text: d.title, tone: null }], { fontSize: 48, fill: theme.darkText, red: theme.red, maxCharsPerLine: 13 });
+    inner += t.svg; y = t.endY + 50;
+  }
+  const r = 210;
+  const cx = CW / 2, cy = y + r + 10;
+  inner += statCircle(cx, cy, r, d.value || '', d.unit || '', accent);
+  y = cy + r + 60;
+  if (d.body) {
+    const b = svgParagraph(70, y, CW - 140, d.body, { fontSize: 30, fill: theme.mutedOnDark, lineHeight: 1.6, align: 'center', maxCharsPerLine: 20 });
+    inner += b.svg;
+  }
+  return svgDoc(bg, inner, watermarkStamp(channelName, theme, 'dark'), accent);
+}
+
+function tpl_ctaShare(d, accent, theme, channelName, opts = {}) {
+  const usePhoto = !!opts.transparentBg;
+  const bg = usePhoto ? { defs: '', rect: '' } : bgLayer(theme, 'dark');
+  let inner = usePhoto ? `<rect width="${CW}" height="${CH}" fill="#000000" fill-opacity="0.55"/>` : '';
   let y = 420;
   if (d.title) {
     const t = titleWithHighlight(70, y, CW - 140, [{ text: d.title, tone: 'accent' }], { fontSize: 66, accent, fill: theme.darkText, red: theme.red, align: 'center', maxCharsPerLine: 9 });
@@ -424,7 +645,10 @@ function tpl_ctaShare(d, accent, theme, channelName) {
     const b = svgParagraph(70, y, CW - 140, d.body, { fontSize: 32, fill: theme.mutedOnDark, lineHeight: 1.7, align: 'center', maxCharsPerLine: 20 });
     inner += b.svg;
   }
-  return svgDoc(bg, inner, watermarkStamp(channelName, theme, 'dark'));
+  if (usePhoto) {
+    return `<svg width="${CW}" height="${CH}" viewBox="0 0 ${CW} ${CH}" xmlns="http://www.w3.org/2000/svg">${inner}${watermarkStamp(channelName, theme, 'dark')}</svg>`;
+  }
+  return svgDoc(bg, inner, watermarkStamp(channelName, theme, 'dark'), accent);
 }
 
 function tpl_outro(d, accent, theme, channelName) {
@@ -454,9 +678,15 @@ const RENDERERS = {
   darkText: tpl_darkText,
   lightText: tpl_lightText,
   caseFormula: tpl_caseFormula,
+  compareBars: tpl_compareBars,
+  statBadge: tpl_statBadge,
+  twoColumn: tpl_twoColumn,
   ctaShare: tpl_ctaShare,
   outro: tpl_outro
 };
+// 사진 배경을 지원하는 카드 타입들 (photoQuery가 있으면 사진 위에 텍스트를 얹는다)
+// lightText/caseFormula도 사진을 쓸 수 있게 확장 — 사진이 있으면 밝은 배경 대신 어두운 오버레이+흰 글씨로 자동 전환한다.
+const PHOTO_CAPABLE_TYPES = new Set(['darkCover', 'darkText', 'ctaShare', 'lightText', 'caseFormula']);
 
 async function fetchUnsplashPhoto(query, accessKey) {
   if (!accessKey || !query) return null;
@@ -478,20 +708,18 @@ async function renderCard(item, accent, theme, channelName, coverPhotoBuf) {
   const renderer = RENDERERS[item.type];
   if (!renderer) return null;
 
-  if (item.type === 'darkCover') {
-    let photoBuf = coverPhotoBuf || null; // 사용자가 직접 올린 표지 사진이 우선
+  if (PHOTO_CAPABLE_TYPES.has(item.type)) {
+    let photoBuf = (item.type === 'darkCover' ? coverPhotoBuf : null) || null; // 사용자가 직접 올린 표지 사진은 표지에만 우선 적용
     if (!photoBuf && item.photoQuery) {
       const accessKey = process.env.UNSPLASH_ACCESS_KEY;
       photoBuf = await fetchUnsplashPhoto(item.photoQuery, accessKey);
     }
     if (photoBuf) {
-      const overlaySvg = tpl_darkCover(item, accent, theme, channelName, { transparentBg: true });
+      const overlaySvg = renderer(item, accent, theme, channelName, { transparentBg: true });
       const bg = await sharp(photoBuf).resize(CW, CH, { fit: 'cover' }).toBuffer();
       const overlayPng = await sharp(Buffer.from(overlaySvg)).png().toBuffer();
       return await sharp(bg).composite([{ input: overlayPng }]).png().toBuffer();
     }
-    const svg = renderer(item, accent, theme, channelName);
-    return await sharp(Buffer.from(svg)).png().toBuffer();
   }
 
   const svg = renderer(item, accent, theme, channelName);

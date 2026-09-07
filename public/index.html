@@ -1690,6 +1690,15 @@
 
   <div id="searchTab" style="display:none;">
 
+        <div class="panel" style="margin-bottom:16px;">
+          <p class="panel-title" style="font-size:14px;">종수술 분류 검색 <span style="color:var(--paper-mute); font-weight:400; font-size:12px;">— 수술명을 입력하면 몇 종 수술인지 바로 보여줘요 (참고용 — 실제 청구 전 반드시 가입 약관으로 재확인하세요)</span></p>
+          <div style="display:flex; gap:8px;">
+            <input type="text" id="surgerySearchInput" placeholder="예: 피부이식수술" style="flex:1; padding:10px 14px; border:1px solid var(--line); border-radius:var(--r-control); font-size:14px;">
+            <button class="copy-btn" id="surgerySearchBtn" style="padding:0 20px;">검색</button>
+          </div>
+          <div id="surgerySearchResult" style="margin-top:12px;"></div>
+        </div>
+
         <div class="search-input-wrap">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style="flex-shrink:0;"><circle cx="11" cy="11" r="7" stroke="#00A870" stroke-width="2"/><path d="M21 21L16.65 16.65" stroke="#00A870" stroke-width="2" stroke-linecap="round"/></svg>
           <input type="text" id="searchQueryInput" placeholder="예: 흥국화재 매니저 번호가 뭐야?">
@@ -1794,6 +1803,47 @@
       <button class="copy-btn" id="adminVisitsRefreshBtn">새로고침</button>
       <p style="font-size:11.5px; color:var(--paper-mute); margin:8px 0 0;">이름을 클릭하면 상세 사용 내역 · 강퇴 · 삭제 메뉴가 열려요.</p>
       <div id="adminVisitsList" style="margin-top:10px;"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="result-head" style="cursor:pointer;" id="surgeryDbToggle">
+      <p class="panel-title" style="border:none; padding:0; margin:0;">종수술 분류 자료 관리 <span style="color:var(--paper-mute); font-weight:400; font-size:12px;">— 관리자만 추가/삭제 가능 (잘못된 값이 섞이면 실제 청구에 영향을 줄 수 있어요)</span></p>
+      <span class="copy-btn" id="surgeryDbToggleBtn">펼치기</span>
+    </div>
+    <div id="surgeryDbBody" style="display:none; margin-top:14px;">
+      <p style="font-size:12.5px; color:var(--brass); font-weight:600; margin:0 0 8px;">방법 1. 약관 PDF·표 캡처 이미지로 자동 등록 (추천)</p>
+      <p style="font-size:12px; color:var(--paper-mute); line-height:1.7; margin:0 0 10px;">
+        보험사 약관에 있는 "수술분류표" 페이지를 PDF 또는 캡처 이미지로 올리면, AI가 표를 읽어서 자동으로 정리해요. 등록 전에 미리보기로 확인하고 최종 확정할 수 있어요.
+      </p>
+      <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+        <label for="surgeryFileInput" class="copy-btn" style="cursor:pointer; display:inline-block;">+ PDF / 이미지 첨부 (여러 장 가능)</label>
+        <input type="file" id="surgeryFileInput" accept=".pdf,image/*" multiple style="display:none;">
+        <input type="text" id="surgerySourceInput" placeholder="출처 (예: DB손해보험 약관, 2026.01)" style="flex:1; min-width:220px; padding:8px 12px; border:1px solid var(--line); border-radius:var(--r-control); font-size:13px;">
+        <button class="copy-btn" id="surgeryFileExtractBtn">표 읽기</button>
+      </div>
+      <p id="surgeryFileStatus" style="font-size:11.5px; color:var(--paper-mute); margin-top:8px;"></p>
+      <div id="surgeryExtractPreview" style="margin-top:10px;"></div>
+
+      <div style="margin-top:22px; padding-top:18px; border-top:1px solid var(--line);">
+        <p style="font-size:12.5px; color:var(--brass); font-weight:600; margin:0 0 8px;">방법 2. 직접 입력</p>
+        <p style="font-size:12px; color:var(--paper-mute); line-height:1.7; margin:0 0 10px;">
+          한 줄에 하나씩, <b>수술명 / 종 구분 / 계열(선택) / 출처(선택)</b> 순서로 쉼표(,)로 구분해서 붙여넣으세요.<br>
+          예: <code>피부이식수술(25㎠ 미만은 제외), 3종, 피부·유방의 수술, 금융감독원 보도자료(2024.12.16)</code>
+        </p>
+        <textarea id="surgeryBulkInput" rows="6" placeholder="피부이식수술(25㎠ 미만은 제외), 3종, 피부·유방의 수술, 금융감독원 보도자료(2024.12.16)&#10;골 이식수술, 2종, 근골의 수술, 금융감독원 보도자료(2024.12.16)"></textarea>
+        <button class="copy-btn" id="surgeryBulkAddBtn" style="margin-top:8px;">일괄 추가</button>
+        <p id="surgeryBulkStatus" style="font-size:11.5px; color:var(--paper-mute); margin-top:8px;"></p>
+      </div>
+
+      <div class="row" style="margin-top:22px; padding-top:18px; border-top:1px solid var(--line);">
+        <div class="field">
+          <label>등록된 자료 검색/확인</label>
+          <input type="text" id="surgeryDbSearchInput" placeholder="비워두고 조회하면 최근 등록순으로 보여줘요">
+        </div>
+      </div>
+      <button class="copy-btn" id="surgeryDbSearchBtn">조회</button>
+      <div id="surgeryDbList" style="margin-top:10px;"></div>
     </div>
   </div>
 
@@ -2832,6 +2882,198 @@ async function loadAdminVisits() {
 }
 document.getElementById('adminVisitsRefreshBtn').addEventListener('click', loadAdminVisits);
 
+/* ===================== 종수술 분류 자료 관리 (관리자 전용) ===================== */
+document.getElementById('surgeryDbToggle').addEventListener('click', () => {
+  const body = document.getElementById('surgeryDbBody');
+  const btn = document.getElementById('surgeryDbToggleBtn');
+  const show = body.style.display === 'none';
+  body.style.display = show ? 'block' : 'none';
+  btn.textContent = show ? '접기' : '펼치기';
+});
+
+// 약관 PDF/캡처 이미지 안의 수술분류표를 AI가 읽어서 구조화된 데이터로 뽑아낸다
+async function extractSurgeryTableFromImages(imagesBase64List) {
+  const system = `당신은 보험 약관 안의 "수술분류표"(별표)를 읽어서 구조화된 데이터로 정리하는 전문가입니다. 이미지(들) 안에서 "1종", "2종", "3종" 등으로 표시된 수술 분류표를 찾아, 각 수술명과 그 종 구분을 정확히 그대로 옮기세요.
+
+아래 JSON 스키마로만 출력하세요:
+{
+  "system": "이 표가 몇 종까지 있는 표인지 (예: 1~5종, 1~8종)",
+  "items": [
+    {"surgery_name": "표에 적힌 수술명 그대로", "class_no": "종 구분 (예: 1종, 2종, 1~3종)", "category": "그 수술이 속한 대분류 (예: 피부·유방의 수술, 근골의 수술)"}
+  ]
+}
+
+[규칙]
+- 표에 있는 수술명과 종 구분을 정확히 그대로 옮긴다. 지어내거나 추측하지 않는다.
+- 표 안에 없는 항목은 절대 추가하지 않는다.
+- 글자가 흐릿해서 확실하지 않은 항목은 건너뛴다 (억지로 채우지 않는다).
+- 다른 설명, 코드블록 기호 없이 JSON만 출력한다.`;
+
+  const content = imagesBase64List.map(b64 => ({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: b64 } }));
+  content.push({ type: 'text', text: '위 이미지(들)에서 수술분류표를 찾아 JSON 스키마로 정리해줘.' });
+
+  const raw = await callClaude(system, [{ role: 'user', content }], 2, null, 6000);
+  const cleaned = raw.replace(/```json|```/g, '').trim();
+  return JSON.parse(cleaned);
+}
+
+document.getElementById('surgeryFileExtractBtn').addEventListener('click', async () => {
+  const fileInput = document.getElementById('surgeryFileInput');
+  const statusEl = document.getElementById('surgeryFileStatus');
+  const previewEl = document.getElementById('surgeryExtractPreview');
+  const files = Array.from(fileInput.files || []);
+  if (!files.length) { alert('PDF나 이미지를 먼저 첨부해주세요.'); return; }
+
+  const btn = document.getElementById('surgeryFileExtractBtn');
+  btn.disabled = true;
+  statusEl.textContent = '이미지 불러오는 중...';
+  previewEl.innerHTML = '';
+  try {
+    let images = [];
+    for (const file of files) {
+      if (/^image\//.test(file.type)) {
+        const dataUrl = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+        images.push(await resizeImageToBase64(dataUrl.split(',')[1], file.type, 2200, 0.95));
+      } else if (file.name.toLowerCase().endsWith('.pdf')) {
+        images = images.concat(await pdfToImageBase64List(file));
+      }
+    }
+    images = images.slice(0, 14);
+    if (!images.length) throw new Error('처리할 수 있는 파일이 없어요.');
+
+    statusEl.textContent = '표 읽는 중... (시간이 좀 걸려요)';
+    const parsed = await extractSurgeryTableFromImages(images);
+    const sourceInput = document.getElementById('surgerySourceInput').value.trim();
+    const items = (parsed.items || []).map(it => ({
+      surgery_name: it.surgery_name || '',
+      class_no: it.class_no || '',
+      category: it.category || '',
+      system: parsed.system || '',
+      source: sourceInput
+    })).filter(it => it.surgery_name && it.class_no);
+
+    if (!items.length) {
+      statusEl.textContent = '표를 찾지 못했어요. 수술분류표 페이지가 잘 보이는지 확인해주세요.';
+      btn.disabled = false;
+      return;
+    }
+
+    window.__surgeryExtractItems = items;
+    statusEl.textContent = `${items.length}건 읽었어요. 아래에서 확인하고 "이대로 등록"을 눌러주세요.`;
+
+    function renderSurgeryExtractPreview() {
+      const items2 = window.__surgeryExtractItems;
+      previewEl.innerHTML = `
+        <div style="max-height:320px; overflow-y:auto; border:1px solid var(--line); border-radius:8px;">
+          ${items2.map((it, i) => `
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 12px; border-bottom:1px solid var(--line); font-size:13px;">
+              <span>${escapeHtml(it.surgery_name)} <span style="color:var(--paper-mute); font-size:11.5px;">(${escapeHtml(it.category)})</span></span>
+              <span style="display:flex; align-items:center; gap:8px;">
+                <b style="color:var(--brass);">${escapeHtml(it.class_no)}</b>
+                <button class="mini-btn" data-remove="${i}">제외</button>
+              </span>
+            </div>
+          `).join('')}
+        </div>
+        <button class="copy-btn" id="surgeryExtractConfirmBtn" style="margin-top:10px;">이대로 등록 (${items2.length}건)</button>
+      `;
+      wireExtractHandlers();
+    }
+    function wireExtractHandlers() {
+      previewEl.querySelectorAll('[data-remove]').forEach(rmBtn => {
+        rmBtn.addEventListener('click', () => {
+          window.__surgeryExtractItems.splice(Number(rmBtn.dataset.remove), 1);
+          renderSurgeryExtractPreview();
+        });
+      });
+      const confirmBtn = document.getElementById('surgeryExtractConfirmBtn');
+      if (confirmBtn) {
+        confirmBtn.addEventListener('click', async () => {
+          confirmBtn.disabled = true;
+          confirmBtn.textContent = '등록 중...';
+          try {
+            const result = await apiPostAdmin('/api/surgery-search', { items: window.__surgeryExtractItems });
+            statusEl.textContent = `${result.count}건 등록 완료!`;
+            previewEl.innerHTML = '';
+            fileInput.value = '';
+            loadSurgeryDbList();
+          } catch (e) {
+            alert('등록 실패: ' + e.message);
+            confirmBtn.disabled = false;
+            confirmBtn.textContent = `이대로 등록 (${window.__surgeryExtractItems.length}건)`;
+          }
+        });
+      }
+    }
+    renderSurgeryExtractPreview();
+  } catch (e) {
+    statusEl.textContent = '';
+    alert('처리 실패: ' + e.message);
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+document.getElementById('surgeryBulkAddBtn').addEventListener('click', async () => {
+  const raw = document.getElementById('surgeryBulkInput').value.trim();
+  const statusEl = document.getElementById('surgeryBulkStatus');
+  if (!raw) { alert('추가할 내용을 입력해주세요.'); return; }
+  const items = raw.split('\n').map(line => line.trim()).filter(Boolean).map(line => {
+    const parts = line.split(',').map(p => p.trim());
+    return { surgery_name: parts[0] || '', class_no: parts[1] || '', category: parts[2] || '', system: parts[2] || '', source: parts[3] || '' };
+  }).filter(it => it.surgery_name && it.class_no);
+  if (!items.length) { alert('형식을 확인해주세요 (수술명, 종 구분 은 필수).'); return; }
+  statusEl.textContent = '추가 중...';
+  try {
+    const result = await apiPostAdmin('/api/surgery-search', { items });
+    statusEl.textContent = `${result.count}건 추가했어요.`;
+    document.getElementById('surgeryBulkInput').value = '';
+    loadSurgeryDbList();
+  } catch (e) {
+    statusEl.textContent = '';
+    alert('추가 실패: ' + e.message);
+  }
+});
+async function loadSurgeryDbList() {
+  const q = document.getElementById('surgeryDbSearchInput').value.trim();
+  const el = document.getElementById('surgeryDbList');
+  el.innerHTML = '불러오는 중...';
+  try {
+    const path = q ? '/api/surgery-search?q=' + encodeURIComponent(q) : '/api/surgery-search';
+    const { items } = await apiGet(path);
+    if (!items || !items.length) { el.innerHTML = '<p style="font-size:12px; color:var(--paper-mute);">등록된 자료가 없어요.</p>'; return; }
+    el.innerHTML = items.map(it => `
+      <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-top:1px solid var(--line); font-size:13px;">
+        <span>${escapeHtml(it.surgery_name)} <span style="color:var(--paper-mute); font-size:11.5px;">(${escapeHtml(it.category||'')})</span></span>
+        <span style="display:flex; align-items:center; gap:8px;">
+          <b style="color:var(--brass);">${escapeHtml(it.class_no)}</b>
+          <button class="mini-btn" data-id="${it.id}">삭제</button>
+        </span>
+      </div>
+    `).join('');
+    el.querySelectorAll('[data-id]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (!confirm('이 항목을 삭제할까요?')) return;
+        try {
+          await apiDeleteAdmin('/api/surgery-search', { id: Number(btn.dataset.id) });
+          loadSurgeryDbList();
+        } catch (e) {
+          alert('삭제 실패: ' + e.message);
+        }
+      });
+    });
+  } catch (e) {
+    el.innerHTML = '<p style="font-size:12px; color:var(--paper-mute);">불러오지 못했어요: ' + escapeHtml(e.message) + '</p>';
+  }
+}
+document.getElementById('surgeryDbSearchBtn').addEventListener('click', loadSurgeryDbList);
+
+
 async function renderHistory() {
   const all = await fetchAllHistory();
   const list = filterMyHistory(all, ['long', 'short']);
@@ -3096,31 +3338,49 @@ document.getElementById('pptHistoryToggle').addEventListener('click', () => {
 /* ===================== 인스타 카드뉴스 생성 ===================== */
 let cardHistoryLoaded = false;
 
-const CARD_TEMPLATE_GUIDE = `사용 가능한 카드 타입은 아래 6개뿐이다. 반드시 이 중에서만 골라서 쓰고, 각 타입의 필드 이름을 정확히 지켜야 한다 (필드명 임의 변경 금지). 카드 하나 = 인스타그램 카드뉴스 1장(4:5 비율).
+const CARD_TEMPLATE_GUIDE = `사용 가능한 카드 타입은 아래 9개다. 반드시 이 중에서만 골라서 쓰고, 각 타입의 필드 이름을 정확히 지켜야 한다 (필드명 임의 변경 금지). 카드 하나 = 인스타그램 카드뉴스 1장(4:5 비율).
 
 1. "darkCover" — 표지(첫 장). 어두운 배경 + 브랜드 배지 + 큰 제목. { type, badge, titleRuns:[{text, tone}], subtitle, photoQuery } (tone: "accent"|null. titleRuns는 2~3개 조각으로 나눠서 강조하고 싶은 부분만 tone:"accent". photoQuery는 아래 설명 참고)
-2. "darkText" — 어두운 배경 설명 카드. { type, eyebrow, title, body } (body 안에서 강조하고 싶은 구간은 **이렇게** 감싼다)
-3. "lightText" — 밝은(크림색) 배경 설명 카드. { type, title, body }
-4. "caseFormula" — 밝은 배경 사례 비교 카드. { type, caseLabel, description, rows:["A상품 → 조건 → 계산식", "B상품 → 조건 → 계산식"], totalLabel:"최종 차액 문구" }
-5. "ctaShare" — 어두운 배경 참여 유도 카드(댓글/DM/공유 등). { type, title, body }
-6. "outro" — 마지막 고정 카드. { type } 만 넣으면 된다 (브랜드/심의문구는 서버가 자동으로 채운다 — title/body 등 다른 필드 넣지 않는다)`;
+2. "darkText" — 어두운 배경 설명 카드. { type, eyebrow, title, body, listItems, photoQuery } (body 안에서 강조하고 싶은 구간은 **이렇게** 감싼다. listItems는 체크리스트가 필요할 때만 — 배열, 각 항목은 문자열이거나 {text, mark:"check"|"x"})
+3. "lightText" — 밝은(크림색) 배경 설명 카드. { type, title, body, listItems, photoQuery } (필드는 darkText와 동일하게 쓸 수 있다)
+4. "caseFormula" — 밝은 배경 사례 비교 카드(계산식 나열). { type, caseLabel, description, rows:["A상품 → 조건 → 계산식", "B상품 → 조건 → 계산식"], totalLabel:"최종 차액 문구", photoQuery }
+5. "twoColumn" — "A vs B" 나란히 비교하는 두 박스. 구실손/신실손, 우리 상품/다른 상품처럼 항목별로 조목조목 비교할 때 가장 효과적이다. { type, title, leftLabel, leftItems:[{text,mark:"check"|"x"} 또는 문자열], rightLabel, rightItems, note }
+6. "statBadge" — 큰 원 안에 숫자 하나를 강조하는 카드. "43.1%가 용종 발견" 처럼 임팩트 있는 통계 하나를 강조할 때 캡션형 lightText/darkText보다 훨씬 효과적이다. { type, eyebrow, title, value:"43.1%", unit:"용종 발견", body }
+7. "compareBars" — 막대그래프로 두 값을 비교. 금액·수치 차이를 시각적으로 보여줄 때. { type, title, bars:[{label, value(숫자, 막대길이 비율용), valueText:"900만원"}], note } (bars는 최대 4개, 마지막 막대가 자동으로 강조색으로 표시된다)
+8. "ctaShare" — 어두운 배경 참여 유도 카드(댓글/DM/공유 등). { type, title, body, photoQuery }
+9. "outro" — 마지막 고정 카드. { type } 만 넣으면 된다 (브랜드/심의문구는 서버가 자동으로 채운다 — title/body 등 다른 필드 넣지 않는다)
 
-// 레퍼런스 이미지를 보고 색감·분위기·톤만 텍스트로 뽑아낸다 (사진 자체는 재사용하지 않음 — 저작권 안전)
+[어떤 타입을 언제 쓸지]
+- 두 가지를 나란히 비교(A vs B, 구buy vs 신, 이 조건 있음 vs 없음)해야 하면 → twoColumn을 최우선으로 고려한다. caseFormula의 텍스트 나열보다 훨씬 스캔하기 쉽다.
+- "OO%가 △△했다" 같은 단일 통계 하나를 강조하고 싶으면 → statBadge를 쓴다. 그냥 lightText/darkText에 숫자를 텍스트로 넣지 않는다.
+- 두 금액/수치의 차이(예: A상품 5년 수령액 vs B상품 5년 수령액)를 보여줄 땐 → compareBars를 쓴다.
+- 위 세 가지(twoColumn/statBadge/compareBars)에 해당하지 않는 일반 설명·도입·전환 문구만 darkText/lightText를 쓴다.
+- 카드뉴스 전체에서 twoColumn·statBadge·compareBars 같은 "시각적" 카드가 최소 2~3장은 들어가야 한다 — 텍스트만 있는 카드(darkText/lightText)로만 전체를 채우면 안 된다.`;
+
+// 레퍼런스 이미지를 보고 "색감/분위기"뿐 아니라 실제 레이아웃 구조(사진 위치, 큰 숫자 강조 여부, 비교 박스 형태 등)까지 분석해서,
+// 카드뉴스 기획 단계에서 그 구조를 실제로 따라 그릴 수 있게 한다 (색만 흉내내던 이전 방식보다 훨씬 원본에 가깝게 나온다).
 async function analyzeReferenceImage(base64Data, mediaType) {
-  const system = `당신은 인스타그램 카드뉴스 디자이너입니다. 사용자가 올린 참고 이미지를 보고, 그 이미지의 "느낌"을 다른 카드뉴스 제작에 참고할 수 있도록 텍스트로만 설명합니다. 이미지 속 인물·상표·텍스트를 그대로 옮기거나 묘사하지 말고, 오직 색감·분위기·톤·무드 관점에서만 설명하세요.
+  const system = `당신은 인스타그램 카드뉴스 디자이너입니다. 사용자가 올린 참고 이미지(주로 카드뉴스 썸네일)를 보고, 그 디자인 "구조"를 다른 카드뉴스 제작에 그대로 활용할 수 있도록 분석합니다. 이미지 속 문구를 그대로 베끼거나, 인물·상표를 묘사하지 말고, 오직 레이아웃 구조·색감·분위기 관점에서만 분석하세요.
 
 다음 형식의 JSON으로만 답하세요 (다른 텍스트 금지):
-{"moodKeywords": "차분한/고급스러운/따뜻한 등 3~5개 형용사를 쉼표로", "colorNote": "이미지에서 느껴지는 주요 색감을 말로 설명 (예: 딥네이비와 골드 포인트)", "suggestedAccentHex": "위 색감과 어울리는 강조색 하나를 6자리 hex 코드로 (# 제외)"}`;
+{
+  "moodKeywords": "차분한/고급스러운/따뜻한 등 3~5개 형용사를 쉼표로",
+  "colorNote": "이미지에서 느껴지는 주요 색감을 말로 설명 (예: 딥네이비와 골드 포인트)",
+  "suggestedAccentHex": "위 색감과 어울리는 강조색 하나를 6자리 hex 코드로 (# 제외)",
+  "usesPhoto": true 또는 false (배경에 실제 사진이 깔려있는지),
+  "layoutStructure": "이 이미지의 레이아웃 구조를 한두 문장으로 — 예: '어두운 사진 배경 위에 왼쪽 정렬로 큰 제목, 하단에 작은 브랜드 배지', '흰 배경에 큰 숫자 원형 강조 + 하단 설명 문구', '두 박스를 나란히 놓고 VS로 비교'",
+  "recommendedCardType": "이 구조와 가장 비슷한 카드 타입 하나 — darkCover, darkText, lightText, caseFormula, twoColumn, statBadge, compareBars, ctaShare 중 선택"
+}`;
 
   const messages = [{
     role: 'user',
     content: [
       { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64Data } },
-      { type: 'text', text: '이 이미지의 분위기를 위 형식의 JSON으로 알려주세요.' }
+      { type: 'text', text: '이 이미지의 디자인 구조를 위 형식의 JSON으로 분석해주세요.' }
     ]
   }];
 
-  const raw = await callClaude(system, messages, 1, null, 500);
+  const raw = await callClaude(system, messages, 1, null, 700);
   const cleaned = raw.replace(/```json|```/g, '').trim();
   return JSON.parse(cleaned);
 }
@@ -3132,22 +3392,22 @@ ${CARD_TEMPLATE_GUIDE}
 
 [구성 원칙]
 - 첫 장은 반드시 darkCover, 마지막 장은 반드시 outro로 끝낸다.
-- 어두운 카드(darkCover, darkText, ctaShare)와 밝은 카드(lightText, caseFormula)를 반드시 번갈아 배치한다 — 어두운 카드가 3장 연속으로 나오면 안 된다. 전체 카드의 절반 이상은 밝은 카드(lightText/caseFormula)로 구성해서, 카드뉴스 전체가 검은색 일색으로 보이지 않게 한다.
-- 요청에 "설계안/실제 숫자 자료"가 주어지면, 그 숫자를 절대 지어내지 않고 그대로 caseFormula의 rows에 정확히 반영한다.
+- 어두운 카드(darkCover, darkText, ctaShare)와 밝은 카드(lightText, caseFormula, twoColumn, compareBars)를 반드시 번갈아 배치한다 — 어두운 카드가 3장 연속으로 나오면 안 된다. 전체 카드의 절반 이상은 밝은 카드로 구성해서, 카드뉴스 전체가 검은색 일색으로 보이지 않게 한다.
+- 요청에 "설계안/실제 숫자 자료"가 주어지면, 그 숫자를 절대 지어내지 않고 그대로 caseFormula 또는 compareBars에 정확히 반영한다.
 - 요청에 "약관 발췌"가 주어지면 그 문구를 존중해서 활용하고, 안 주어졌으면 일반적으로 알려진 수준에서 자연스럽게 직접 풀어써도 된다(과장·확정적 문구 금지).
 - 한 카드에 텍스트를 너무 많이 몰아넣지 않는다 — 카드 하나당 메시지 하나만.
 - 총 ${cardCount}장 내외(outro 포함)로 구성하되, 절대 10장을 넘기지 않는다. 내용이 많아도 10장 안에 가독성 좋게 압축한다.
 - outro 카드는 { "type": "outro" } 형태로만 넣는다.
-${useAutoPhoto ? '- darkCover 카드에는 반드시 photoQuery 필드를 넣는다. 배경으로 쓸 실제 사진을 검색할 영어 키워드 2~3단어로 (예: "elderly care hospital", "family insurance planning", "nursing home corridor"). 사람 얼굴이 크게 나오는 검색어보다는 분위기/장소 중심 키워드가 좋다.' : '- photoQuery 필드는 넣지 않는다.'}
+${useAutoPhoto ? '- darkCover 카드에는 반드시 photoQuery 필드를 넣는다. 그리고 darkText/lightText/ctaShare 카드 중 최소 1~2장에도 photoQuery를 넣어서, 표지 말고도 사진이 쓰인 카드가 있게 한다. 배경으로 쓸 실제 사진을 검색할 영어 키워드 2~3단어로 (예: "elderly care hospital", "family insurance planning", "nursing home corridor", "doctor consultation room"). 사람 얼굴이 크게 나오는 검색어보다는 분위기/장소 중심 키워드가 좋다.' : '- photoQuery 필드는 넣지 않는다.'}
 - 결과는 오직 JSON 배열만 출력한다. 다른 설명, 마크다운, 코드블록 기호는 절대 붙이지 않는다.`;
 
   const userParts = [`[요청 내용]\n${request}`];
   if (designData) userParts.push(`[설계안 / 실제 숫자 자료]\n${designData}`);
   if (clauseText) userParts.push(`[약관 발췌 — 이 문구를 활용]\n${clauseText}`);
-  if (styleNote) userParts.push(`[참고 이미지 분위기 — 카피의 톤·어휘 선택에 은근히 반영, 사실관계는 그대로]\n${styleNote}`);
+  if (styleNote) userParts.push(`[참고 이미지 분석 — 특히 layoutStructure/recommendedCardType은 실제로 그 구조를 따라 카드를 구성하는 데 적극 반영하세요]\n${styleNote}`);
   const userPrompt = userParts.join('\n\n');
 
-  const raw = await callClaude(system, [{ role: 'user', content: userPrompt }], 2, null, 3500);
+  const raw = await callClaude(system, [{ role: 'user', content: userPrompt }], 2, null, 4200);
   const cleaned = raw.replace(/```json|```/g, '').trim();
   const plan = JSON.parse(cleaned);
   if (!Array.isArray(plan) || !plan.length) throw new Error('카드 구성을 만들지 못했어요.');
@@ -4623,11 +4883,18 @@ document.getElementById('cardRefImageInput').addEventListener('change', async (e
   // 표지 배경으로 바로 쓸 수 있게, 적당한 해상도로 리사이즈해서 저장해둔다
   window.__cardRefImageBase64 = await resizeImageToBase64(base64Data, mediaType, 1200, 0.9);
 
-  statusEl.textContent = '이미지 분위기 분석 중...';
+  statusEl.textContent = '이미지 구조·분위기 분석 중...';
   try {
     const analysis = await analyzeReferenceImage(base64Data, mediaType);
-    window.__cardRefStyleNote = `분위기: ${analysis.moodKeywords || ''} / 색감: ${analysis.colorNote || ''}`;
-    statusEl.textContent = `분석 완료 — ${analysis.moodKeywords || ''}`;
+    const noteParts = [
+      `분위기: ${analysis.moodKeywords || ''}`,
+      `색감: ${analysis.colorNote || ''}`,
+      `사진 배경 사용 여부: ${analysis.usesPhoto ? '사용함' : '사용 안 함'}`,
+      analysis.layoutStructure ? `레이아웃 구조: ${analysis.layoutStructure}` : '',
+      analysis.recommendedCardType ? `가장 가까운 카드 타입: ${analysis.recommendedCardType}` : ''
+    ].filter(Boolean);
+    window.__cardRefStyleNote = noteParts.join(' / ');
+    statusEl.textContent = `분석 완료 — ${analysis.layoutStructure || analysis.moodKeywords || ''}`;
 
     if (analysis.suggestedAccentHex && /^[0-9A-Fa-f]{6}$/.test(analysis.suggestedAccentHex)) {
       const select = document.getElementById('cardAccentSelect');
@@ -4642,7 +4909,7 @@ document.getElementById('cardRefImageInput').addEventListener('change', async (e
     }
   } catch (err) {
     console.error('레퍼런스 이미지 분석 실패:', err);
-    statusEl.textContent = '분위기 분석에 실패했어요 (이미지 없이 계속 진행돼요).';
+    statusEl.textContent = '분석에 실패했어요 (이미지 없이 계속 진행돼요).';
     window.__cardRefStyleNote = '';
   }
 });
@@ -4959,10 +5226,15 @@ function baseSystem(citeOn) {
 - 전문 용어는 쉬운 비유로 풀어서 설명한다.
 - 실제 사람이 카메라 앞에서 말하듯 자연스러운 구어체로 작성한다.
 - 후킹(강한 도입)과 기승전결이 명확한 구조로 작성한다.
+
+[핵심 주제 고정 — 중요]
+사용자가 이번 영상용으로 직접 올린 [이번 영상의 핵심 출처자료]가 있다면, 그 자료가 다루는 구체적인 주제(제도명·상품명 등)에서 벗어나면 안 된다. [내 라이브러리에 저장된 관련 자료]나 [내 출처자료 8천페이지 안에서 찾은 관련 내용]은 넓은 카테고리(예: "실손보험")가 겹친다는 이유만으로 실제로는 다른 세부 주제(예: 세대 전환, 다른 특약)를 끌어와서 섞으면 안 된다. 그 자료들은 어디까지나 [이번 영상의 핵심 출처자료]와 같은 세부 주제를 보강하는 선에서만 쓰고, 주제가 다르면 참고하지 않는다.
+[이번 영상의 핵심 출처자료]가 분량이 짧더라도, 그 안의 핵심 개념·제도·조건을 구체적으로 풀어서 설명하고 일반적으로 널리 알려진 보험 상식 수준에서 자연스럽게 살을 붙여서 채운다 (단, 자료에 없는 구체적인 금액·비율·기관명 등은 지어내지 않는다 — 개념 설명과 일반적 맥락 설명은 보강하되, 숫자·사실은 자료에 있는 것만 쓴다).
 ${citeOn ? `- 통계·수치·사실관계를 언급할 때는 반드시 문장 뒤에 출처를 표시한다. 아래 순서로 확인한다:
-  1) [내 라이브러리에 저장된 관련 자료], [내 출처자료 8천페이지 안에서 찾은 관련 내용], [출처자료] 중 어디든 있는 내용이면: "(출처: 첨부자료 - 해당 위치, 예: p.12)" 형식으로 표시한다. 이 세 가지가 최우선이다.
-  2) 위 자료에 없지만 [웹 검색으로 찾은 관련 자료]에 있는 내용이면: 그 안의 수치를 그대로 쓰고 "(출처: 기관/사이트명, URL)" 형식으로 표시한다. URL은 [웹 검색으로 찾은 관련 자료]에 적힌 전체 주소를 한 글자도 빠짐없이 그대로 복사해서 쓴다 — 절대 도메인만 남기거나 줄여 쓰지 않는다. 절대 새로운 수치를 지어내지 않는다.
-  3) 어디에도 없는 통계는 절대 언급하지 않는다. "정확한 수치는 확인해주세요" 같은 회피 문구도 쓰지 않는다 — 그냥 수치 없이 자연스럽게 서술한다 (예: "많은 가정에서 예상보다 큰 지출 부담을 느낀다").` : '- 확인되지 않은 통계·수치는 단정적으로 말하지 않는다.'}
+  1) [이번 영상의 핵심 출처자료]에 있는 내용이면 최우선으로 그걸 쓰고 "(출처: 첨부자료 - 해당 위치, 예: p.12)" 형식으로 표시한다.
+  2) [내 라이브러리에 저장된 관련 자료], [내 출처자료 8천페이지 안에서 찾은 관련 내용]에 있는 내용은, 위 핵심 출처자료와 같은 세부 주제를 다룰 때만 보조로 쓰고 동일한 방식으로 출처를 표시한다.
+  3) 위 자료에 없지만 [웹 검색으로 찾은 관련 자료]에 있는 내용이면: 그 안의 수치를 그대로 쓰고 "(출처: 기관/사이트명, URL)" 형식으로 표시한다. URL은 [웹 검색으로 찾은 관련 자료]에 적힌 전체 주소를 한 글자도 빠짐없이 그대로 복사해서 쓴다 — 절대 도메인만 남기거나 줄여 쓰지 않는다. 절대 새로운 수치를 지어내지 않는다.
+  4) 어디에도 없는 통계는 절대 언급하지 않는다. "정확한 수치는 확인해주세요" 같은 회피 문구도 쓰지 않는다 — 그냥 수치 없이 자연스럽게 서술한다 (예: "많은 가정에서 예상보다 큰 지출 부담을 느낀다").` : '- 확인되지 않은 통계·수치는 단정적으로 말하지 않는다.'}
 - 결과는 대본 본문만 출력하고 다른 설명은 붙이지 않는다.` + complianceSystemBlock() + salesSystemBlock();
 }
 
@@ -5002,7 +5274,7 @@ async function generateScript() {
 
   const libMatches = searchLibrary(topic, extra).slice(0, 3);
   const libBlock = libMatches.length
-    ? `\n\n[내 라이브러리에 저장된 관련 자료 — 이 안에 있는 내용이면 최우선으로 이걸 근거로 쓰고, 여기 없을 때만 다른 출처를 찾으세요]\n${libMatches.map(m => `■ ${m.title}\n${(m.content||'').slice(0, 1500)}`).join('\n\n')}`
+    ? `\n\n[참고용 — 라이브러리에 저장된 관련 자료. 이번 영상의 핵심 출처자료가 따로 있다면 그쪽을 중심으로 쓰고, 이 라이브러리 내용은 같은 주제를 보강하는 선에서만 곁들이세요. 다루는 세부 주제가 다르면 이 내용은 쓰지 마세요]\n${libMatches.map(m => `■ ${m.title}\n${(m.content||'').slice(0, 1500)}`).join('\n\n')}`
     : '';
 
   let corpusBlock = '';
@@ -5011,7 +5283,7 @@ async function generateScript() {
     progressText.textContent = '내 출처자료(8천 페이지) 안에서 관련 내용 찾는 중...';
     const corpusMatches = await searchCorpus(topic, extra);
     if (corpusMatches.length) {
-      corpusBlock = `\n\n[내 출처자료 8천페이지 안에서 찾은 관련 내용 — 페이지 번호와 함께 정확히 인용하세요]\n${corpusMatches.map(m => `■ [${m.source_file || '자료'} p.${m.page_number || '?'}]\n${(m.content||'').slice(0, 1500)}`).join('\n\n')}`;
+      corpusBlock = `\n\n[참고용 — 8천페이지 출처자료 안에서 찾은 관련 내용. 인용할 땐 페이지 번호와 함께 정확히 인용하되, 이번 영상의 핵심 출처자료가 따로 있다면 그쪽 내용에서 벗어나지 않는 선에서만 보조로 활용하세요]\n${corpusMatches.map(m => `■ [${m.source_file || '자료'} p.${m.page_number || '?'}]\n${(m.content||'').slice(0, 1500)}`).join('\n\n')}`;
     }
   }
 
@@ -5022,7 +5294,11 @@ async function generateScript() {
     sourceForPrompt = source.slice(0, MAX_SOURCE_CHARS);
     sourceTruncated = true;
   }
-  const sourceBlock = (source ? `\n\n[출처자료 — 이 내용을 근거로 구체적으로 설명하세요]\n${sourceForPrompt}${sourceTruncated ? '\n\n(※ 출처자료가 길어 앞부분만 반영됩니다. 특정 부분을 꼭 반영해야 하면 그 부분만 따로 붙여넣어주세요.)' : ''}` : '') + libBlock + corpusBlock;
+  // 사용자가 이번 영상용으로 직접 올린 출처자료(PPT 등)가 있으면, 그게 이 영상의 "핵심 주제"임을 명확히 표시한다.
+  // 라이브러리/8천페이지 자료는 어디까지나 보조 참고이지, 핵심 주제를 대체하거나 다른 방향으로 새게 하면 안 된다.
+  const sourceBlock = (source
+    ? `\n\n[이번 영상의 핵심 출처자료 — 이 내용을 중심으로 구체적으로 설명한다. 아래 다른 참고 블록(라이브러리/8천페이지 자료)이 있어도, 이 출처자료가 다루는 주제에서 벗어난 다른 이야기(예: 다른 세대·다른 상품·다른 제도)로 새면 안 된다]\n${sourceForPrompt}${sourceTruncated ? '\n\n(※ 출처자료가 길어 앞부분만 반영됩니다. 특정 부분을 꼭 반영해야 하면 그 부분만 따로 붙여넣어주세요.)' : ''}`
+    : '') + libBlock + corpusBlock;
   const contextLine = `보험 분야: ${category}\n주제: ${topic}\n${host ? '진행자 호칭: ' + host : ''}\n${target ? '타겟 고객: ' + target : ''}\n톤앤매너: ${tone}\n${extra ? '추가 반영 사항: ' + extra : ''}`;
 
   try {
@@ -5595,6 +5871,23 @@ document.getElementById('cafeCopyBtn').addEventListener('click', () => {
 let blogState = null;
 let lastBlogAnalysis = null;
 
+// 검색 결과 제목에 키워드가 실제로 들어있는지 확인한다 (공백/기호 차이는 무시하고,
+// 단어가 2개 이상이면 순서가 달라도 핵심 단어들이 다 포함돼 있으면 인정한다).
+function normalizeForMatch(s) {
+  return String(s || '').replace(/[\s\-·・,.\/()~!?"'…]/g, '').toLowerCase();
+}
+function titleMatchesKeyword(title, keyword) {
+  const normTitle = normalizeForMatch(title);
+  const normKeyword = normalizeForMatch(keyword);
+  if (!normKeyword) return false;
+  if (normTitle.includes(normKeyword)) return true;
+  const tokens = keyword.split(/\s+/).filter(t => t.length >= 2);
+  if (tokens.length >= 2) {
+    return tokens.every(t => normTitle.includes(normalizeForMatch(t)));
+  }
+  return false;
+}
+
 document.getElementById('blogGenBtn').addEventListener('click', async () => {
   const keyword = document.getElementById('blogKeyword').value.trim();
   const category = document.getElementById('blogCategory').value;
@@ -5635,19 +5928,25 @@ document.getElementById('blogGenBtn').addEventListener('click', async () => {
       progressBar.style.width = '50%';
     } else {
     progressWrap.style.display = 'block';
-    progressText.textContent = '"' + keyword + '" 네이버 블로그 상위노출 글 가져오는 중...';
+    progressText.textContent = '"' + keyword + '" 제목에 실제로 이 키워드가 들어간 글 찾는 중...';
     progressBar.style.width = '30%';
     try {
-      const naverRes = await apiGet('/api/naver-search?type=blog&display=5&query=' + encodeURIComponent(keyword));
-      const items = naverRes.items || [];
+      // 블로그+카페를 넉넉히(각 20/15건) 가져온 다음, 제목에 키워드가 실제로 포함된 것만 골라낸다.
+      // (예전엔 display=5로 조금만 가져와서, 관련도순 검색 결과에 엉뚱한 주제가 섞여 들어와도 그대로 썼음)
+      const [blogRes, cafeRes] = await Promise.all([
+        apiGet('/api/naver-search?type=blog&display=20&query=' + encodeURIComponent(keyword)),
+        apiGet('/api/naver-search?type=cafe&display=15&query=' + encodeURIComponent(keyword)).catch(() => ({ items: [] }))
+      ]);
+      const allCandidates = [...(blogRes.items || []), ...(cafeRes.items || [])];
+      const items = allCandidates.filter(it => titleMatchesKeyword(it.title, keyword)).slice(0, 5);
       if (items.length) {
-        patternBlock = `\n\n[네이버 블로그 실제 상위노출 글 목록 — 이 글들이 다루는 주제/각도를 참고하되 절대 그대로 베끼지 마세요]\n${items.map((it, i) => `${i+1}. ${it.title}\n요약: ${(it.description||'').slice(0, 150)}`).join('\n\n')}`;
+        patternBlock = `\n\n["${keyword}" 라는 문구가 실제로 제목에 들어간, 네이버 상위노출 글 ${items.length}개 — 이 글들이 다루는 주제/각도/구조를 참고하되 절대 그대로 베끼지 마세요. 다른 주제로 새지 말고 이 글들과 같은 세부 주제를 유지하세요]\n${items.map((it, i) => `${i+1}. ${it.title}\n요약: ${(it.description||'').slice(0, 150)}`).join('\n\n')}`;
         analysisPanel.style.display = 'block';
         const html = items.map((it, i) => `<div style="margin-bottom:10px;"><a href="${it.link}" target="_blank" style="color:var(--brass);">${i+1}. ${escapeHtml(it.title)}</a><div style="color:var(--paper-mute); font-size:12.5px; margin-top:2px;">${escapeHtml(it.description)}</div></div>`).join('');
         analysisBody.innerHTML = html;
         lastBlogAnalysis = { keyword, patternBlock, html };
       } else {
-        progressText.textContent = '네이버 검색 결과가 없어요 — 기본 구조로 계속 진행할게요.';
+        progressText.textContent = `"${keyword}"가 제목에 정확히 들어간 글을 찾지 못했어요 — 기본 구조로 계속 진행할게요.`;
       }
     } catch (e) {
       progressText.textContent = '네이버 검색 실패 — 기본 구조로 계속 진행할게요. (' + e.message + ')';
@@ -6860,6 +7159,39 @@ function dateGroupLabel(date) {
   if (diffDays <= 7) return '지난 7일';
   return '이전';
 }
+
+/* ===================== 종수술 분류 검색 ===================== */
+async function runSurgerySearch() {
+  const q = document.getElementById('surgerySearchInput').value.trim();
+  const el = document.getElementById('surgerySearchResult');
+  if (!q) { el.innerHTML = ''; return; }
+  el.innerHTML = '검색 중...';
+  try {
+    const { items } = await apiGet('/api/surgery-search?q=' + encodeURIComponent(q));
+    if (!items || !items.length) {
+      el.innerHTML = '<p style="font-size:13px; color:var(--paper-mute);">등록된 결과가 없어요. "관리" 탭에서 자료를 더 추가할 수 있어요.</p>';
+      return;
+    }
+    el.innerHTML = items.map(it => `
+      <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 12px; border-bottom:1px solid var(--line);">
+        <div>
+          <div style="font-size:14px; font-weight:600; color:var(--paper-text);">${escapeHtml(it.surgery_name)}</div>
+          <div style="font-size:12px; color:var(--paper-mute); margin-top:2px;">${escapeHtml(it.category || '')}${it.source ? ' · 출처: ' + escapeHtml(it.source) : ''}</div>
+        </div>
+        <div style="text-align:right; flex-shrink:0; margin-left:12px;">
+          <div style="font-size:12px; color:var(--paper-mute);">${escapeHtml(it.system || '')}</div>
+          <div style="font-size:16px; font-weight:700; color:var(--brass);">${escapeHtml(it.class_no)}</div>
+        </div>
+      </div>
+    `).join('') + '<p style="font-size:11.5px; color:var(--paper-mute); margin-top:10px;">※ 참고용입니다. 보험사·상품마다 분류가 다를 수 있으니, 실제 청구 전 반드시 가입하신 약관의 수술분류표로 재확인하세요.</p>';
+  } catch (e) {
+    el.innerHTML = '<p style="font-size:13px; color:var(--paper-mute);">검색 실패: ' + escapeHtml(e.message) + '</p>';
+  }
+}
+document.getElementById('surgerySearchBtn').addEventListener('click', runSurgerySearch);
+document.getElementById('surgerySearchInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') runSurgerySearch();
+});
 
 async function renderSearchHistory() {
   searchHistoryLoaded = true;
