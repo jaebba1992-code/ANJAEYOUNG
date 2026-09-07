@@ -5939,16 +5939,30 @@ document.getElementById('blogGenBtn').addEventListener('click', async () => {
       ]);
       const allCandidates = [...(blogRes.items || []), ...(cafeRes.items || [])];
       const items = allCandidates.filter(it => titleMatchesKeyword(it.title, keyword)).slice(0, 5);
+
+      // 매칭 여부와 상관없이 항상 패널을 띄운다 — "조합한 게 안 보인다"는 문제 방지.
+      analysisPanel.style.display = 'block';
       if (items.length) {
         patternBlock = `\n\n["${keyword}" 라는 문구가 실제로 제목에 들어간, 네이버 상위노출 글 ${items.length}개 — 이 글들이 다루는 주제/각도/구조를 참고하되 절대 그대로 베끼지 마세요. 다른 주제로 새지 말고 이 글들과 같은 세부 주제를 유지하세요]\n${items.map((it, i) => `${i+1}. ${it.title}\n요약: ${(it.description||'').slice(0, 150)}`).join('\n\n')}`;
-        analysisPanel.style.display = 'block';
-        const html = items.map((it, i) => `<div style="margin-bottom:10px;"><a href="${it.link}" target="_blank" style="color:var(--brass);">${i+1}. ${escapeHtml(it.title)}</a><div style="color:var(--paper-mute); font-size:12.5px; margin-top:2px;">${escapeHtml(it.description)}</div></div>`).join('');
+        const html = `<p style="font-size:12.5px; color:var(--paper-mute); margin:0 0 10px;">제목에 "${escapeHtml(keyword)}"가 실제로 들어간 글 ${items.length}개를 참고해서 조합했어요.</p>` +
+          items.map((it, i) => `<div style="margin-bottom:10px;"><a href="${it.link}" target="_blank" style="color:var(--brass);">${i+1}. ${escapeHtml(it.title)}</a><div style="color:var(--paper-mute); font-size:12.5px; margin-top:2px;">${escapeHtml(it.description)}</div></div>`).join('');
         analysisBody.innerHTML = html;
         lastBlogAnalysis = { keyword, patternBlock, html };
       } else {
-        progressText.textContent = `"${keyword}"가 제목에 정확히 들어간 글을 찾지 못했어요 — 기본 구조로 계속 진행할게요.`;
+        // 제목 매칭된 글이 없어도, 검색을 시도했다는 사실과 검토했던 후보들은 보여준다 (조합에는 안 썼지만 투명하게).
+        progressText.textContent = `"${keyword}"가 제목에 정확히 들어간 글을 찾지 못했어요 — 참고 없이 기본 구조로 작성했어요.`;
+        const previewCandidates = allCandidates.slice(0, 5);
+        const html = `<p style="font-size:12.5px; color:var(--paper-mute); margin:0 0 10px;">제목에 "${escapeHtml(keyword)}"가 정확히 들어간 글은 못 찾았어요. 그래서 이번 글은 특정 상위노출 글을 참고하지 않고 일반 구조로 작성했어요.</p>` +
+          (previewCandidates.length
+            ? `<p style="font-size:11.5px; color:var(--paper-mute); margin:10px 0 6px;">검토는 했지만 제목이 달라서 채택하지 않은 검색 결과:</p>` +
+              previewCandidates.map((it, i) => `<div style="margin-bottom:8px; opacity:0.7;"><a href="${it.link}" target="_blank" style="color:var(--paper-mute); text-decoration:underline;">${i+1}. ${escapeHtml(it.title)}</a></div>`).join('')
+            : `<p style="font-size:11.5px; color:var(--paper-mute);">네이버 검색 결과 자체가 없었어요.</p>`);
+        analysisBody.innerHTML = html;
+        lastBlogAnalysis = { keyword, patternBlock: '', html };
       }
     } catch (e) {
+      analysisPanel.style.display = 'block';
+      analysisBody.innerHTML = `<p style="font-size:12.5px; color:var(--paper-mute);">네이버 검색에 실패해서 참고 글 없이 작성했어요. (${escapeHtml(e.message)})</p>`;
       progressText.textContent = '네이버 검색 실패 — 기본 구조로 계속 진행할게요. (' + e.message + ')';
     }
     }
