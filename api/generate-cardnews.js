@@ -769,7 +769,12 @@ module.exports = async function handler(req, res) {
     await finished;
 
     const zipBuffer = Buffer.concat(chunks);
-    return res.status(200).json({ ok: true, base64: zipBuffer.toString('base64'), count: pngBuffers.length });
+    return res.status(200).json({
+      ok: true,
+      base64: zipBuffer.toString('base64'),
+      count: pngBuffers.length,
+      images: pngBuffers.map(b => b.toString('base64')) // 개별 카드 미리보기/재생성용
+    });
   } catch (err) {
     return res.status(500).json({ error: String(err.message || err) });
   }

@@ -1337,7 +1337,7 @@
 
       <div class="row">
         <div class="field">
-          <label>요청 내용 <span class="opt">주제, 훅 문구, 강조하고 싶은 포인트를 자유롭게 적어주세요</span></label>
+          <label>요청 내용 <span class="opt">주제, 훅 문구, 강조하고 싶은 포인트를 자유롭게 적어주세요 — 아래 "예시 카드뉴스 세트"를 올렸다면 비워둬도 괜찮아요</span></label>
           <textarea id="cardRequestInput" rows="6" placeholder="예: 간병인보험 직접치료 문구 기재 O/X 차이. '이 문구 한 줄 때문에' 로 시작해서, 단 1개 회사만 365일 요양병원 보장하는 이유, 치매 10년 사례로 180일 vs 365일 비교, 마지막엔 무료공유 유도로 마무리해줘"></textarea>
         </div>
       </div>
@@ -1394,6 +1394,19 @@
               이 사진을 표지(1장) 배경으로 직접 사용 <span class="opt">(체크 안 하면 색감·분위기만 참고해요)</span>
             </label>
           </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label>예시 카드뉴스 세트 통째로 업로드 (선택) <span class="opt">한 게시물의 카드 여러 장(표지~마지막장)을 순서대로 올리면, 그 흐름과 비슷하게(내용은 새로 써서) 만들어요 — 요청 내용을 안 적어도 이걸로 바로 만들 수 있어요</span></label>
+          <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+            <label for="cardExampleSetInput" class="copy-btn" style="cursor:pointer; display:inline-block;">+ 카드 이미지 여러 장 첨부 (순서대로)</label>
+            <input type="file" id="cardExampleSetInput" accept="image/png,image/jpeg,image/webp" multiple style="display:none;">
+            <span id="cardExampleSetStatus" style="font-size:12px; color:var(--paper-mute);"></span>
+            <button type="button" id="cardExampleSetClearBtn" class="copy-btn" style="display:none;">전체 제거</button>
+          </div>
+          <div id="cardExampleSetPreviewWrap" style="display:none; margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;"></div>
         </div>
       </div>
       <div class="row">
@@ -1457,6 +1470,16 @@
 
       <button class="generate" id="cardGenBtn">카드뉴스 생성하기</button>
       <p id="cardGenStatus" style="font-size:12px; color:var(--paper-mute); margin-top:10px;"></p>
+    </div>
+
+    <div class="panel" id="cardPreviewPanel" style="display:none;">
+      <div class="result-head">
+        <div class="result-head-left">
+          <p class="panel-title" id="cardPreviewLabel">카드 미리보기 <span style="color:var(--paper-mute); font-weight:400; font-size:12px;">— 마음에 안 드는 카드는 각각 다시 만들 수 있어요</span></p>
+        </div>
+        <button class="copy-btn" id="cardDownloadAllBtn">전체 다운로드 (zip)</button>
+      </div>
+      <div id="cardPreviewGrid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(160px, 1fr)); gap:16px; margin-top:14px;"></div>
     </div>
 
     <div class="panel" id="cardCaptionPanel" style="display:none;">
@@ -3394,7 +3417,7 @@ async function analyzeReferenceImage(base64Data, mediaType) {
   return JSON.parse(cleaned);
 }
 
-async function buildCardPlan(request, designData, clauseText, cardCount, styleNote, useAutoPhoto) {
+async function buildCardPlan(request, designData, clauseText, cardCount, styleNote, useAutoPhoto, exampleSetStructure) {
   const system = `당신은 보험설계사의 인스타그램 카드뉴스를 기획하는 전문가입니다. "보험탈출구" 계정 스타일(어두운 배경 + 밝은 배경을 번갈아, 굵고 큰 텍스트, 노란 강조, 숫자 중심)을 참고해서 사용자의 요청에 맞는 카드 순서를 JSON으로만 출력합니다.
 
 ${CARD_TEMPLATE_GUIDE}
@@ -3408,9 +3431,19 @@ ${CARD_TEMPLATE_GUIDE}
 - 총 ${cardCount}장 내외(outro 포함)로 구성하되, 절대 10장을 넘기지 않는다. 내용이 많아도 10장 안에 가독성 좋게 압축한다.
 - outro 카드는 { "type": "outro" } 형태로만 넣는다.
 ${useAutoPhoto ? '- darkCover 카드에는 반드시 photoQuery 필드를 넣는다. 그리고 darkText/lightText/ctaShare 카드 중 최소 1~2장에도 photoQuery를 넣어서, 표지 말고도 사진이 쓰인 카드가 있게 한다. 배경으로 쓸 실제 사진을 검색할 영어 키워드 2~3단어로 (예: "elderly care hospital", "family insurance planning", "nursing home corridor", "doctor consultation room"). 사람 얼굴이 크게 나오는 검색어보다는 분위기/장소 중심 키워드가 좋다.' : '- photoQuery 필드는 넣지 않는다.'}
+${exampleSetStructure ? `
+[예시 카드뉴스 세트 참고 — 매우 중요]
+사용자가 참고할 카드뉴스 세트를 올렸습니다. 아래는 그 세트의 "구성 흐름" 분석 결과입니다 (문구는 안 옮겨졌고 역할/구조만 있습니다).
+${exampleSetStructure}
+
+이 구조를 참고해서 "비슷한 느낌·비슷한 진행 방식"의 카드뉴스를 만들되, 아래 원칙을 반드시 지키세요:
+- 카드 장수와 각 장의 "역할"(예: 표지-후킹, 문제제기, 비교, 마무리)은 비슷하게 가져가도 된다.
+- 하지만 실제 내용·문구·소재·순서는 그대로 베끼지 말고, 요청 내용(있다면) 또는 일반적인 보험 상식을 바탕으로 완전히 새로 쓴다.
+- 카드 순서를 그대로 따라가지 않아도 된다 — 메시지 전달에 더 낫다고 판단되면 순서를 바꾸거나, 불필요한 장은 빼고, 필요한 내용을 새 장으로 추가해도 된다. 장수가 원본과 똑같을 필요도 없다.
+- 목표는 "표절이 아니라 영감을 받은 재구성"이다 — 같은 카테고리 정보를 자기 방식대로 다시 전달하는 것.` : ''}
 - 결과는 오직 JSON 배열만 출력한다. 다른 설명, 마크다운, 코드블록 기호는 절대 붙이지 않는다.`;
 
-  const userParts = [`[요청 내용]\n${request}`];
+  const userParts = [`[요청 내용]\n${request || '(요청 내용 없음 — 위 예시 카드뉴스 세트의 흐름을 참고해서 새로운 보험 관련 소재로 자유롭게 구성해주세요)'}`];
   if (designData) userParts.push(`[설계안 / 실제 숫자 자료]\n${designData}`);
   if (clauseText) userParts.push(`[약관 발췌 — 이 문구를 활용]\n${clauseText}`);
   if (styleNote) userParts.push(`[참고 이미지 분석 — 특히 layoutStructure/recommendedCardType은 실제로 그 구조를 따라 카드를 구성하는 데 적극 반영하세요]\n${styleNote}`);
@@ -3506,30 +3539,57 @@ document.getElementById('cardGenBtn').addEventListener('click', async () => {
   const useUploadedAsCover = document.getElementById('cardRefUseAsCoverCheckbox').checked && !!window.__cardRefImageBase64;
   const useAutoPhoto = document.getElementById('cardAutoPhotoCheckbox').checked && !useUploadedAsCover;
   const coverPhotoBase64 = useUploadedAsCover ? window.__cardRefImageBase64 : null;
+  const exampleImages = window.__cardExampleSetImages || [];
   const btn = document.getElementById('cardGenBtn');
   const statusEl = document.getElementById('cardGenStatus');
 
-  if (!request) { alert('요청 내용을 입력해주세요.'); return; }
+  if (!request && !exampleImages.length) {
+    alert('요청 내용을 입력하거나, "예시 카드뉴스 세트"를 첨부해주세요.');
+    return;
+  }
 
   btn.disabled = true;
-  btn.textContent = '카드 구성 짜는 중...';
   statusEl.textContent = '';
   renderCardCaption('');
+  document.getElementById('cardPreviewPanel').style.display = 'none';
   try {
-    const plan = await buildCardPlan(request, designData, clauseText, cardCount, styleNote, useAutoPhoto);
+    let exampleSetStructure = '';
+    if (exampleImages.length) {
+      btn.textContent = '예시 카드뉴스 흐름 분석 중...';
+      if (!window.__cardExampleSetStructure) {
+        const analysis = await analyzeReferenceCardSet(exampleImages);
+        window.__cardExampleSetStructure = [
+          `총 ${analysis.totalCards || exampleImages.length}장`,
+          `분위기: ${analysis.moodKeywords || ''}`,
+          `색감: ${analysis.colorNote || ''}`,
+          `각 장 역할: ${(analysis.cardRoles || []).map(r => `${r.index}) ${r.role} (${r.cardTypeGuess})`).join(' / ')}`,
+          `전체 흐름: ${analysis.narrativeFlow || ''}`
+        ].join('\n');
+      }
+      exampleSetStructure = window.__cardExampleSetStructure;
+    }
+
+    btn.textContent = '카드 구성 짜는 중...';
+    const plan = await buildCardPlan(request, designData, clauseText, cardCount, styleNote, useAutoPhoto, exampleSetStructure);
     btn.textContent = '이미지 만드는 중... (시간이 좀 걸려요)';
     const [result, caption] = await Promise.all([
       apiPost('/api/generate-cardnews', { plan, accent, theme, channelName, coverPhotoBase64: coverPhotoBase64 || undefined }),
-      buildCardCaption(plan, request).catch(err => { console.error('캡션 생성 실패:', err); return ''; })
+      buildCardCaption(plan, request || '레퍼런스 카드뉴스 흐름을 참고한 새 카드뉴스').catch(err => { console.error('캡션 생성 실패:', err); return ''; })
     ]);
-    const filename = request.slice(0, 30).replace(/[\\/:*?"<>|]/g, '') + '_카드뉴스.zip';
-    downloadZipFromBase64(result.base64, filename);
-    statusEl.textContent = `완료! (${result.count}장) — 자동으로 다운로드됐어요.`;
+
+    window.__cardDeckState = {
+      plan, accent, theme, channelName, coverPhotoBase64,
+      images: result.images, request,
+      filename: (request || '카드뉴스').slice(0, 30).replace(/[\\/:*?"<>|]/g, '') + '_카드뉴스.zip'
+    };
+    renderCardPreviewGrid();
+    document.getElementById('cardPreviewPanel').style.display = 'block';
+    statusEl.textContent = `완료! (${result.count}장) — 아래에서 확인하고, 마음에 안 드는 카드는 각각 다시 만들 수 있어요.`;
     renderCardCaption(caption);
 
     await addToHistory({
-      id: Date.now(), topic: request.slice(0, 60), category: `${result.count}장`, format: 'card',
-      script: JSON.stringify({ plan, accent, theme, channelName, filename, caption })
+      id: Date.now(), topic: request.slice(0, 60) || '(레퍼런스 기반 생성)', category: `${result.count}장`, format: 'card',
+      script: JSON.stringify({ plan, accent, theme, channelName, filename: window.__cardDeckState.filename, caption })
     });
     await renderCardHistory();
   } catch (err) {
@@ -3538,6 +3598,102 @@ document.getElementById('cardGenBtn').addEventListener('click', async () => {
   } finally {
     btn.disabled = false;
     btn.textContent = '카드뉴스 생성하기';
+  }
+});
+
+function renderCardPreviewGrid() {
+  const state = window.__cardDeckState;
+  const grid = document.getElementById('cardPreviewGrid');
+  grid.innerHTML = state.images.map((b64, i) => `
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      <div style="position:relative; border-radius:10px; overflow:hidden; border:1px solid var(--line); aspect-ratio:4/5;">
+        <img src="data:image/png;base64,${b64}" style="width:100%; height:100%; object-fit:cover;" id="cardPreviewImg_${i}">
+        <span style="position:absolute; top:6px; left:6px; background:rgba(0,0,0,0.6); color:#fff; font-size:11px; padding:2px 7px; border-radius:10px;">${i + 1}</span>
+      </div>
+      <button type="button" class="mini-btn" data-regen="${i}" style="width:100%;">이 카드 다시 만들기</button>
+    </div>
+  `).join('');
+  grid.querySelectorAll('[data-regen]').forEach(b => {
+    b.addEventListener('click', () => openCardRegenPrompt(Number(b.dataset.regen)));
+  });
+}
+
+async function openCardRegenPrompt(index) {
+  const feedback = prompt('이 카드를 어떻게 바꿀까요? (비워두면 전체적으로 새롭게 다시 써요)', '');
+  if (feedback === null) return; // 취소
+  await regenerateSingleCard(index, feedback.trim());
+}
+
+async function regenerateSingleCard(index, feedback) {
+  const state = window.__cardDeckState;
+  const btn = document.querySelector(`[data-regen="${index}"]`);
+  const oldLabel = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = '다시 만드는 중...'; }
+  try {
+    const currentCard = state.plan[index];
+    const otherCards = state.plan.map((c, i) => `${i + 1}. ${c.type}${i === index ? ' ← 이 카드를 다시 씀' : ''}`).join('\n');
+    const system = `당신은 인스타그램 카드뉴스 기획자입니다. 아래는 이미 만들어진 카드뉴스의 카드 목록 중 하나를 다시 쓰는 작업입니다.
+
+${CARD_TEMPLATE_GUIDE}
+
+[전체 카드 순서 — 참고용, 이 중 표시된 한 장만 새로 쓴다]
+${otherCards}
+
+[다시 쓸 카드의 현재 내용]
+${JSON.stringify(currentCard)}
+
+${feedback ? `[사용자 피드백 — 반드시 반영]\n${feedback}` : '[사용자가 특별한 요청은 안 했으니, 같은 타입 또는 더 어울리는 타입으로 내용을 새롭게 다시 써주세요]'}
+
+카드 타입은 그대로 유지해도 되고, 문맥상 다른 타입이 더 어울리면 바꿔도 됩니다. 전체 흐름과 어울리게 작성하세요.
+결과는 그 카드 하나의 JSON 객체만 출력하세요. 다른 설명, 배열 괄호, 코드블록 기호는 붙이지 않습니다.`;
+
+    const raw = await callClaude(system, [{ role: 'user', content: '이 카드를 다시 써주세요.' }], 2, null, 1200);
+    const cleaned = raw.replace(/```json|```/g, '').trim();
+    let newCard = JSON.parse(cleaned);
+    if (newCard.type === 'outro') {
+      newCard = {
+        type: 'outro',
+        brandName: document.getElementById('cardBrandInput').value.trim() || '보험탈출구',
+        disclaimer: '본 광고는 광고심의 기준을 준수하였으며, 유효기간은 심의일로부터 1년입니다.',
+        regInfo: document.getElementById('cardRegInput').value.trim(),
+        noticeList: document.getElementById('cardNoticeInput').value.trim()
+      };
+    }
+
+    const result = await apiPost('/api/generate-cardnews', {
+      plan: [newCard], accent: state.accent, theme: state.theme, channelName: state.channelName,
+      coverPhotoBase64: (index === 0 && newCard.type === 'darkCover') ? state.coverPhotoBase64 || undefined : undefined
+    });
+    if (!result.images || !result.images[0]) throw new Error('이미지를 만들지 못했어요.');
+
+    state.plan[index] = newCard;
+    state.images[index] = result.images[0];
+    document.getElementById(`cardPreviewImg_${index}`).src = 'data:image/png;base64,' + result.images[0];
+  } catch (e) {
+    alert('다시 만들기 실패: ' + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = oldLabel; }
+  }
+}
+
+document.getElementById('cardDownloadAllBtn').addEventListener('click', async () => {
+  const state = window.__cardDeckState;
+  if (!state) return;
+  const btn = document.getElementById('cardDownloadAllBtn');
+  const old = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '준비 중...';
+  try {
+    const result = await apiPost('/api/generate-cardnews', {
+      plan: state.plan, accent: state.accent, theme: state.theme, channelName: state.channelName,
+      coverPhotoBase64: state.coverPhotoBase64 || undefined
+    });
+    downloadZipFromBase64(result.base64, state.filename);
+  } catch (e) {
+    alert('다운로드 실패: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = old;
   }
 });
 
@@ -4924,6 +5080,88 @@ document.getElementById('cardRefImageInput').addEventListener('change', async (e
 });
 
 document.getElementById('cardRefImageClearBtn').addEventListener('click', resetCardRefImage);
+
+/* ===================== 예시 카드뉴스 세트(여러 장) 업로드 → 흐름 분석 ===================== */
+window.__cardExampleSetImages = []; // [{base64, mediaType}]
+
+function renderCardExampleSetPreview() {
+  const wrap = document.getElementById('cardExampleSetPreviewWrap');
+  const images = window.__cardExampleSetImages;
+  if (!images.length) { wrap.style.display = 'none'; wrap.innerHTML = ''; return; }
+  wrap.style.display = 'flex';
+  wrap.innerHTML = images.map((img, i) => `
+    <div style="position:relative;">
+      <img src="data:${img.mediaType};base64,${img.base64}" style="width:70px; height:88px; object-fit:cover; border-radius:6px; border:1px solid var(--line);">
+      <span style="position:absolute; bottom:-6px; left:2px; background:#333; color:#fff; font-size:10px; padding:1px 5px; border-radius:8px;">${i + 1}</span>
+      <button type="button" data-remove="${i}" style="position:absolute; top:-6px; right:-6px; width:20px; height:20px; border-radius:50%; border:none; background:#333; color:#fff; font-size:12px; cursor:pointer; line-height:1;">×</button>
+    </div>
+  `).join('');
+  wrap.querySelectorAll('[data-remove]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      window.__cardExampleSetImages.splice(Number(btn.dataset.remove), 1);
+      window.__cardExampleSetStructure = null;
+      renderCardExampleSetPreview();
+    });
+  });
+  document.getElementById('cardExampleSetClearBtn').style.display = 'inline-block';
+}
+
+document.getElementById('cardExampleSetInput').addEventListener('change', async (e) => {
+  const files = Array.from(e.target.files || []);
+  if (!files.length) return;
+  const statusEl = document.getElementById('cardExampleSetStatus');
+  statusEl.textContent = '이미지 불러오는 중...';
+  for (const file of files) {
+    const dataUrl = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+    const resized = await resizeImageToBase64(dataUrl.split(',')[1], file.type || 'image/jpeg', 1000, 0.85);
+    window.__cardExampleSetImages.push({ base64: resized, mediaType: 'image/jpeg' });
+  }
+  window.__cardExampleSetImages = window.__cardExampleSetImages.slice(0, 10);
+  window.__cardExampleSetStructure = null; // 이미지가 바뀌었으니 캐시된 분석 결과 초기화
+  renderCardExampleSetPreview();
+  statusEl.textContent = `${window.__cardExampleSetImages.length}장 첨부됨 — 생성 버튼을 누르면 흐름을 분석해서 반영해요.`;
+  e.target.value = '';
+});
+document.getElementById('cardExampleSetClearBtn').addEventListener('click', () => {
+  window.__cardExampleSetImages = [];
+  window.__cardExampleSetStructure = null;
+  renderCardExampleSetPreview();
+  document.getElementById('cardExampleSetStatus').textContent = '';
+  document.getElementById('cardExampleSetClearBtn').style.display = 'none';
+});
+
+// 여러 장의 카드뉴스 이미지를 한 번에 보고, 전체 흐름(몇 장인지, 각 장이 어떤 역할인지, 순서)을 분석한다.
+// 문구를 그대로 옮기지 않고 "역할/구조"만 뽑아내서, 나중에 buildCardPlan이 비슷한 흐름으로 완전히 새로 쓰게 한다.
+async function analyzeReferenceCardSet(images) {
+  const system = `당신은 인스타그램 카드뉴스 디자이너입니다. 사용자가 올린 카드뉴스 세트(한 게시물의 여러 장을 순서대로)를 보고, 그 게시물의 "구성 흐름"을 분석합니다.
+
+중요: 이미지 속 문구·숫자·고유명사를 그대로 옮겨 적지 마세요. 오직 "이 장은 무슨 역할을 하는지, 어떤 종류의 정보를 전달하는지"만 한 문장으로 요약하세요 (내용을 베끼는 게 목적이 아니라, 나중에 완전히 새로운 내용으로 비슷한 흐름의 카드뉴스를 만들기 위한 구조 파악이 목적입니다).
+
+다음 형식의 JSON으로만 답하세요:
+{
+  "totalCards": 이미지 장수(숫자),
+  "moodKeywords": "차분한/자극적인/친근한 등 3~5개 형용사를 쉼표로",
+  "colorNote": "전체적인 색감 설명",
+  "cardRoles": [
+    {"index": 1, "role": "표지 — 궁금증을 유발하는 후킹 문구와 숫자 강조", "cardTypeGuess": "darkCover"},
+    {"index": 2, "role": "문제 제기 — 왜 이게 중요한지 설명", "cardTypeGuess": "darkText"}
+  ],
+  "narrativeFlow": "전체 흐름을 2~3문장으로 — 예: '충격적인 통계로 시작해서, 문제를 제기하고, 두 선택지를 비교한 뒤, 행동을 유도하며 마무리'"
+}
+cardTypeGuess는 darkCover, darkText, lightText, caseFormula, twoColumn, statBadge, compareBars, ctaShare, outro 중에서 가장 가까운 것으로 고르세요.`;
+
+  const content = images.map(img => ({ type: 'image', source: { type: 'base64', media_type: img.mediaType, data: img.base64 } }));
+  content.push({ type: 'text', text: '이 카드뉴스 세트의 구성 흐름을 위 형식의 JSON으로 분석해주세요.' });
+
+  const raw = await callClaude(system, [{ role: 'user', content }], 2, null, 1500);
+  const cleaned = raw.replace(/```json|```/g, '').trim();
+  return JSON.parse(cleaned);
+}
 
 
 document.getElementById('source').addEventListener('input', updateSourceCounter);
