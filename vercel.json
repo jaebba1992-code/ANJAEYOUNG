@@ -14,6 +14,12 @@
     },
     "api/generate-proposal.js": {
       "maxDuration": 60
+    },
+    "api/fetch-blog-content.js": {
+      "maxDuration": 30
+    },
+    "api/fetch-blog-list.js": {
+      "maxDuration": 30
     }
   }
 }

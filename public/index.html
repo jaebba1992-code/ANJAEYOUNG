@@ -1899,6 +1899,39 @@
         </div>
       </div>
       <button class="copy-btn" id="libAddBtn" style="width:100%; padding:10px;">라이브러리에 저장</button>
+
+      <div style="margin-top:20px; padding-top:16px; border-top:1px solid var(--line);">
+        <p style="font-size:12.5px; color:var(--brass); font-weight:600; margin:0 0 6px;">블로그 메인 링크로 글 목록 찾기 (네이버 블로그)</p>
+        <p style="font-size:12px; color:var(--paper-mute); line-height:1.7; margin:0 0 10px;">
+          블로그 메인 주소(예: blog.naver.com/황팀장아이디)만 넣으면 최근 글 목록을 찾아와요. 가져올 글만 체크해서 골라 담으세요.
+        </p>
+        <div style="display:flex; gap:8px;">
+          <input type="text" id="libBlogMainInput" placeholder="예: https://blog.naver.com/OOO 또는 아이디만" style="flex:1; padding:8px 12px; border:1px solid var(--line); border-radius:var(--r-control); font-size:13px;">
+          <button class="copy-btn" id="libBlogListFindBtn">글 목록 찾기</button>
+        </div>
+        <div id="libBlogListResult" style="margin-top:10px;"></div>
+      </div>
+
+      <div style="margin-top:20px; padding-top:16px; border-top:1px solid var(--line);">
+        <p style="font-size:12.5px; color:var(--brass); font-weight:600; margin:0 0 6px;">링크 여러 개 한 번에 가져오기</p>
+        <p style="font-size:12px; color:var(--paper-mute); line-height:1.7; margin:0 0 10px;">
+          블로그 글 링크를 한 줄에 하나씩 붙여넣으면, 본문을 가져와서 AI가 핵심만 정리해 자동으로 저장해요 (네이버 블로그 포함). 링크만 있으면 되고, 직접 복사·붙여넣기 하실 필요 없어요.
+        </p>
+        <textarea id="libBulkUrlInput" rows="4" placeholder="https://blog.naver.com/OOO/12345&#10;https://blog.naver.com/OOO/12346"></textarea>
+        <button class="copy-btn" id="libBulkImportBtn" style="margin-top:8px;">링크로 가져오기</button>
+        <div id="libBulkImportStatus" style="margin-top:10px; font-size:12.5px; color:var(--paper-mute);"></div>
+      </div>
+
+      <div style="margin-top:20px; padding-top:16px; border-top:1px solid var(--line);">
+        <p style="font-size:12.5px; color:var(--brass); font-weight:600; margin:0 0 6px;">텍스트 파일 여러 개 한 번에 저장하기</p>
+        <p style="font-size:12px; color:var(--paper-mute); line-height:1.7; margin:0 0 10px;">
+          블로그 글을 메모장 등에 직접 복사해서 .txt 파일로 저장해두셨다면, 여러 개를 한 번에 선택해서 올리세요. 파일 하나 = 라이브러리 글 하나로 저장돼요 (파일명이 제목이 돼요).
+        </p>
+        <input type="file" id="libTxtFilesInput" accept=".txt" multiple style="font-size:12px; color:var(--paper-dim);">
+        <button class="mini-btn" id="libTxtFilesUploadBtn" style="margin-left:8px;">파일로 저장</button>
+        <p id="libTxtFilesStatus" style="font-size:11.5px; color:var(--paper-mute); margin-top:8px;"></p>
+      </div>
+
       <div id="libraryList" style="margin-top:14px;"></div>
 
       <div style="margin-top:22px; padding-top:18px; border-top:1px solid var(--line);">
@@ -4411,6 +4444,126 @@ document.getElementById('libAddBtn').addEventListener('click', async () => {
     await refreshLibrary();
   } catch (e) { alert('저장 실패: ' + e.message); }
 });
+
+/* ===================== 링크 여러 개로 라이브러리 일괄 가져오기 ===================== */
+async function extractCleanArticle(rawTitle, rawText, url) {
+  const system = `당신은 웹페이지에서 블로그 글 본문만 깔끔하게 뽑아내는 전문가입니다. 아래는 블로그 페이지에서 그대로 긁어온 텍스트라, 메뉴·광고·댓글·관련글 목록 같은 잡다한 내용이 섞여 있습니다.
+
+이 안에서 실제 "글 본문"만 찾아서 정리하세요. 문장을 바꾸거나 요약하지 말고, 본문 내용은 원문 그대로 옮기되, 본문이 아닌 부분(메뉴, 광고, 댓글, "이 블로그의 인기글" 같은 관련글 목록, 저작권 안내, 구독 버튼 문구 등)만 제거하세요.
+
+아래 JSON 형식으로만 출력하세요 (다른 설명 없이):
+{"title": "글 제목", "content": "본문만 깔끔하게 정리한 텍스트"}
+
+본문을 찾을 수 없으면 {"title": "", "content": ""} 로 응답하세요.`;
+
+  const userPrompt = `[페이지 제목 태그]\n${rawTitle}\n\n[페이지에서 추출한 텍스트]\n${rawText.slice(0, 12000)}`;
+  const raw = await callClaude(system, [{ role: 'user', content: userPrompt }], 2, null, 4000);
+  const cleaned = raw.replace(/```json|```/g, '').trim();
+  return JSON.parse(cleaned);
+}
+
+document.getElementById('libTxtFilesUploadBtn').addEventListener('click', async () => {
+  const files = Array.from(document.getElementById('libTxtFilesInput').files || []);
+  const statusEl = document.getElementById('libTxtFilesStatus');
+  const btn = document.getElementById('libTxtFilesUploadBtn');
+  if (!files.length) { alert('.txt 파일을 하나 이상 선택해주세요.'); return; }
+  btn.disabled = true;
+  let okCount = 0, failCount = 0;
+  const logLines = [];
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    statusEl.innerHTML = logLines.join('<br>') + `<br>(${i + 1}/${files.length}) ${escapeHtml(file.name)} 저장 중...`;
+    try {
+      const text = await file.text();
+      if (!text.trim()) throw new Error('내용이 비어있어요');
+      const title = file.name.replace(/\.txt$/i, '');
+      await apiPost('/api/library', { title: title.slice(0, 150), content: text.trim().slice(0, 12000) });
+      okCount++;
+      logLines.push(`✅ ${escapeHtml(title)}`);
+    } catch (e) {
+      failCount++;
+      logLines.push(`❌ ${escapeHtml(file.name)} — ${escapeHtml(e.message)}`);
+    }
+  }
+  statusEl.innerHTML = logLines.join('<br>') + `<br><br><b>완료: 성공 ${okCount}건, 실패 ${failCount}건</b>`;
+  document.getElementById('libTxtFilesInput').value = '';
+  btn.disabled = false;
+  await refreshLibrary();
+});
+
+document.getElementById('libBlogListFindBtn').addEventListener('click', async () => {
+  const input = document.getElementById('libBlogMainInput').value.trim();
+  const resultEl = document.getElementById('libBlogListResult');
+  const btn = document.getElementById('libBlogListFindBtn');
+  if (!input) { alert('블로그 주소나 아이디를 입력해주세요.'); return; }
+  btn.disabled = true;
+  btn.textContent = '찾는 중...';
+  resultEl.innerHTML = '';
+  try {
+    const { posts, note } = await apiPost('/api/fetch-blog-list', { url: input });
+    if (!posts || !posts.length) {
+      resultEl.innerHTML = `<p style="font-size:12.5px; color:var(--paper-mute);">${escapeHtml(note || '글 목록을 찾지 못했어요.')} 아래 "링크 여러 개 한 번에 가져오기"에 개별 글 링크를 직접 붙여넣어주세요.</p>`;
+      return;
+    }
+    resultEl.innerHTML = `
+      <p style="font-size:12px; color:var(--paper-mute); margin-bottom:8px;">${posts.length}개 글을 찾았어요. 가져올 글을 선택하세요.</p>
+      <div style="max-height:260px; overflow-y:auto; border:1px solid var(--line); border-radius:8px; padding:8px;">
+        ${posts.map((p, i) => `
+          <label style="display:flex; align-items:flex-start; gap:8px; padding:6px 4px; font-size:13px; cursor:pointer;">
+            <input type="checkbox" class="lib-blog-post-check" data-url="${escapeHtml(p.url)}" checked style="margin-top:3px;">
+            <span>${escapeHtml(p.title || p.url)}</span>
+          </label>
+        `).join('')}
+      </div>
+      <button class="copy-btn" id="libBlogListImportSelectedBtn" style="margin-top:10px;">선택한 글 가져오기</button>
+    `;
+    document.getElementById('libBlogListImportSelectedBtn').addEventListener('click', () => {
+      const checked = Array.from(document.querySelectorAll('.lib-blog-post-check:checked')).map(c => c.dataset.url);
+      if (!checked.length) { alert('가져올 글을 하나 이상 체크해주세요.'); return; }
+      document.getElementById('libBulkUrlInput').value = checked.join('\n');
+      document.getElementById('libBulkImportBtn').click();
+    });
+  } catch (e) {
+    resultEl.innerHTML = `<p style="font-size:12.5px; color:var(--paper-mute);">찾기 실패: ${escapeHtml(e.message)}</p>`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '글 목록 찾기';
+  }
+});
+
+document.getElementById('libBulkImportBtn').addEventListener('click', async () => {
+  const raw = document.getElementById('libBulkUrlInput').value.trim();
+  const statusEl = document.getElementById('libBulkImportStatus');
+  const btn = document.getElementById('libBulkImportBtn');
+  const urls = raw.split('\n').map(l => l.trim()).filter(l => /^https?:\/\//.test(l));
+  if (!urls.length) { alert('http(s)로 시작하는 링크를 한 줄에 하나씩 입력해주세요.'); return; }
+
+  btn.disabled = true;
+  let okCount = 0, failCount = 0;
+  const logLines = [];
+  statusEl.innerHTML = '';
+  for (let i = 0; i < urls.length; i++) {
+    const url = urls[i];
+    statusEl.innerHTML = logLines.join('<br>') + `<br>(${i + 1}/${urls.length}) ${escapeHtml(url)} 가져오는 중...`;
+    try {
+      const { rawTitle, text } = await apiPost('/api/fetch-blog-content', { url });
+      if (!text || text.length < 50) throw new Error('본문을 거의 못 읽었어요 (페이지 구조 문제일 수 있어요)');
+      const article = await extractCleanArticle(rawTitle, text, url);
+      if (!article.content) throw new Error('본문을 찾지 못했어요');
+      await apiPost('/api/library', { title: (article.title || rawTitle || url).slice(0, 150), content: article.content.slice(0, 8000) + `\n\n(출처: ${url})` });
+      okCount++;
+      logLines.push(`✅ ${escapeHtml(article.title || url)}`);
+    } catch (e) {
+      failCount++;
+      logLines.push(`❌ ${escapeHtml(url)} — ${escapeHtml(e.message)}`);
+    }
+  }
+  statusEl.innerHTML = logLines.join('<br>') + `<br><br><b>완료: 성공 ${okCount}건, 실패 ${failCount}건</b>`;
+  document.getElementById('libBulkUrlInput').value = '';
+  btn.disabled = false;
+  await refreshLibrary();
+});
+
 function renderLibrary() {
   const el = document.getElementById('libraryList');
   el.innerHTML = cachedLibrary.map(item => `
@@ -7294,33 +7447,37 @@ async function generateSearchAnswer() {
     ? `\n\n[8천페이지 자료 안에서 찾은 관련 내용]\n${corpusMatches.map(m => `■ [${m.source_file || '자료'} p.${m.page_number || '?'}]\n${m.content || ''}`).join('\n\n')}`
     : '';
   const knowledgeBlock = libBlock + corpusBlock;
-
-  if (!knowledgeBlock) {
-    skeleton.style.display = 'none';
-    resultPanel.style.display = 'block';
-    resultMeta.innerHTML = '';
-    resultBody.innerHTML = '<div class="error-box">관련 자료를 찾지 못했어요. (검색에 사용한 키워드: ' + escapeHtml(combinedQuery) + ') 다른 표현으로 다시 물어보시거나, 관련 자료가 8천페이지/구글시트 자동연동에 등록되어 있는지 확인해주세요.</div>';
-    btn.disabled = false;
-    btn.textContent = oldBtnText;
-    return;
-  }
+  // 저장된 자료가 하나도 없어도 더 이상 여기서 멈추지 않는다 — 아래 AI가 일반 지식으로라도 답하게 한다.
 
   const system = `당신은 보험 설계사 본인이 사내 영업자료에서 정보를 찾아볼 때 쓰는 사내용 검색 비서입니다.
 - 고객 응대용 말투가 아니라, 동료에게 편하게 알려주듯 자연스러운 반말·구어체로 답한다 ("~야", "~더라", "~인 것 같아" 처럼). 문어체로 딱딱하게("~없다", "~못 한다", "~해야 한다") 끝내지 않는다.
-- 아래 [참고자료] 안의 내용을 근거로 정확하게 답한다. 자료에 없는 내용은 지어내지 않고, 없으면 "그건 못 찾았어" 정도로 자연스럽게 말한다.
+
+[답변 구조 — 중요]
+질문이 "이게 보상되나?", "이 문구가 무슨 뜻이야?" 처럼 판단·해석이 필요한 질문이면, 아래 3단 구조로 답한다 (자연스러운 소제목 형태로, 딱딱한 서식 나열 느낌 없이):
+1) **결론** — 되는지 안 되는지, 맞는지 아닌지부터 명확하게 한두 문장으로 먼저 말한다.
+2) **왜 그런지** — 근거(질병코드, 약관 조항, 자료 내용 등)를 구체적으로 풀어서 설명한다.
+3) **참고할 점** — 예외 상황, 헷갈리기 쉬운 부분, "정확한 건 약관/전문가 확인 권장" 같은 실무 팁을 짧게 덧붙인다.
+단순 정보 나열(연락처, 목록 등)을 물어본 거라면 이 구조를 억지로 쓰지 말고 자연스럽게 답한다.
+
+[자료 활용 — 중요]
+- 아래 [참고자료]가 있으면 최우선으로 근거로 쓰고, 사실마다 바로 뒤에 괄호로 어느 자료에서 나온 건지 표시한다. 참고자료 각 항목 맨 앞에 [자료명: OOO] 라고 표시되어 있으니, 그 이름을 그대로 가져와서 "~라고 되어있어 (자료: OOO)" 식으로 문장마다 출처를 밝힌다.
+- [참고자료]에 질문과 관련된 내용이 없거나 부족하면, 저장된 자료가 없다고 답변을 포기하지 말고 일반적으로 알려진 보험·의학·법률 상식을 바탕으로 답한다. 이 경우엔 출처 표시 대신 "정확히 저장된 자료는 없는데, 일반적으로 알려진 내용으로는" 같은 식으로 자료 기반 답변과 자연스럽게 구분해서 말한다.
+- 참고자료와 일반 지식이 둘 다 섞여서 쓰였으면, 어디까지가 저장된 자료 기반이고 어디부터가 일반 지식인지 자연스럽게 구분해서 알 수 있게 한다.
+- 그 무엇으로도 답을 찾을 수 없는 경우에만 "정확히는 잘 모르겠다"고 솔직하게 말한다.
+
+[세부 지침]
 - 자료 안에 여러 회사·조건이 있으면 비교하기 쉽게 정리해서 보여준다 (표나 목록 형태 환영).
 - 전화번호, 링크, 수치 등은 자료에 있는 그대로 정확히 옮긴다.
 - 만약 자료에 정확히 같은 조건(예: 정확한 나이나 가입금액)이 없고 비슷한 조건만 있다면, "정확히는 못 찾았지만 자료엔 이런 게 있다"는 식으로 가장 가까운 걸 알려주고, 어떤 조건이 달랐는지 짚어준다.
 - 보험료는 보통 가입금액에 거의 비례한다. 자료에 1천만원 기준 보험료만 있고 질문은 5천만원 같은 다른 금액을 물어봤다면, "1천만원 기준 자료를 5배로 환산하면 대략 이 정도"라고 계산해서 알려주되, 반드시 "정확한 금액이 아니라 대략적인 추정치이며 실제로는 가입금액 구간별로 비율이 달라질 수 있다"고 명확히 밝힌다. 계산에 사용한 원본 숫자와 배율도 같이 보여준다.
 - 나이도 마찬가지로, 자료에 정확한 나이가 없고 근처 나이만 있다면 그 두 나이 사이 값으로 대략 추정해서 알려주되, 이것도 "추정치"라고 명확히 표시한다.
 - 참고자료 중에 "A사", "B사", "K사" 처럼 회사명이 익명 처리된 자료(유튜브 대본 등 구어체 자료일 가능성이 높다)와, 실제 보험사 이름과 정확한 표 형태로 정리된 자료(구글시트 비교표 등)가 둘 다 있으면, 실제 회사명이 있는 표 형태 자료를 우선적으로, 더 신뢰도 높은 근거로 사용한다. 익명화된 자료만 있을 땐 "정확한 회사명은 확인 안 되고, 대략적인 비교 사례만 있다"고 명확히 밝힌다.
-- 매우 중요: 답변에 쓰는 사실마다 바로 뒤에 괄호로 어느 자료에서 나온 건지 표시한다. 참고자료 각 항목 맨 앞에 [자료명: OOO] 라고 표시되어 있으니, 그 이름을 그대로 가져와서 "~라고 되어있어 (자료: OOO)" 식으로 문장마다 출처를 밝힌다. 여러 자료를 섞어 썼으면 각각 어디서 나온 건지 구분해서 표시한다.
 - 특히 매우 중요: 질문이 "어디가 가장 싸?" 같은 순위·비교를 원하는 거라면, 애매한 힌트("~라는 언급이 있다", "~로 보인다")만 던지지 말고, 참고자료 안에 있는 실제 숫자를 최대한 찾아서 회사별로 나열해서 순위를 매겨준다. 정확히 같은 조건이 없으면 가장 가까운 조건의 실제 숫자를 가져와서 "OO세 기준으로 보면 A사 OO원, B사 OO원, C사 OO원 순으로 싸" 처럼 구체적으로 답한다 (몇 세 기준인지는 명확히 밝힌다). 참고자료를 다 훑어봐도 회사별 숫자 자체가 하나도 없을 때만 "숫자 비교는 못 하겠다"고 말한다.
 - 연락처(이름+전화번호) 목록을 답할 때는, 한 사람당 한 줄에 "이름 직급 전화번호 소속" 순서로 깔끔하게 적는다 (예: "김윤재 매니저 010-6443-7989 흥국화재").
 - 인물·상품·회사명처럼 답변에서 강조하고 싶은 핵심 단어는 **단어** 형태(마크다운 굵게)로 표시한다.
 - 결과는 답변 본문만 출력한다.`;
 
-  const userPrompt = `[질문]\n${q}${knowledgeBlock}\n\n위 자료를 바탕으로 답해줘.`;
+  const userPrompt = `[질문]\n${q}${knowledgeBlock}\n\n${knowledgeBlock ? '위 자료를 우선 근거로 삼되, 부족하면 일반 지식으로 보완해서' : '저장된 참고자료는 못 찾았으니, 너가 알고 있는 일반적인 보험·의학·법률 지식으로'} 답해줘.`;
 
   try {
     const answer = await callClaude(system, [{ role: 'user', content: userPrompt }], 2, null, 2400);
