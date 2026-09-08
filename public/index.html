@@ -5897,6 +5897,32 @@ function titleMatchesKeyword(title, keyword) {
   return false;
 }
 
+// 네이버 블로그/카페 검색 API는 "8대장애진단비" 같은 복합 보험 용어에서 관련 없는 결과(금리·증시 기사 등)를
+// 섞어 내놓는 경우가 있어서, 실제 웹 검색으로 한 번 더 찾아본다. 여기서는 Claude가 검색 결과를 직접 읽고
+// 진짜 관련 있는 글인지 판단하게 하므로, 제목 문구가 100% 똑같지 않아도(예: "진단비" vs "진단담보") 잡아낼 수 있다.
+async function webSearchBlogFallback(keyword) {
+  const system = `당신은 리서치 보조원입니다. 주어진 키워드를 web_search 도구로 검색해서, 그 키워드가 다루는 주제를 실제로 다루는 블로그 글(네이버 블로그 포함, 다른 블로그도 가능)을 찾아주세요.
+
+아래 JSON 형식으로만 출력하세요 (다른 설명 없이):
+{"items": [{"title": "글 제목 그대로", "url": "정확한 전체 URL", "description": "1~2문장 요약"}]}
+
+[규칙]
+- "${keyword}"가 다루는 주제(보험 상품·특약 등)를 실제로 설명하는 글만 포함한다. 표현이 정확히 똑같지 않아도(예: "진단비"↔"진단담보") 같은 주제를 다루면 포함해도 된다. 하지만 전혀 다른 주제(예: 금리, 증시, 부동산 등)는 절대 포함하지 않는다.
+- 검색 결과에 실제로 존재하는 글만 적는다. URL을 지어내지 않는다.
+- 관련성 높은 순서로 최대 5개까지.
+- 진짜 관련 있는 글을 하나도 못 찾으면 {"items": []} 로만 응답한다.
+- 다른 설명, 코드블록 기호 없이 JSON만 출력한다.`;
+
+  try {
+    const raw = await callClaude(system, [{ role: 'user', content: `"${keyword}" 관련 블로그 글을 웹 검색해서 찾아줘.` }], 1, WEB_SEARCH_TOOL, 1500);
+    const cleaned = raw.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(cleaned);
+    return (parsed.items || []).filter(it => it.title && it.url).map(it => ({ title: it.title, link: it.url, description: it.description || '' }));
+  } catch (e) {
+    return [];
+  }
+}
+
 document.getElementById('blogGenBtn').addEventListener('click', async () => {
   const keyword = document.getElementById('blogKeyword').value.trim();
   const category = document.getElementById('blogCategory').value;
@@ -5940,30 +5966,41 @@ document.getElementById('blogGenBtn').addEventListener('click', async () => {
     progressText.textContent = '"' + keyword + '" 제목에 실제로 이 키워드가 들어간 글 찾는 중...';
     progressBar.style.width = '30%';
     try {
-      // 블로그+카페를 넉넉히(각 20/15건) 가져온 다음, 제목에 키워드가 실제로 포함된 것만 골라낸다.
-      // (예전엔 display=5로 조금만 가져와서, 관련도순 검색 결과에 엉뚱한 주제가 섞여 들어와도 그대로 썼음)
+      // 1) 네이버 블로그/카페 API로 넉넉히(각 20/15건) 가져온 다음, 제목에 키워드가 실제로 포함된 것만 골라낸다.
       const [blogRes, cafeRes] = await Promise.all([
         apiGet('/api/naver-search?type=blog&display=20&query=' + encodeURIComponent(keyword)),
         apiGet('/api/naver-search?type=cafe&display=15&query=' + encodeURIComponent(keyword)).catch(() => ({ items: [] }))
       ]);
       const allCandidates = [...(blogRes.items || []), ...(cafeRes.items || [])];
-      const items = allCandidates.filter(it => titleMatchesKeyword(it.title, keyword)).slice(0, 5);
+      let items = allCandidates.filter(it => titleMatchesKeyword(it.title, keyword));
+      let sourceNote = '네이버 블로그/카페 검색';
+
+      // 2) 네이버 API 결과가 부족하면(복합 보험 용어에서 종종 엉뚱한 결과가 섞여 나옴), 실제 웹 검색으로 보강한다.
+      if (items.length < 3) {
+        progressText.textContent = `네이버 API 결과가 부족해서 실제 웹 검색으로 "${keyword}" 다루는 글 더 찾는 중...`;
+        const webItems = await webSearchBlogFallback(keyword);
+        const existingLinks = new Set(items.map(it => it.link));
+        const merged = items.concat(webItems.filter(it => !existingLinks.has(it.link)));
+        if (webItems.length) sourceNote = items.length ? '네이버 블로그/카페 검색 + 웹 검색' : '웹 검색';
+        items = merged;
+      }
+      items = items.slice(0, 5);
 
       // 매칭 여부와 상관없이 항상 패널을 띄운다 — "조합한 게 안 보인다"는 문제 방지.
       analysisPanel.style.display = 'block';
       if (items.length) {
-        patternBlock = `\n\n["${keyword}" 라는 문구가 실제로 제목에 들어간, 네이버 상위노출 글 ${items.length}개 — 이 글들이 다루는 주제/각도/구조를 참고하되 절대 그대로 베끼지 마세요. 다른 주제로 새지 말고 이 글들과 같은 세부 주제를 유지하세요]\n${items.map((it, i) => `${i+1}. ${it.title}\n요약: ${(it.description||'').slice(0, 150)}`).join('\n\n')}`;
-        const html = `<p style="font-size:12.5px; color:var(--paper-mute); margin:0 0 10px;">제목에 "${escapeHtml(keyword)}"가 실제로 들어간 글 ${items.length}개를 참고해서 조합했어요.</p>` +
+        patternBlock = `\n\n["${keyword}"를 실제로 다루는 상위 글 ${items.length}개 (${sourceNote}로 찾음) — 이 글들이 다루는 주제/각도/구조를 참고하되 절대 그대로 베끼지 마세요. 다른 주제로 새지 말고 이 글들과 같은 세부 주제를 유지하세요]\n${items.map((it, i) => `${i+1}. ${it.title}\n요약: ${(it.description||'').slice(0, 150)}`).join('\n\n')}`;
+        const html = `<p style="font-size:12.5px; color:var(--paper-mute); margin:0 0 10px;">"${escapeHtml(keyword)}"를 다루는 글 ${items.length}개(${escapeHtml(sourceNote)})를 참고해서 조합했어요.</p>` +
           items.map((it, i) => `<div style="margin-bottom:10px;"><a href="${it.link}" target="_blank" style="color:var(--brass);">${i+1}. ${escapeHtml(it.title)}</a><div style="color:var(--paper-mute); font-size:12.5px; margin-top:2px;">${escapeHtml(it.description)}</div></div>`).join('');
         analysisBody.innerHTML = html;
         lastBlogAnalysis = { keyword, patternBlock, html };
       } else {
-        // 제목 매칭된 글이 없어도, 검색을 시도했다는 사실과 검토했던 후보들은 보여준다 (조합에는 안 썼지만 투명하게).
-        progressText.textContent = `"${keyword}"가 제목에 정확히 들어간 글을 찾지 못했어요 — 참고 없이 기본 구조로 작성했어요.`;
+        // 아무것도 못 찾아도, 검색을 시도했다는 사실과 검토했던 후보들은 보여준다 (조합에는 안 썼지만 투명하게).
+        progressText.textContent = `"${keyword}"를 다루는 글을 찾지 못했어요 — 참고 없이 기본 구조로 작성했어요.`;
         const previewCandidates = allCandidates.slice(0, 5);
-        const html = `<p style="font-size:12.5px; color:var(--paper-mute); margin:0 0 10px;">제목에 "${escapeHtml(keyword)}"가 정확히 들어간 글은 못 찾았어요. 그래서 이번 글은 특정 상위노출 글을 참고하지 않고 일반 구조로 작성했어요.</p>` +
+        const html = `<p style="font-size:12.5px; color:var(--paper-mute); margin:0 0 10px;">네이버 검색과 웹 검색 둘 다에서 "${escapeHtml(keyword)}"를 실제로 다루는 글을 못 찾았어요. 그래서 이번 글은 특정 상위노출 글을 참고하지 않고 일반 구조로 작성했어요.</p>` +
           (previewCandidates.length
-            ? `<p style="font-size:11.5px; color:var(--paper-mute); margin:10px 0 6px;">검토는 했지만 제목이 달라서 채택하지 않은 검색 결과:</p>` +
+            ? `<p style="font-size:11.5px; color:var(--paper-mute); margin:10px 0 6px;">네이버 API에서 검토는 했지만 주제가 달라서 채택하지 않은 검색 결과:</p>` +
               previewCandidates.map((it, i) => `<div style="margin-bottom:8px; opacity:0.7;"><a href="${it.link}" target="_blank" style="color:var(--paper-mute); text-decoration:underline;">${i+1}. ${escapeHtml(it.title)}</a></div>`).join('')
             : `<p style="font-size:11.5px; color:var(--paper-mute);">네이버 검색 결과 자체가 없었어요.</p>`);
         analysisBody.innerHTML = html;
@@ -5971,8 +6008,8 @@ document.getElementById('blogGenBtn').addEventListener('click', async () => {
       }
     } catch (e) {
       analysisPanel.style.display = 'block';
-      analysisBody.innerHTML = `<p style="font-size:12.5px; color:var(--paper-mute);">네이버 검색에 실패해서 참고 글 없이 작성했어요. (${escapeHtml(e.message)})</p>`;
-      progressText.textContent = '네이버 검색 실패 — 기본 구조로 계속 진행할게요. (' + e.message + ')';
+      analysisBody.innerHTML = `<p style="font-size:12.5px; color:var(--paper-mute);">검색에 실패해서 참고 글 없이 작성했어요. (${escapeHtml(e.message)})</p>`;
+      progressText.textContent = '검색 실패 — 기본 구조로 계속 진행할게요. (' + e.message + ')';
     }
     }
   }
