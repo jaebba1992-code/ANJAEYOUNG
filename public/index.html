@@ -796,7 +796,7 @@
     </div>
     <div>
       <p class="sb-group-label">콘텐츠 제작</p>
-      <button type="button" class="sb-item active" id="tabBtnScript"><span class="sb-icon"></span>대본 생성기<span class="sb-count" id="sbCountScript"></span></button>
+      <button type="button" class="sb-item" id="tabBtnScript"><span class="sb-icon"></span>대본 생성기<span class="sb-count" id="sbCountScript"></span></button>
       <button type="button" class="sb-item" id="tabBtnCafe"><span class="sb-icon"></span>카페 답변<span class="sb-count" id="sbCountCafe"></span></button>
       <button type="button" class="sb-item" id="tabBtnBlog"><span class="sb-icon"></span>블로그 포스팅<span class="sb-count" id="sbCountBlog"></span></button>
       <button type="button" class="sb-item" id="tabBtnPpt"><span class="sb-icon"></span>PPT 생성<span class="sb-count" id="sbCountPpt"></span></button>
@@ -806,7 +806,7 @@
       <p class="sb-group-label">영업 지원</p>
       <button type="button" class="sb-item" id="tabBtnProposal"><span class="sb-icon"></span>제안서 생성<span class="sb-count" id="sbCountProposal"></span></button>
       <button type="button" class="sb-item" id="tabBtnReco"><span class="sb-icon"></span>추천상품<span class="sb-count" id="sbCountReco"></span></button>
-      <button type="button" class="sb-item" id="tabBtnSearch"><span class="sb-icon"></span>자료 검색<span class="sb-count" id="sbCountSearch"></span></button>
+      <button type="button" class="sb-item active" id="tabBtnSearch"><span class="sb-icon"></span>자료 검색<span class="sb-count" id="sbCountSearch"></span></button>
     </div>
     <div class="sb-usage">
       <div class="sb-usage-label">등록된 구글시트</div>
@@ -822,9 +822,9 @@
   <div class="app-main">
     <div class="page-header">
       <div>
-        <div class="page-header-eyebrow" id="pageHeaderEyebrow">SCRIPT</div>
-        <div class="page-header-title" id="pageHeaderTitle">대본 생성기</div>
-        <div class="page-header-desc" id="pageHeaderDesc">주제 하나로 근거 있는 롱폼·숏폼 대본을 만들어요</div>
+        <div class="page-header-eyebrow" id="pageHeaderEyebrow">SEARCH</div>
+        <div class="page-header-title" id="pageHeaderTitle">자료 검색</div>
+        <div class="page-header-desc" id="pageHeaderDesc">영업메뉴얼 · 업무연락처 · 상품자료 안에서 바로 찾기</div>
       </div>
       <div class="page-header-stats" id="pageHeaderStats" style="display:none;">
         <div class="phs-item">
@@ -859,7 +859,7 @@
     </div>
   </div>
 
-  <div id="scriptTab">
+  <div id="scriptTab" style="display:none;">
 
   <div class="panel" id="resumeBanner" style="display:none; border-color:var(--brass-dim);">
     <p class="panel-title" style="border:none; padding:0; margin:0 0 10px;">이어서 쓰다 만 대본이 있어요</p>
@@ -1688,15 +1688,13 @@
 
   </div>
 
-  <div id="searchTab" style="display:none;">
+  <div id="searchTab">
 
-        <div class="panel" style="margin-bottom:16px;">
-          <p class="panel-title" style="font-size:14px;">종수술 분류 검색 <span style="color:var(--paper-mute); font-weight:400; font-size:12px;">— 수술명을 입력하면 몇 종 수술인지 바로 보여줘요 (참고용 — 실제 청구 전 반드시 가입 약관으로 재확인하세요)</span></p>
-          <div style="display:flex; gap:8px;">
-            <input type="text" id="surgerySearchInput" placeholder="예: 피부이식수술" style="flex:1; padding:10px 14px; border:1px solid var(--line); border-radius:var(--r-control); font-size:14px;">
-            <button class="copy-btn" id="surgerySearchBtn" style="padding:0 20px;">검색</button>
-          </div>
-          <div id="surgerySearchResult" style="margin-top:12px;"></div>
+        <div class="panel" style="margin-bottom:16px; background:linear-gradient(135deg, var(--paper-soft), var(--paper)); border:1px solid var(--line);">
+          <p style="font-size:14px; font-weight:700; color:var(--paper-text); margin:0 0 6px;">💡 276본부 구글시트, 다 연동돼 있어요</p>
+          <p style="font-size:13px; color:var(--paper-mute); line-height:1.6; margin:0;">
+            등록해둔 구글시트·영업메뉴얼·업무연락처·상품자료가 전부 이 검색 하나로 연결돼 있어요. 필요한 게 있으면 아래에 그냥 물어보듯 검색해보세요 — 예: "강서12 연락처 알려줘", "간편심사 고지 기준이 뭐야"
+          </p>
         </div>
 
         <div class="search-input-wrap">
@@ -1755,6 +1753,15 @@
             <button type="button" class="sab-btn sab-ghost" id="sabLike">👍 좋아요</button>
           </div>
           <div id="searchRawPanel" class="search-raw-panel" style="display:none;"></div>
+        </div>
+
+        <div class="panel" style="margin-top:24px; opacity:0.9;">
+          <p class="panel-title" style="font-size:14px;">종수술 분류 검색 <span style="color:var(--paper-mute); font-weight:400; font-size:12px;">— 베타, 아직 등록된 자료가 적어요. 수술명을 입력하면 몇 종 수술인지 보여줘요 (참고용 — 실제 청구 전 반드시 가입 약관으로 재확인하세요)</span></p>
+          <div style="display:flex; gap:8px;">
+            <input type="text" id="surgerySearchInput" placeholder="예: 피부이식수술" style="flex:1; padding:10px 14px; border:1px solid var(--line); border-radius:var(--r-control); font-size:14px;">
+            <button class="copy-btn" id="surgerySearchBtn" style="padding:0 20px;">검색</button>
+          </div>
+          <div id="surgerySearchResult" style="margin-top:12px;"></div>
         </div>
 
   </div>
@@ -2023,6 +2030,7 @@ async function tryEnter(pw) {
       document.getElementById('authGate').style.display = 'none';
       document.getElementById('appShell').style.display = 'grid';
       document.getElementById('mobileTopbar').style.display = '';
+      setActiveTab('search'); // 홈 화면을 자료 검색 탭으로 고정
       loadAnnouncement();
       refreshSidebarCounts();
       logVisit();
@@ -2125,6 +2133,7 @@ async function submitNameGate() {
   document.getElementById('nameGate').style.display = 'none';
   document.getElementById('appShell').style.display = 'grid';
   document.getElementById('mobileTopbar').style.display = '';
+  setActiveTab('search'); // 홈 화면을 자료 검색 탭으로 고정
   try {
     await apiPost('/api/visits', { visitor_name: name, device_id: getDeviceId() });
   } catch (e) {
