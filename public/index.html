@@ -3405,12 +3405,12 @@ let cardHistoryLoaded = false;
 
 const CARD_TEMPLATE_GUIDE = `사용 가능한 카드 타입은 아래 9개다. 반드시 이 중에서만 골라서 쓰고, 각 타입의 필드 이름을 정확히 지켜야 한다 (필드명 임의 변경 금지). 카드 하나 = 인스타그램 카드뉴스 1장(4:5 비율).
 
-1. "darkCover" — 표지(첫 장). 어두운 배경 + 브랜드 배지 + 큰 제목. { type, badge, titleRuns:[{text, tone}], subtitle, photoQuery } (tone: "accent"|null. titleRuns는 2~3개 조각으로 나눠서 강조하고 싶은 부분만 tone:"accent". photoQuery는 아래 설명 참고)
+1. "darkCover" — 표지(첫 장). 어두운 배경 + 브랜드 배지 + 큰 제목. { type, badge, titleRuns:[{text, tone}], subtitle, photoQuery } (tone: "accent"|null. titleRuns는 2~3개 조각으로 나눠서 강조하고 싶은 부분만 tone:"accent". subtitle은 한 줄로 자연스럽게 읽히도록 18자 이내로 짧게 — "vs", "—" 같은 기호로 두 구절을 억지로 이어붙이면 줄바꿈이 어색해지니 피한다. photoQuery는 아래 설명 참고)
 2. "darkText" — 어두운 배경 설명 카드. { type, eyebrow, title, body, listItems, photoQuery } (body 안에서 강조하고 싶은 구간은 **이렇게** 감싼다. listItems는 체크리스트가 필요할 때만 — 배열, 각 항목은 문자열이거나 {text, mark:"check"|"x"})
 3. "lightText" — 밝은(크림색) 배경 설명 카드. { type, title, body, listItems, photoQuery } (필드는 darkText와 동일하게 쓸 수 있다)
 4. "caseFormula" — 밝은 배경 사례 비교 카드(계산식 나열). { type, caseLabel, description, rows:["A상품 → 조건 → 계산식", "B상품 → 조건 → 계산식"], totalLabel:"최종 차액 문구", photoQuery }
 5. "twoColumn" — "A vs B" 나란히 비교하는 두 박스. 구실손/신실손, 우리 상품/다른 상품처럼 항목별로 조목조목 비교할 때 가장 효과적이다. { type, title, leftLabel, leftItems:[{text,mark:"check"|"x"} 또는 문자열], rightLabel, rightItems, note }
-6. "statBadge" — 큰 원 안에 숫자 하나를 강조하는 카드. "43.1%가 용종 발견" 처럼 임팩트 있는 통계 하나를 강조할 때 캡션형 lightText/darkText보다 훨씬 효과적이다. { type, eyebrow, title, value:"43.1%", unit:"용종 발견", body }
+6. "statBadge" — 큰 원 안에 숫자 하나를 강조하는 카드. "43.1%가 용종 발견" 처럼 임팩트 있는 통계 하나를 강조할 때 캡션형 lightText/darkText보다 훨씬 효과적이다. { type, eyebrow, title, value:"43.1%", unit:"용종 발견", body } (unit은 value 밑에 별도 줄로 크게 표시되니, "가 ~중" 처럼 value에 조사로 이어붙는 문장이 아니라 "용종 발견", "구실손 유지 중"처럼 그 자체로 뜻이 통하는 짧은 명사구로 쓴다. title 쪽에서 "실손보험 가입자 중"처럼 문맥을 미리 잡아주면 자연스럽다.)
 7. "compareBars" — 막대그래프로 두 값을 비교. 금액·수치 차이를 시각적으로 보여줄 때. { type, title, bars:[{label, value(숫자, 막대길이 비율용), valueText:"900만원"}], note } (bars는 최대 4개, 마지막 막대가 자동으로 강조색으로 표시된다)
 8. "ctaShare" — 어두운 배경 참여 유도 카드(댓글/DM/공유 등). { type, title, body, photoQuery }
 9. "outro" — 마지막 고정 카드. { type } 만 넣으면 된다 (브랜드/심의문구는 서버가 자동으로 채운다 — title/body 등 다른 필드 넣지 않는다)
@@ -3470,13 +3470,14 @@ ${exampleSetStructure ? `
 ${exampleSetStructure}
 
 이 구조를 참고해서 "비슷한 느낌·비슷한 진행 방식"의 카드뉴스를 만들되, 아래 원칙을 반드시 지키세요:
+- **주제 자체(예: 어린이보험, 실손보험 등)는 위 분석에 적힌 주제와 반드시 동일하게 유지한다. 절대 다른 보험 상품/주제로 바꾸지 않는다.** 요청 내용에 별도 주제가 명시되어 있으면 그걸 우선하고, 요청 내용이 비어있으면 반드시 위 예시의 주제를 그대로 따른다.
 - 카드 장수와 각 장의 "역할"(예: 표지-후킹, 문제제기, 비교, 마무리)은 비슷하게 가져가도 된다.
-- 하지만 실제 내용·문구·소재·순서는 그대로 베끼지 말고, 요청 내용(있다면) 또는 일반적인 보험 상식을 바탕으로 완전히 새로 쓴다.
+- 하지만 실제 문구·구체적 소재(사례, 숫자, 표현)·순서는 그대로 베끼지 말고, 같은 주제 안에서 요청 내용(있다면) 또는 일반적인 보험 상식을 바탕으로 완전히 새로 쓴다.
 - 카드 순서를 그대로 따라가지 않아도 된다 — 메시지 전달에 더 낫다고 판단되면 순서를 바꾸거나, 불필요한 장은 빼고, 필요한 내용을 새 장으로 추가해도 된다. 장수가 원본과 똑같을 필요도 없다.
-- 목표는 "표절이 아니라 영감을 받은 재구성"이다 — 같은 카테고리 정보를 자기 방식대로 다시 전달하는 것.` : ''}
+- 목표는 "표절이 아니라 같은 주제를 다루는 영감을 받은 재구성"이다 — 주제는 유지하되, 실제 표현과 세부 소재는 자기 방식대로 다시 전달하는 것.` : ''}
 - 결과는 오직 JSON 배열만 출력한다. 다른 설명, 마크다운, 코드블록 기호는 절대 붙이지 않는다.`;
 
-  const userParts = [`[요청 내용]\n${request || '(요청 내용 없음 — 위 예시 카드뉴스 세트의 흐름을 참고해서 새로운 보험 관련 소재로 자유롭게 구성해주세요)'}`];
+  const userParts = [`[요청 내용]\n${request || '(요청 내용 없음 — 반드시 위 예시 카드뉴스 세트와 같은 주제로, 그 흐름을 참고해서 구성해주세요. 주제를 임의로 바꾸지 마세요)'}`];
   if (designData) userParts.push(`[설계안 / 실제 숫자 자료]\n${designData}`);
   if (clauseText) userParts.push(`[약관 발췌 — 이 문구를 활용]\n${clauseText}`);
   if (styleNote) userParts.push(`[참고 이미지 분석 — 특히 layoutStructure/recommendedCardType은 실제로 그 구조를 따라 카드를 구성하는 데 적극 반영하세요]\n${styleNote}`);
@@ -3587,11 +3588,14 @@ document.getElementById('cardGenBtn').addEventListener('click', async () => {
   document.getElementById('cardPreviewPanel').style.display = 'none';
   try {
     let exampleSetStructure = '';
+    let exampleTopic = '';
     if (exampleImages.length) {
       btn.textContent = '예시 카드뉴스 흐름 분석 중...';
       if (!window.__cardExampleSetStructure) {
         const analysis = await analyzeReferenceCardSet(exampleImages);
+        window.__cardExampleSetTopic = analysis.topic || '';
         window.__cardExampleSetStructure = [
+          `주제(반드시 동일하게 유지할 것): ${analysis.topic || '(파악 안 됨)'}`,
           `총 ${analysis.totalCards || exampleImages.length}장`,
           `분위기: ${analysis.moodKeywords || ''}`,
           `색감: ${analysis.colorNote || ''}`,
@@ -3600,10 +3604,12 @@ document.getElementById('cardGenBtn').addEventListener('click', async () => {
         ].join('\n');
       }
       exampleSetStructure = window.__cardExampleSetStructure;
+      exampleTopic = window.__cardExampleSetTopic || '';
     }
 
     btn.textContent = '카드 구성 짜는 중...';
-    const plan = await buildCardPlan(request, designData, clauseText, cardCount, styleNote, useAutoPhoto, exampleSetStructure);
+    const effectiveRequest = request || (exampleTopic ? `"${exampleTopic}" 주제로, 아래 예시 카드뉴스 세트와 비슷한 흐름으로 만들어주세요.` : '');
+    const plan = await buildCardPlan(effectiveRequest, designData, clauseText, cardCount, styleNote, useAutoPhoto, exampleSetStructure);
     btn.textContent = '이미지 만드는 중... (시간이 좀 걸려요)';
     const [result, caption] = await Promise.all([
       apiPost('/api/generate-cardnews', { plan, accent, theme, channelName, coverPhotoBase64: coverPhotoBase64 || undefined }),
@@ -5252,7 +5258,7 @@ function renderCardExampleSetPreview() {
   wrap.querySelectorAll('[data-remove]').forEach(btn => {
     btn.addEventListener('click', () => {
       window.__cardExampleSetImages.splice(Number(btn.dataset.remove), 1);
-      window.__cardExampleSetStructure = null;
+      window.__cardExampleSetStructure = null; window.__cardExampleSetTopic = null;
       renderCardExampleSetPreview();
     });
   });
@@ -5275,14 +5281,14 @@ document.getElementById('cardExampleSetInput').addEventListener('change', async 
     window.__cardExampleSetImages.push({ base64: resized, mediaType: 'image/jpeg' });
   }
   window.__cardExampleSetImages = window.__cardExampleSetImages.slice(0, 10);
-  window.__cardExampleSetStructure = null; // 이미지가 바뀌었으니 캐시된 분석 결과 초기화
+  window.__cardExampleSetStructure = null; window.__cardExampleSetTopic = null; // 이미지가 바뀌었으니 캐시된 분석 결과 초기화
   renderCardExampleSetPreview();
   statusEl.textContent = `${window.__cardExampleSetImages.length}장 첨부됨 — 생성 버튼을 누르면 흐름을 분석해서 반영해요.`;
   e.target.value = '';
 });
 document.getElementById('cardExampleSetClearBtn').addEventListener('click', () => {
   window.__cardExampleSetImages = [];
-  window.__cardExampleSetStructure = null;
+  window.__cardExampleSetStructure = null; window.__cardExampleSetTopic = null;
   renderCardExampleSetPreview();
   document.getElementById('cardExampleSetStatus').textContent = '';
   document.getElementById('cardExampleSetClearBtn').style.display = 'none';
@@ -5291,12 +5297,13 @@ document.getElementById('cardExampleSetClearBtn').addEventListener('click', () =
 // 여러 장의 카드뉴스 이미지를 한 번에 보고, 전체 흐름(몇 장인지, 각 장이 어떤 역할인지, 순서)을 분석한다.
 // 문구를 그대로 옮기지 않고 "역할/구조"만 뽑아내서, 나중에 buildCardPlan이 비슷한 흐름으로 완전히 새로 쓰게 한다.
 async function analyzeReferenceCardSet(images) {
-  const system = `당신은 인스타그램 카드뉴스 디자이너입니다. 사용자가 올린 카드뉴스 세트(한 게시물의 여러 장을 순서대로)를 보고, 그 게시물의 "구성 흐름"을 분석합니다.
+  const system = `당신은 인스타그램 카드뉴스 디자이너입니다. 사용자가 올린 카드뉴스 세트(한 게시물의 여러 장을 순서대로)를 보고, 그 게시물의 "주제"와 "구성 흐름"을 분석합니다.
 
-중요: 이미지 속 문구·숫자·고유명사를 그대로 옮겨 적지 마세요. 오직 "이 장은 무슨 역할을 하는지, 어떤 종류의 정보를 전달하는지"만 한 문장으로 요약하세요 (내용을 베끼는 게 목적이 아니라, 나중에 완전히 새로운 내용으로 비슷한 흐름의 카드뉴스를 만들기 위한 구조 파악이 목적입니다).
+중요: 이미지 속 구체적인 문구·수치를 그대로 옮겨 적지 마세요 (단, 이 게시물이 다루는 보험 상품/주제 자체는 정확히 파악해야 합니다 — 예: "어린이보험", "실손보험", "치매보험" 등). "이 장은 무슨 역할을 하는지, 어떤 종류의 정보를 전달하는지"만 한 문장으로 요약하세요 (내용을 베끼는 게 목적이 아니라, 나중에 완전히 새로운 문구로 같은 주제·비슷한 흐름의 카드뉴스를 만들기 위한 구조 파악이 목적입니다).
 
 다음 형식의 JSON으로만 답하세요:
 {
+  "topic": "이 게시물이 다루는 정확한 보험 상품/주제 (예: 어린이보험, 실손보험 전환, 치매보험 등 — 최대한 구체적으로)",
   "totalCards": 이미지 장수(숫자),
   "moodKeywords": "차분한/자극적인/친근한 등 3~5개 형용사를 쉼표로",
   "colorNote": "전체적인 색감 설명",
@@ -5309,7 +5316,7 @@ async function analyzeReferenceCardSet(images) {
 cardTypeGuess는 darkCover, darkText, lightText, caseFormula, twoColumn, statBadge, compareBars, ctaShare, outro 중에서 가장 가까운 것으로 고르세요.`;
 
   const content = images.map(img => ({ type: 'image', source: { type: 'base64', media_type: img.mediaType, data: img.base64 } }));
-  content.push({ type: 'text', text: '이 카드뉴스 세트의 구성 흐름을 위 형식의 JSON으로 분석해주세요.' });
+  content.push({ type: 'text', text: '이 카드뉴스 세트의 주제와 구성 흐름을 위 형식의 JSON으로 분석해주세요.' });
 
   const raw = await callClaude(system, [{ role: 'user', content }], 2, null, 1500);
   const cleaned = raw.replace(/```json|```/g, '').trim();

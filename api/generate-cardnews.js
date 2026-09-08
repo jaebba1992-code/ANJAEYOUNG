@@ -439,28 +439,42 @@ function tpl_darkCover(d, accent, theme, channelName, opts = {}) {
 function tpl_darkText(d, accent, theme, channelName, opts = {}) {
   const usePhoto = !!opts.transparentBg;
   const bg = usePhoto ? { defs: '', rect: '' } : bgLayer(theme, 'dark');
-  let inner = usePhoto ? `<rect width="${CW}" height="${CH}" fill="#000000" fill-opacity="0.5"/>` : '';
-  let y = 130;
-  if (d.eyebrow) {
-    const e = svgParagraph(70, y, CW - 140, d.eyebrow, { fontSize: 32, fill: accent, weight: 800, maxCharsPerLine: 18 });
-    inner += e.svg; y = e.endY + 24;
+
+  // 내용 전체 높이를 먼저 계산해서 캔버스 세로 중앙 쪽에 오도록 배치한다
+  // (짧은 내용이 위쪽에만 몰리고 아래쪽이 텅 비어 보이는 문제를 줄이기 위함)
+  function draw(startY) {
+    let inner = usePhoto ? `<rect width="${CW}" height="${CH}" fill="#000000" fill-opacity="0.5"/>` : '';
+    let y = startY;
+    if (d.eyebrow) {
+      const e = svgParagraph(70, y, CW - 140, d.eyebrow, { fontSize: 32, fill: accent, weight: 800, maxCharsPerLine: 18 });
+      inner += e.svg; y = e.endY + 24;
+    }
+    if (d.title) {
+      const t = titleWithHighlight(70, y + 40, CW - 140, [{ text: d.title, tone: null }], { fontSize: 62, fill: theme.darkText, red: theme.red, maxCharsPerLine: 10 });
+      inner += t.svg; y = t.endY + 44;
+    }
+    if (d.body) {
+      const b = svgParagraph(70, y + 20, CW - 140, d.body, { fontSize: 36, fill: theme.mutedOnDark, weight: 500, accent, lineHeight: 1.65, maxCharsPerLine: 18 });
+      inner += b.svg; y = b.endY;
+    }
+    if (Array.isArray(d.listItems) && d.listItems.length) {
+      const l = markerList(70, y + 34, CW - 140, d.listItems, { fontSize: 32, fill: theme.darkText, maxCharsPerLine: 16, markColors: { check: accent, x: theme.red } });
+      inner += l.svg; y = l.endY;
+    }
+    return { inner, endY: y };
   }
-  if (d.title) {
-    const t = titleWithHighlight(70, y + 40, CW - 140, [{ text: d.title, tone: null }], { fontSize: 58, fill: theme.darkText, red: theme.red, maxCharsPerLine: 11 });
-    inner += t.svg; y = t.endY + 40;
-  }
-  if (d.body) {
-    const b = svgParagraph(70, y + 20, CW - 140, d.body, { fontSize: 33, fill: theme.mutedOnDark, weight: 500, accent, lineHeight: 1.65, maxCharsPerLine: 20 });
-    inner += b.svg; y = b.endY;
-  }
-  if (Array.isArray(d.listItems) && d.listItems.length) {
-    const l = markerList(70, y + 30, CW - 140, d.listItems, { fontSize: 30, fill: theme.darkText, maxCharsPerLine: 17, markColors: { check: accent, x: theme.red } });
-    inner += l.svg;
-  }
+
+  const dry = draw(170);
+  const contentHeight = dry.endY - 170;
+  const availableTop = 150, availableBottom = CH - 190;
+  let startY = availableTop + Math.max(0, (availableBottom - availableTop - contentHeight) / 2);
+  startY = Math.min(Math.max(startY, availableTop), 620);
+  const final = draw(startY);
+
   if (usePhoto) {
-    return `<svg width="${CW}" height="${CH}" viewBox="0 0 ${CW} ${CH}" xmlns="http://www.w3.org/2000/svg">${inner}${watermarkStamp(channelName, theme, 'dark')}</svg>`;
+    return `<svg width="${CW}" height="${CH}" viewBox="0 0 ${CW} ${CH}" xmlns="http://www.w3.org/2000/svg">${final.inner}${watermarkStamp(channelName, theme, 'dark')}</svg>`;
   }
-  return svgDoc(bg, inner, watermarkStamp(channelName, theme, 'dark'), accent);
+  return svgDoc(bg, final.inner, watermarkStamp(channelName, theme, 'dark'), accent);
 }
 
 function tpl_lightText(d, accent, theme, channelName, opts = {}) {
@@ -469,24 +483,36 @@ function tpl_lightText(d, accent, theme, channelName, opts = {}) {
   // 사진 위에 얹을 땐 밝은 배경 대신 어두운 오버레이 + 흰 글씨로 전환한다 (사진 위에 원래 색을 쓰면 안 보임)
   const textColor = usePhoto ? 'FFFFFF' : theme.lightText;
   const mutedColor = usePhoto ? 'E8E8E4' : theme.lightText;
-  let inner = usePhoto ? `<rect width="${CW}" height="${CH}" fill="#000000" fill-opacity="0.5"/>` : '';
-  let y = 300;
-  if (d.title) {
-    const t = titleWithHighlight(70, y, CW - 140, [{ text: d.title, tone: null }], { fontSize: 52, fill: textColor, red: theme.red, maxCharsPerLine: 12 });
-    inner += t.svg; y = t.endY + 50;
+
+  function draw(startY) {
+    let inner = usePhoto ? `<rect width="${CW}" height="${CH}" fill="#000000" fill-opacity="0.5"/>` : '';
+    let y = startY;
+    if (d.title) {
+      const t = titleWithHighlight(70, y, CW - 140, [{ text: d.title, tone: null }], { fontSize: 56, fill: textColor, red: theme.red, maxCharsPerLine: 11 });
+      inner += t.svg; y = t.endY + 50;
+    }
+    if (d.body) {
+      const b = svgParagraph(70, y, CW - 140, d.body, { fontSize: 36, fill: mutedColor, lineHeight: 1.7, maxCharsPerLine: 17, accent });
+      inner += b.svg; y = b.endY;
+    }
+    if (Array.isArray(d.listItems) && d.listItems.length) {
+      const l = markerList(70, y + 34, CW - 140, d.listItems, { fontSize: 32, fill: textColor, maxCharsPerLine: 16, markColors: { check: accent, x: theme.red } });
+      inner += l.svg; y = l.endY;
+    }
+    return { inner, endY: y };
   }
-  if (d.body) {
-    const b = svgParagraph(70, y, CW - 140, d.body, { fontSize: 34, fill: mutedColor, lineHeight: 1.7, maxCharsPerLine: 19, accent });
-    inner += b.svg; y = b.endY;
-  }
-  if (Array.isArray(d.listItems) && d.listItems.length) {
-    const l = markerList(70, y + 30, CW - 140, d.listItems, { fontSize: 30, fill: textColor, maxCharsPerLine: 17, markColors: { check: accent, x: theme.red } });
-    inner += l.svg;
-  }
+
+  const dry = draw(300);
+  const contentHeight = dry.endY - 300;
+  const availableTop = 190, availableBottom = CH - 190;
+  let startY = availableTop + Math.max(0, (availableBottom - availableTop - contentHeight) / 2);
+  startY = Math.min(Math.max(startY, availableTop), 650);
+  const final = draw(startY);
+
   if (usePhoto) {
-    return `<svg width="${CW}" height="${CH}" viewBox="0 0 ${CW} ${CH}" xmlns="http://www.w3.org/2000/svg">${inner}${watermarkStamp(channelName, theme, 'dark')}</svg>`;
+    return `<svg width="${CW}" height="${CH}" viewBox="0 0 ${CW} ${CH}" xmlns="http://www.w3.org/2000/svg">${final.inner}${watermarkStamp(channelName, theme, 'dark')}</svg>`;
   }
-  return svgDoc(bg, inner, watermarkStamp(channelName, theme, 'light'), accent);
+  return svgDoc(bg, final.inner, watermarkStamp(channelName, theme, 'light'), accent);
 }
 
 function tpl_caseFormula(d, accent, theme, channelName, opts = {}) {
