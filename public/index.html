@@ -3405,7 +3405,7 @@ let cardHistoryLoaded = false;
 
 const CARD_TEMPLATE_GUIDE = `사용 가능한 카드 타입은 아래 9개다. 반드시 이 중에서만 골라서 쓰고, 각 타입의 필드 이름을 정확히 지켜야 한다 (필드명 임의 변경 금지). 카드 하나 = 인스타그램 카드뉴스 1장(4:5 비율).
 
-1. "darkCover" — 표지(첫 장). 어두운 배경 + 브랜드 배지 + 큰 제목. { type, badge, titleRuns:[{text, tone}], subtitle, photoQuery } (tone: "accent"|null. titleRuns는 2~3개 조각으로 나눠서 강조하고 싶은 부분만 tone:"accent". subtitle은 한 줄로 자연스럽게 읽히도록 18자 이내로 짧게 — "vs", "—" 같은 기호로 두 구절을 억지로 이어붙이면 줄바꿈이 어색해지니 피한다. photoQuery는 아래 설명 참고)
+1. "darkCover" — 표지(첫 장). 어두운 배경 + 브랜드 배지 + 큰 제목. { type, badge, titleRuns:[{text, tone}], subtitle, photoQuery } (tone: "accent"|null. **titleRuns 각 조각은 반드시 8~9자 이내로 짧게 끊는다 — 자동 줄바꿈에 맡기면 "있진" / "않나요?"처럼 문장 중간이 어색하게 잘릴 수 있으니, 애초에 한 조각이 한 줄에 다 들어가도록 직접 짧게 나눈다.** 2~4개 조각으로 나눠서 강조하고 싶은 부분만 tone:"accent". subtitle은 한 줄로 자연스럽게 읽히도록 18자 이내로 짧게 — "vs", "—" 같은 기호로 두 구절을 억지로 이어붙이면 줄바꿈이 어색해지니 피한다. photoQuery는 아래 설명 참고)
 2. "darkText" — 어두운 배경 설명 카드. { type, eyebrow, title, body, listItems, photoQuery } (body 안에서 강조하고 싶은 구간은 **이렇게** 감싼다. listItems는 체크리스트가 필요할 때만 — 배열, 각 항목은 문자열이거나 {text, mark:"check"|"x"})
 3. "lightText" — 밝은(크림색) 배경 설명 카드. { type, title, body, listItems, photoQuery } (필드는 darkText와 동일하게 쓸 수 있다)
 4. "caseFormula" — 밝은 배경 사례 비교 카드(계산식 나열). { type, caseLabel, description, rows:["A상품 → 조건 → 계산식", "B상품 → 조건 → 계산식"], totalLabel:"최종 차액 문구", photoQuery }

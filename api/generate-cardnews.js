@@ -163,7 +163,50 @@ function getTheme(key) {
   return THEMES[key] || THEMES[DEFAULT_THEME];
 }
 
-// 긴 텍스트를 대략적인 폭 기준으로 줄바꿈 (한글 기준 근사치 — 문자 수 기반)
+// 긴 텍스트를 실제 픽셀 폭 기준으로 정확히 줄바꿈한다 (글자 수 어림짐작이 아니라 measureText로 실측)
+function wrapTextByWidth(text, maxWidth, fontSize, weight = 700, letterSpacing = 0) {
+  const clean = String(sanitizeForFont(text));
+  const paragraphs = clean.split('\n');
+  const allLines = [];
+  paragraphs.forEach(paragraph => {
+    if (!paragraph.trim()) { allLines.push(''); return; }
+    // 1차: 공백 기준 단어 단위로 채워본다
+    const words = paragraph.split(/(\s+)/).filter(w => w !== '');
+    const wordLines = [];
+    let current = '';
+    words.forEach(word => {
+      const test = current + word;
+      if (measureText(test, fontSize, weight, letterSpacing) > maxWidth && current.trim()) {
+        wordLines.push(current.trim());
+        current = word;
+      } else {
+        current = test;
+      }
+    });
+    if (current.trim()) wordLines.push(current.trim());
+    // 2차: 한글은 공백이 적어서 위 단계로도 한 줄이 너무 길면(폭 초과), 글자 단위로 강제 줄바꿈
+    wordLines.forEach(line => {
+      if (measureText(line, fontSize, weight, letterSpacing) <= maxWidth) {
+        allLines.push(line);
+        return;
+      }
+      let cur = '';
+      for (const ch of line) {
+        const test = cur + ch;
+        if (measureText(test, fontSize, weight, letterSpacing) > maxWidth && cur) {
+          allLines.push(cur);
+          cur = ch;
+        } else {
+          cur = test;
+        }
+      }
+      if (cur) allLines.push(cur);
+    });
+  });
+  return allLines;
+}
+
+// 긴 텍스트를 대략적인 폭 기준으로 줄바꿈 (한글 기준 근사치 — 문자 수 기반) — 구버전 호환용, 새 코드는 wrapTextByWidth 사용
 function wrapText(text, maxCharsPerLine) {
   const lines = [];
   String(sanitizeForFont(text)).split('\n').forEach(paragraph => {
@@ -200,30 +243,32 @@ function tokenizeRich(text) {
   return tokens;
 }
 
-// 토큰들을 maxCharsPerLine 기준으로 줄에 담는다 (단어/공백 단위로만 끊어서, 굵게 표시 구간이 줄 경계에서 깨지지 않는다)
-function packLines(tokens, maxCharsPerLine) {
+// 토큰들을 실제 픽셀 폭 기준으로 줄에 담는다 (단어/공백 단위로만 끊어서, 굵게 표시 구간이 줄 경계에서 깨지지 않는다)
+function packLines(tokens, maxWidth, fontSize, baseWeight) {
   const lines = [];
   let current = [];
-  let currentLen = 0;
+  let currentWidth = 0;
   tokens.forEach(tok => {
     if (tok.isBreak) {
-      lines.push(current); current = []; currentLen = 0; return;
+      lines.push(current); current = []; currentWidth = 0; return;
     }
-    if (currentLen + tok.text.length > maxCharsPerLine && currentLen > 0 && tok.text !== ' ') {
-      lines.push(current); current = []; currentLen = 0;
+    const w = tok.bold ? 800 : baseWeight;
+    const tokWidth = measureText(tok.text, fontSize, w);
+    if (currentWidth + tokWidth > maxWidth && currentWidth > 0 && tok.text !== ' ') {
+      lines.push(current); current = []; currentWidth = 0;
     }
-    if (tok.text === ' ' && currentLen === 0) return; // 줄 맨 앞 공백은 버린다
+    if (tok.text === ' ' && currentWidth === 0) return; // 줄 맨 앞 공백은 버린다
     current.push(tok);
-    currentLen += tok.text.length;
+    currentWidth += tokWidth;
   });
   if (current.length) lines.push(current);
   return lines;
 }
 
 function renderRichLines(x, y, width, text, opts) {
-  const { fontSize = 30, lineHeight = 1.55, accent = DEFAULT_ACCENT, fill = '191919', weight = 400, align = 'left', maxCharsPerLine = 22 } = opts;
+  const { fontSize = 30, lineHeight = 1.55, accent = DEFAULT_ACCENT, fill = '191919', weight = 400, align = 'left' } = opts;
   const tokens = tokenizeRich(text);
-  const lines = packLines(tokens, maxCharsPerLine);
+  const lines = packLines(tokens, width, fontSize, weight);
   let svg = '';
   let cursorY = y;
   lines.forEach(lineTokens => {
@@ -251,12 +296,12 @@ function svgParagraph(x, y, width, text, opts) {
 
 function titleWithHighlight(x, y, width, runs, opts) {
   // runs: [{text, tone}] tone: 'accent'|'red'|null
-  const { fontSize = 64, accent = DEFAULT_ACCENT, fill = 'FFFFFF', align = 'left', lineHeight = 1.2, maxCharsPerLine = 9, red = 'E8382E' } = opts;
+  const { fontSize = 64, accent = DEFAULT_ACCENT, fill = 'FFFFFF', align = 'left', lineHeight = 1.2, red = 'E8382E' } = opts;
   let cursorY = y;
   let svg = '';
   const letterSpacing = -1;
   runs.forEach(run => {
-    const lines = wrapText(run.text, maxCharsPerLine);
+    const lines = wrapTextByWidth(run.text, width, fontSize, 800, letterSpacing);
     const color = run.tone === 'accent' ? accent : run.tone === 'red' ? red : fill;
     lines.forEach(line => {
       if (!line) { cursorY += fontSize * lineHeight; return; }
@@ -353,16 +398,18 @@ function drawMarkerIcon(mark, x, y, size, colors) {
 
 // 체크/엑스 아이콘이 앞에 붙는 리스트 (여러 항목을 스캔하기 쉽게)
 function markerList(x, y, width, items, opts) {
-  const { fontSize = 30, lineHeight = 1.55, fill = '191919', weight = 500, maxCharsPerLine = 17, markColors = {} } = opts;
+  const { fontSize = 30, lineHeight = 1.55, fill = '191919', weight = 500, markColors = {} } = opts;
+  const textIndent = fontSize * 1.25;
+  const textWidth = Math.max(60, width - textIndent);
   let cursorY = y;
   let svg = '';
   (items || []).forEach(item => {
     const text = typeof item === 'string' ? item : (item.text || '');
     const mark = typeof item === 'string' ? 'check' : (item.mark || 'check');
-    const lines = wrapText(text, maxCharsPerLine);
+    const lines = wrapTextByWidth(text, textWidth, fontSize, weight);
     svg += drawMarkerIcon(mark, x, cursorY - fontSize * 0.78, fontSize * 0.9, markColors);
     lines.forEach((line, i) => {
-      svg += drawText(line, x + fontSize * 1.25, cursorY, fontSize, weight, fill);
+      svg += drawText(line, x + textIndent, cursorY, fontSize, weight, fill);
       cursorY += fontSize * lineHeight;
     });
   });
@@ -373,13 +420,26 @@ function markerList(x, y, width, items, opts) {
 function statCircle(cx, cy, r, valueText, unitText, accentColor) {
   const textColor = contrastTextColor(accentColor);
   let svg = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="#${accentColor}"/>`;
-  const valueFontSize = r * 0.62;
-  const valueW = measureText(valueText, valueFontSize, 800, -2);
+  // "43.1%"처럼 짧은 값은 크게, "최대 30%"처럼 긴 값은 원 안에 확실히 들어오도록 폰트를 자동으로 줄인다.
+  // 여유를 넉넉하게 잡아서(1.7→1.4), 글자 폭 계산이 살짝 어긋나도 절대 원 밖으로 안 나가게 한다.
+  const safeWidth = r * 1.4;
+  let valueFontSize = r * 0.56;
+  let valueW = measureText(valueText, valueFontSize, 800, -2);
+  if (valueW > safeWidth) {
+    valueFontSize = valueFontSize * (safeWidth / valueW);
+    valueW = measureText(valueText, valueFontSize, 800, -2);
+  }
   svg += drawText(valueText, cx - valueW / 2, cy + valueFontSize * 0.32, valueFontSize, 800, textColor, { letterSpacing: -2 });
   if (unitText) {
     const unitFontSize = r * 0.16;
-    const unitW = measureText(unitText, unitFontSize, 700);
-    svg += drawText(unitText, cx - unitW / 2, cy + valueFontSize * 0.32 + unitFontSize * 1.5, unitFontSize, 700, textColor, { fillOpacity: 0.85 });
+    const unitMaxWidth = r * 1.5;
+    const unitLines = wrapTextByWidth(unitText, unitMaxWidth, unitFontSize, 700);
+    let unitY = cy + valueFontSize * 0.32 + unitFontSize * 1.5;
+    unitLines.forEach(line => {
+      const unitW = measureText(line, unitFontSize, 700);
+      svg += drawText(line, cx - unitW / 2, unitY, unitFontSize, 700, textColor, { fillOpacity: 0.85 });
+      unitY += unitFontSize * 1.35;
+    });
   }
   return svg;
 }
@@ -412,7 +472,7 @@ function tpl_darkCover(d, accent, theme, channelName, opts = {}) {
   const bg = usePhoto ? { defs: '', rect: '' } : bgLayer(theme, 'dark');
   let inner = `<rect width="${CW}" height="${CH}" fill="url(#coverGrad)"/>`;
   inner += badgePill(70, 90, badge, { stroke: theme.darkText, textColor: theme.darkText, fill: theme.badgeStroke ? 'none' : theme.red });
-  const t = titleWithHighlight(70, 260, CW - 140, titleRuns, { fontSize: 78, accent, fill: theme.darkText, red: theme.red, maxCharsPerLine: 8 });
+  const t = titleWithHighlight(70, 260, CW - 140, titleRuns, { fontSize: 78, accent, fill: theme.darkText, red: theme.red });
   inner += t.svg;
   if (d.subtitle) {
     const s = svgParagraph(70, t.endY + 30, CW - 140, d.subtitle, { fontSize: 32, fill: theme.mutedOnDark, maxCharsPerLine: 20 });
@@ -555,7 +615,7 @@ function tpl_twoColumn(d, accent, theme, channelName) {
   let inner = '';
   let y = 130;
   if (d.title) {
-    const t = titleWithHighlight(70, y, CW - 140, [{ text: d.title, tone: null }], { fontSize: 46, fill: theme.lightText, red: theme.red, maxCharsPerLine: 14 });
+    const t = titleWithHighlight(70, y, CW - 140, [{ text: d.title, tone: null }], { fontSize: 56, fill: theme.lightText, red: theme.red });
     inner += t.svg; y = t.endY + 56;
   }
   const gap = 28;
@@ -564,34 +624,48 @@ function tpl_twoColumn(d, accent, theme, channelName) {
   const boxTop = y;
   const leftItems = Array.isArray(d.leftItems) ? d.leftItems : [];
   const rightItems = Array.isArray(d.rightItems) ? d.rightItems : [];
-  const rowH = 76;
-  const headerH = 84;
-  const boxH = headerH + Math.max(leftItems.length, rightItems.length) * rowH + 36;
+  const itemFontSize = 27;
+  const rowH = 88;
+  const headerH = 88;
 
-  function drawColumn(x, label, items, headerBg, headerText) {
+  // 항목별로 실제 줄바꿈 결과를 미리 계산해서, 2줄짜리 항목이 있으면 그만큼 박스 높이를 늘린다
+  // (안 그러면 다음 항목과 겹쳐 보일 수 있음)
+  function measureItems(items, itemTextWidth) {
+    return items.map(item => {
+      const text = typeof item === 'string' ? item : (item.text || '');
+      const mark = typeof item === 'string' ? 'check' : (item.mark || 'check');
+      const lines = wrapTextByWidth(text, itemTextWidth, itemFontSize, 600);
+      return { lines, mark, h: Math.max(rowH, 26 + lines.length * 34) };
+    });
+  }
+  const itemTextWidth = colW - 88;
+  const leftMeasured = measureItems(leftItems, itemTextWidth);
+  const rightMeasured = measureItems(rightItems, itemTextWidth);
+  const leftContentH = leftMeasured.reduce((s, it) => s + it.h, 0);
+  const rightContentH = rightMeasured.reduce((s, it) => s + it.h, 0);
+  const boxH = headerH + Math.max(leftContentH, rightContentH) + 36;
+
+  function drawColumn(x, label, measured, headerBg, headerText) {
     let s = `<rect x="${x}" y="${boxTop}" width="${colW}" height="${boxH}" rx="22" fill="#FFFFFF"/>`;
     s += `<rect x="${x}" y="${boxTop}" width="${colW}" height="${boxH}" rx="22" fill="none" stroke="#000000" stroke-opacity="0.06" stroke-width="2"/>`;
     s += `<rect x="${x}" y="${boxTop}" width="${colW}" height="${headerH}" rx="22" fill="#${headerBg}"/>`;
     s += `<rect x="${x}" y="${boxTop + headerH - 22}" width="${colW}" height="22" fill="#${headerBg}"/>`; // 하단 라운드 가리기 방지
-    const labelFontSize = 30;
+    const labelFontSize = 32;
     const labelW = measureText(label, labelFontSize, 800);
     s += drawText(label, x + colW / 2 - labelW / 2, boxTop + headerH / 2 + labelFontSize * 0.35, labelFontSize, 800, headerText, { letterSpacing: -0.5 });
-    let iy = boxTop + headerH + 30;
-    items.forEach(item => {
-      const text = typeof item === 'string' ? item : (item.text || '');
-      const mark = typeof item === 'string' ? 'check' : (item.mark || 'check');
-      s += drawMarkerIcon(mark, x + 24, iy - 22, 26, { check: '2FA35C', x: theme.red });
-      const lines = wrapText(text, 11);
-      lines.forEach((line, li) => {
-        s += drawText(line, x + 60, iy + li * 34, 24, 600, theme.lightText);
+    let iy = boxTop + headerH + 32;
+    measured.forEach(it => {
+      s += drawMarkerIcon(it.mark, x + 24, iy - 22, 28, { check: '2FA35C', x: theme.red });
+      it.lines.forEach((line, li) => {
+        s += drawText(line, x + 62, iy + li * 34, itemFontSize, 600, theme.lightText);
       });
-      iy += rowH;
+      iy += it.h;
     });
     return s;
   }
 
-  inner += drawColumn(leftX, d.leftLabel || 'A', leftItems, d.leftColor || '9AA0A6', 'FFFFFF');
-  inner += drawColumn(rightX, d.rightLabel || 'B', rightItems, accent, contrastTextColor(accent));
+  inner += drawColumn(leftX, d.leftLabel || 'A', leftMeasured, d.leftColor || '9AA0A6', 'FFFFFF');
+  inner += drawColumn(rightX, d.rightLabel || 'B', rightMeasured, accent, contrastTextColor(accent));
 
   // 가운데 VS 배지
   const vsR = 38;
@@ -615,7 +689,7 @@ function tpl_compareBars(d, accent, theme, channelName) {
   let inner = '';
   let y = 220;
   if (d.title) {
-    const t = titleWithHighlight(70, y, CW - 140, [{ text: d.title, tone: null }], { fontSize: 50, fill: theme.lightText, red: theme.red, maxCharsPerLine: 13 });
+    const t = titleWithHighlight(70, y, CW - 140, [{ text: d.title, tone: null }], { fontSize: 54, fill: theme.lightText, red: theme.red, maxCharsPerLine: 13 });
     inner += t.svg; y = t.endY + 60;
   }
   const bars = Array.isArray(d.bars) ? d.bars.slice(0, 4) : [];
