@@ -1,13 +1,24 @@
 const { checkAppPassword } = require('./_auth');
 
 async function fetchHtml(url) {
-  const resp = await fetch(url, {
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36'
-    }
-  });
-  if (!resp.ok) throw new Error('페이지를 가져오지 못했어요 (상태 코드 ' + resp.status + ')');
-  return await resp.text();
+  // 응답이 없는 페이지에서 무한정 기다리지 않도록 타임아웃을 건다 (느린/막힌 사이트 때문에 전체가 오래 걸리는 것 방지)
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 12000);
+  try {
+    const resp = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36'
+      },
+      signal: controller.signal
+    });
+    if (!resp.ok) throw new Error('페이지를 가져오지 못했어요 (상태 코드 ' + resp.status + ')');
+    return await resp.text();
+  } catch (e) {
+    if (e.name === 'AbortError') throw new Error('페이지 응답이 너무 느려서 포기했어요 (12초 초과)');
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 function htmlToText(html) {
