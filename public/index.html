@@ -1974,6 +1974,10 @@
         <p id="libSplitFileStatus" style="font-size:11.5px; color:var(--paper-mute); margin-top:8px;"></p>
       </div>
 
+      <div style="margin-top:20px; padding-top:16px; border-top:1px solid var(--line);">
+        <p style="font-size:12.5px; color:var(--brass); font-weight:600; margin:0 0 6px;">저장된 자료 확인 <span id="libraryTotalCount" style="color:var(--paper-mute); font-weight:400;"></span></p>
+        <input type="text" id="librarySearchFilterInput" placeholder="제목이나 내용으로 찾아보기 (예: 황팀장, 늑골골절)" style="width:100%; padding:8px 12px; border:1px solid var(--line); border-radius:var(--r-control); font-size:13px;">
+      </div>
       <div id="libraryList" style="margin-top:14px;"></div>
 
       <div style="margin-top:22px; padding-top:18px; border-top:1px solid var(--line);">
@@ -4758,7 +4762,22 @@ document.getElementById('libBulkImportBtn').addEventListener('click', async () =
 
 function renderLibrary() {
   const el = document.getElementById('libraryList');
-  el.innerHTML = cachedLibrary.map(item => `
+  const countEl = document.getElementById('libraryTotalCount');
+  const filterVal = (document.getElementById('librarySearchFilterInput').value || '').trim().toLowerCase();
+  countEl.textContent = `— 총 ${cachedLibrary.length.toLocaleString()}개 저장됨`;
+
+  let items = cachedLibrary;
+  if (filterVal) {
+    items = cachedLibrary.filter(it => (it.title || '').toLowerCase().includes(filterVal) || (it.content || '').toLowerCase().includes(filterVal));
+  }
+  const SHOW_LIMIT = 60; // 한 번에 너무 많이 그리면 느려지니, 검색 없이 볼 땐 최근 60개만 먼저 보여준다
+  const shown = filterVal ? items : items.slice(0, SHOW_LIMIT);
+
+  const headerNote = filterVal
+    ? `<p style="font-size:12px; color:var(--paper-mute); margin:0 0 8px;">"${escapeHtml(filterVal)}" 검색 결과 ${items.length}개</p>`
+    : (cachedLibrary.length > SHOW_LIMIT ? `<p style="font-size:12px; color:var(--paper-mute); margin:0 0 8px;">최근 저장된 ${SHOW_LIMIT}개만 표시 중 (전체 ${cachedLibrary.length}개) — 위 검색창에 찾으시는 키워드를 입력하면 전체에서 찾아드려요.</p>` : '');
+
+  el.innerHTML = headerNote + (shown.map(item => `
     <div class="lib-item">
       <div class="lib-item-head">
         <div>
@@ -4770,7 +4789,7 @@ function renderLibrary() {
         </div>
       </div>
     </div>
-  `).join('') || '<p style="font-size:12.5px; color:var(--paper-mute);">아직 저장된 자료가 없어요.</p>';
+  `).join('') || '<p style="font-size:12.5px; color:var(--paper-mute);">해당하는 자료가 없어요.</p>');
   el.querySelectorAll('.mini-btn.danger').forEach(btn => {
     btn.addEventListener('click', async () => {
       try { await apiDelete('/api/library', { id: Number(btn.dataset.id) }); await refreshLibrary(); }
@@ -4778,6 +4797,7 @@ function renderLibrary() {
     });
   });
 }
+document.getElementById('librarySearchFilterInput').addEventListener('input', renderLibrary);
 document.getElementById('libraryToggle').addEventListener('click', () => {
   const body = document.getElementById('libraryBody');
   const btn = document.getElementById('libraryToggleBtn');
