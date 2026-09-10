@@ -7852,11 +7852,25 @@ async function generateSearchAnswer() {
       resultBody.appendChild(qDiv);
     }
 
-    // 관련 문서 (인용에 안 쓰인 나머지 검색 결과)
-    const related = corpusMatches.slice(1, 3);
-    if (related.length) {
+    // 관련 문서 — 8천페이지(구글시트) 자료뿐 아니라, 내 라이브러리에서 찾은 자료도 같이 보여준다
+    // (전에는 라이브러리 쪽은 답변 본문에 인용만 되고, 이 목록엔 아예 안 나와서 "무슨 글 보고 썼는지" 확인이 안 됐음)
+    const relatedCorpus = corpusMatches.slice(1, 3);
+    const relatedLib = libMatches.slice(0, 3);
+    if (relatedLib.length || relatedCorpus.length) {
       relatedDocsEl.innerHTML = `<div class="srd-label">관련 문서</div><div class="srd-list">` +
-        related.map(m => `
+        relatedLib.map(m => {
+          const urlMatch = (m.content || '').match(/\(출처:\s*(https?:\/\/[^\s)]+)\)/);
+          return `
+          <div class="srd-card">
+            <div class="srd-chip cited" style="background:var(--brass-dim); color:var(--brass);">라이브러리</div>
+            <div>
+              <div class="srd-title">${escapeHtml(m.title || '자료')}</div>
+              <div class="srd-meta">${urlMatch ? `<a href="${escapeHtml(urlMatch[1])}" target="_blank" style="color:var(--brass);">원문 링크</a> · ` : ''}이번 검색에 포함됨</div>
+            </div>
+          </div>
+        `;
+        }).join('') +
+        relatedCorpus.map(m => `
           <div class="srd-card">
             <div class="srd-chip cited">시트</div>
             <div>
