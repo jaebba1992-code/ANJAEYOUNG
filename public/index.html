@@ -1980,7 +1980,11 @@
           <span class="copy-btn" id="libraryListToggleBtn">펼치기</span>
         </div>
         <div id="libraryListBody" style="display:none; margin-top:10px;">
-          <input type="text" id="librarySearchFilterInput" placeholder="제목이나 내용으로 찾아보기 (예: 황팀장, 늑골골절)" style="width:100%; padding:8px 12px; border:1px solid var(--line); border-radius:var(--r-control); font-size:13px;">
+          <input type="text" id="librarySearchFilterInput" placeholder="제목이나 내용으로 찾아보기 (예: 황팀장, 늑골골절, blog.naver.com/bluejune77)" style="width:100%; padding:8px 12px; border:1px solid var(--line); border-radius:var(--r-control); font-size:13px;">
+          <div id="libraryBulkDeleteBar" style="display:none; margin-top:8px; padding:10px 12px; background:#FFF4F4; border-radius:8px; align-items:center; gap:10px; flex-wrap:wrap;">
+            <span id="libraryBulkDeleteCount" style="font-size:12.5px; color:#B00020;"></span>
+            <button class="mini-btn danger" id="libraryBulkDeleteBtn">검색된 것 전체 삭제</button>
+          </div>
           <div id="libraryList" style="margin-top:14px;"></div>
         </div>
       </div>
@@ -4780,9 +4784,12 @@ document.getElementById('libBulkImportBtn').addEventListener('click', async () =
   await refreshLibrary();
 });
 
+let libraryFilteredItems = []; // 검색된 결과 전체(화면에 안 보이는 것도 포함) — 일괄 삭제용
 function renderLibrary() {
   const el = document.getElementById('libraryList');
   const countEl = document.getElementById('libraryTotalCount');
+  const bulkBar = document.getElementById('libraryBulkDeleteBar');
+  const bulkCountEl = document.getElementById('libraryBulkDeleteCount');
   const filterVal = (document.getElementById('librarySearchFilterInput').value || '').trim().toLowerCase();
   countEl.textContent = `— 총 ${cachedLibrary.length.toLocaleString()}개 저장됨`;
 
@@ -4790,6 +4797,14 @@ function renderLibrary() {
   if (filterVal) {
     items = cachedLibrary.filter(it => (it.title || '').toLowerCase().includes(filterVal) || (it.content || '').toLowerCase().includes(filterVal));
   }
+  libraryFilteredItems = filterVal ? items : [];
+  if (filterVal && items.length) {
+    bulkBar.style.display = 'flex';
+    bulkCountEl.textContent = `"${filterVal}" 검색 결과 ${items.length}개를 통째로 지울 수 있어요.`;
+  } else {
+    bulkBar.style.display = 'none';
+  }
+
   const SHOW_LIMIT = 60; // 한 번에 너무 많이 그리면 느려지니, 검색 없이 볼 땐 최근 60개만 먼저 보여준다
   const shown = filterVal ? items : items.slice(0, SHOW_LIMIT);
 
@@ -4817,6 +4832,30 @@ function renderLibrary() {
     });
   });
 }
+document.getElementById('libraryBulkDeleteBtn').addEventListener('click', async () => {
+  const items = libraryFilteredItems;
+  if (!items.length) return;
+  if (!confirm(`정말로 ${items.length}개 자료를 전부 삭제할까요? 되돌릴 수 없어요.`)) return;
+  const btn = document.getElementById('libraryBulkDeleteBtn');
+  btn.disabled = true;
+  const bulkCountEl = document.getElementById('libraryBulkDeleteCount');
+  let done = 0;
+  const CONCURRENCY = 8;
+  let nextIndex = 0;
+  async function worker() {
+    while (nextIndex < items.length) {
+      const item = items[nextIndex++];
+      try { await apiDelete('/api/library', { id: item.id }); } catch (e) { /* 개별 실패는 무시하고 계속 진행 */ }
+      done++;
+      bulkCountEl.textContent = `삭제 중... ${done}/${items.length}`;
+    }
+  }
+  const workers = Array.from({ length: Math.min(CONCURRENCY, items.length) }, () => worker());
+  await Promise.all(workers);
+  btn.disabled = false;
+  document.getElementById('librarySearchFilterInput').value = '';
+  await refreshLibrary();
+});
 document.getElementById('librarySearchFilterInput').addEventListener('input', renderLibrary);
 document.getElementById('libraryListToggle').addEventListener('click', () => {
   const body = document.getElementById('libraryListBody');
