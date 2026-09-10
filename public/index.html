@@ -7654,7 +7654,12 @@ async function generateSearchAnswer() {
   relatedDocsEl.innerHTML = '';
   skeleton.style.display = 'block';
 
-  const searchKeywords = await expandSearchKeywords(q);
+  // 검색할 때마다 라이브러리를 최신 상태로 다시 불러온다 — 안 그러면 페이지를 새로고침하기 전까지는
+  // 방금 새로 추가한 자료(예: 대량 임포트 직후)가 검색에 안 잡히는 문제가 생긴다.
+  const [searchKeywords] = await Promise.all([
+    expandSearchKeywords(q),
+    refreshLibrary()
+  ]);
 
   // AI가 다듬은 키워드 + 원래 질문 원문을 같이 써서, AI가 놓친 단어가 있어도 안전하게 찾는다
   const combinedQuery = searchKeywords + ' ' + q;
