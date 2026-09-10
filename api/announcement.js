@@ -1,5 +1,5 @@
 const { getSupabase } = require('./_supabaseClient');
-const { checkAppPassword } = require('./_auth');
+const { checkAppPassword, checkAdminPassword } = require('./_auth');
 
 module.exports = async function handler(req, res) {
   if (!checkAppPassword(req)) {
@@ -19,6 +19,10 @@ module.exports = async function handler(req, res) {
     }
 
     if (req.method === 'POST') {
+      // 공지사항 수정은 관리자만 (아무나 지사원 전체에게 보이는 공지를 바꿀 수 없도록)
+      if (!checkAdminPassword(req)) {
+        return res.status(403).json({ error: '관리자 비밀번호가 필요해요.' });
+      }
       const { content } = req.body || {};
       const { error } = await supabase
         .from('announcements')
