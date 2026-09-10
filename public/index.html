@@ -4694,6 +4694,21 @@ document.getElementById('libBulkUrlFileInput').addEventListener('change', async 
   e.target.value = '';
 });
 
+// AI 정리를 안 켜도, 흔한 네이버 블로그 UI 문구는 최대한 걸러낸다 (완벽친 않지만, 진짜 본문이
+// 글자수 제한 안에서 잡동사니에 밀려 잘려나가는 걸 크게 줄여준다)
+function stripCommonBoilerplate(text) {
+  const junkPatterns = [
+    /이웃추가/g, /URL\s*복사/g, /공감\s*\d*/g, /댓글\s*쓰기/g, /프로파일/g,
+    /이\s*블로그의\s*인기글/g, /전체보기/g, /카테고리\s*이동/g, /구독하기/g,
+    /검색\s*MY메뉴\s*열기/g, /이\s*블로그에서\s*검색/g, /블로그\s*홈/g, /본문\s*바로가기/g,
+    /관리자\s*모드로\s*이동/g, /이전\s*다음/g, /인쇄/g, /신고/g
+  ];
+  let cleaned = text;
+  junkPatterns.forEach(p => { cleaned = cleaned.replace(p, ' '); });
+  cleaned = cleaned.replace(/[ \t]{2,}/g, ' ').replace(/\n{3,}/g, '\n\n');
+  return cleaned.trim();
+}
+
 document.getElementById('libBulkImportBtn').addEventListener('click', async () => {
   const raw = document.getElementById('libBulkUrlInput').value.trim();
   const statusEl = document.getElementById('libBulkImportStatus');
@@ -4735,12 +4750,12 @@ document.getElementById('libBulkImportBtn').addEventListener('click', async () =
       try {
         const { rawTitle, text } = await apiPost('/api/fetch-blog-content', { url });
         if (!text || text.length < 50) throw new Error('본문을 거의 못 읽었어요 (페이지 구조 문제일 수 있어요)');
-        let title = rawTitle || url, content = text.slice(0, 8000);
+        let title = rawTitle || url, content = stripCommonBoilerplate(text).slice(0, 20000);
         if (useAiClean) {
           const article = await extractCleanArticle(rawTitle, text, url);
           if (article.content) { title = article.title || rawTitle || url; content = article.content; }
         }
-        await apiPost('/api/library', { title: title.slice(0, 150), content: content.slice(0, 8000) + `\n\n(출처: ${url})` });
+        await apiPost('/api/library', { title: title.slice(0, 150), content: content.slice(0, 20000) + `\n\n(출처: ${url})` });
         okCount++;
         logLines.push(`✅ ${escapeHtml(title)}`);
       } catch (e) {
