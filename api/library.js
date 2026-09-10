@@ -9,12 +9,24 @@ module.exports = async function handler(req, res) {
     const supabase = getSupabase();
 
     if (req.method === 'GET') {
-      const { data, error } = await supabase
-        .from('source_library')
-        .select('*')
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      return res.status(200).json({ items: data });
+      // Supabase(PostgREST)는 기본적으로 한 번에 최대 1,000개 행만 돌려준다. 라이브러리가 1,000개를 넘으면
+      // 뒤쪽 자료가 통째로 검색 대상에서 빠지는 심각한 문제가 생기므로, 1,000개씩 여러 번 나눠 받아서 전부 합친다.
+      const PAGE_SIZE = 1000;
+      let allData = [];
+      let from = 0;
+      while (true) {
+        const { data, error } = await supabase
+          .from('source_library')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .range(from, from + PAGE_SIZE - 1);
+        if (error) throw error;
+        allData = allData.concat(data || []);
+        if (!data || data.length < PAGE_SIZE) break; // 더 가져올 게 없으면 종료
+        from += PAGE_SIZE;
+        if (from > 50000) break; // 혹시 모를 무한루프 방지용 안전장치
+      }
+      return res.status(200).json({ items: allData });
     }
 
     if (req.method === 'POST') {

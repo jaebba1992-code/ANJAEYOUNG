@@ -4788,13 +4788,40 @@ document.getElementById('libraryToggle').addEventListener('click', () => {
 refreshLibrary();
 
 // simple keyword-overlap search over the (already-fetched) shared library
+// 흔한 한글 조사를 잘라내서 "늑골골절이" → "늑골골절"처럼 매칭되게 한다 (완벽한 형태소 분석은 아니지만 실무적으로 크게 도움이 됨)
+const KOREAN_PARTICLES = ['에서부터', '으로부터', '이라서', '이라면', '한테서', '이라도', '이지만', '이라고', '에서', '으로', '이나', '이라', '까지', '부터', '에게', '한테', '에는', '에도', '만은', '이랑', '랑', '과', '와', '은', '는', '이', '가', '을', '를', '의', '에', '도', '만', '나', '요'];
+function stripTrailingParticle(token) {
+  for (const p of KOREAN_PARTICLES) {
+    if (token.length > p.length + 1 && token.endsWith(p)) return token.slice(0, -p.length);
+  }
+  return token;
+}
+// 띄어쓰기·기호 차이도 무시하고 비교한다 ("5대골절진단비"와 "5대 골절 진단비"가 같은 것으로 매칭되도록)
+function normalizeForSearch(s) {
+  return String(s || '').replace(/[\s,·・/\-()[\]{}!?"'.~]/g, '').toLowerCase();
+}
 function searchLibrary(topic, extra) {
-  const query = (topic + ' ' + (extra || '')).toLowerCase();
-  const keywords = query.split(/[\s,·・/]+/).filter(w => w.length >= 2);
-  return cachedLibrary.filter(item => {
-    const hay = (item.title + ' ' + item.content).toLowerCase();
-    return keywords.some(k => hay.includes(k));
+  const query = (topic + ' ' + (extra || ''));
+  const rawKeywords = query.split(/[\s,·・/]+/).filter(w => w.length >= 2);
+  const keywords = rawKeywords.map(k => normalizeForSearch(stripTrailingParticle(k))).filter(k => k.length >= 2);
+  if (!keywords.length) return [];
+  // 매칭된 것 중에서도, 자료가 1,000개 넘게 쌓이면 그냥 "매칭되는 순서(저장순)"로는 진짜 관련 있는 글이
+  // 뒤로 밀릴 수 있다. 그래서 키워드가 몇 번 등장하는지(그리고 제목에 있으면 가중치를 더 줘서) 점수를 매겨
+  // 가장 관련도 높은 순으로 정렬한다.
+  const scored = [];
+  cachedLibrary.forEach(item => {
+    const title = normalizeForSearch(item.title || '');
+    const content = normalizeForSearch(item.content || '');
+    let score = 0;
+    keywords.forEach(k => {
+      if (title.includes(k)) score += 5; // 제목에 있으면 훨씬 중요한 신호
+      const contentHits = content.split(k).length - 1;
+      score += contentHits;
+    });
+    if (score > 0) scored.push({ item, score });
   });
+  scored.sort((a, b) => b.score - a.score);
+  return scored.map(s => s.item);
 }
 
 // searches the 8,000-page corpus stored in Supabase (server-side full-text search)
