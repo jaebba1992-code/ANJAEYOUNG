@@ -7795,13 +7795,16 @@ async function generateSearchAnswer() {
     const elapsedSec = (Date.now() - startedAt) / 1000;
     searchResponseTimes.push(elapsedSec);
     if (searchResponseTimes.length > 20) searchResponseTimes.shift();
-    const usedSources = [...new Set(corpusMatches.map(m => m.source_file).filter(Boolean))];
+    const usedSources = [...new Set([...libMatches.map(m => m.title), ...corpusMatches.map(m => m.source_file)].filter(Boolean))];
+    const noSourceFound = !libMatches.length && !corpusMatches.length;
 
     skeleton.style.display = 'none';
     resultPanel.style.display = 'block';
     resultMeta.innerHTML = `
       <span class="search-result-badge">AI 답변</span>
-      ${usedSources.map(s => `<span class="search-result-source">${escapeHtml(s)}</span>`).join('<span class="search-result-source">·</span>')}
+      ${noSourceFound
+        ? `<span class="search-result-source" style="color:#B45309; background:#FFF7ED;">저장된 자료에서 못 찾아서, AI가 일반 지식으로 직접 답했어요</span>`
+        : usedSources.map(s => `<span class="search-result-source">${escapeHtml(s)}</span>`).join('<span class="search-result-source">·</span>')}
       <span class="search-result-time">${elapsedSec.toFixed(1)}초</span>
     `;
     resultBody.innerHTML = '';
