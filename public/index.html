@@ -2651,25 +2651,29 @@ async function extractSurgeryPackageFromImages(images, onProgress) {
 - 다른 설명, 코드블록 기호 없이 JSON만 출력한다.`;
 
   // 페이지가 많은 표는 한 번에 다 보내면(예: 14장) 처리 시간이 너무 길어져서 타임아웃이 나기 쉽다.
-  // 그래서 몇 장씩 나눠서(배치) 여러 번 요청하고, 결과를 합친다 — 요청 하나하나는 훨씬 빨라져서 안정적이다.
+  // 그래서 몇 장씩 나눠서(배치) 여러 번 요청하는데, 이 배치들을 순서대로가 아니라 동시에 보내서 훨씬 빠르게 만든다.
+  // 표 읽기는 복잡한 추론이 필요 없는 작업이라 haiku(훨씬 저렴한 모델)로도 충분해서, 비용도 같이 아낀다.
   const BATCH_SIZE = 4;
-  const allItems = [];
-  const totalBatches = Math.ceil(images.length / BATCH_SIZE);
-  for (let i = 0; i < images.length; i += BATCH_SIZE) {
-    if (onProgress) onProgress(Math.floor(i / BATCH_SIZE) + 1, totalBatches);
-    const batch = images.slice(i, i + BATCH_SIZE);
+  const batches = [];
+  for (let i = 0; i < images.length; i += BATCH_SIZE) batches.push(images.slice(i, i + BATCH_SIZE));
+
+  let doneCount = 0;
+  const results = await Promise.all(batches.map(async (batch) => {
     const content = batch.map(b64 => ({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: b64 } }));
     content.push({ type: 'text', text: '위 이미지(들)에서 수술명+진단코드 표를 찾아 JSON으로 정리해줘.' });
-    const raw = await callClaude(system, [{ role: 'user', content }], 2, null, 6000);
-    const cleaned = raw.replace(/```json|```/g, '').trim();
     try {
+      const raw = await callClaude(system, [{ role: 'user', content }], 2, null, 6000, 'claude-haiku-4-5-20251001');
+      const cleaned = raw.replace(/```json|```/g, '').trim();
       const parsed = JSON.parse(cleaned);
-      if (Array.isArray(parsed.items)) allItems.push(...parsed.items);
+      return Array.isArray(parsed.items) ? parsed.items : [];
     } catch (e) {
-      // 한 배치가 실패해도 나머지 배치는 계속 진행한다 (전체를 포기하지 않음)
+      return []; // 한 배치가 실패해도 나머지 배치는 계속 진행한다 (전체를 포기하지 않음)
+    } finally {
+      doneCount++;
+      if (onProgress) onProgress(doneCount, batches.length);
     }
-  }
-  return { items: allItems };
+  }));
+  return { items: results.flat() };
 }
 
 // 분류표가 PDF가 아니라 텍스트(메모장)로 되어있을 때 — 이미지 OCR 없이 텍스트만으로 뽑아낸다 (더 저렴하고 빠름)
@@ -2688,7 +2692,8 @@ async function extractSurgeryPackageFromText(text) {
 - 텍스트 안에 없는 항목은 절대 추가하지 않는다.
 - 다른 설명, 코드블록 기호 없이 JSON만 출력한다.`;
 
-  const raw = await callClaude(system, [{ role: 'user', content: `[수술분류표 텍스트]\n${text.slice(0, 20000)}` }], 2, null, 6000);
+  // 이것도 단순 추출 작업이라 저렴한 모델(haiku)로 충분하다
+  const raw = await callClaude(system, [{ role: 'user', content: `[수술분류표 텍스트]\n${text.slice(0, 20000)}` }], 2, null, 6000, 'claude-haiku-4-5-20251001');
   const cleaned = raw.replace(/```json|```/g, '').trim();
   return JSON.parse(cleaned);
 }
@@ -2747,32 +2752,49 @@ document.getElementById('surgeryPkgProcessBtn').addEventListener('click', async 
   btn.disabled = true;
   window.__surgeryPkgPairs = [];
   const logLines = unmatched.map(u => `⚠️ ${escapeHtml(u)}`);
-  for (let i = 0; i < pairs.length; i++) {
-    const p = pairs[i];
-    const listIsPdf = /\.pdf$/i.test(p.listFile.name);
-    statusEl.innerHTML = logLines.join('<br>') + `${logLines.length ? '<br>' : ''}(${i + 1}/${pairs.length}) "${escapeHtml(p.base)}" ${listIsPdf ? 'PDF 표' : '분류표 텍스트'} 읽는 중...`;
-    try {
-      const [insurer, ...rest] = p.base.split('_');
-      const packageName = rest.join('_') || p.base;
-      const termsText = await p.termsFile.text();
-      let extracted;
-      if (listIsPdf) {
-        const images = await pdfToImageBase64List(p.listFile);
-        extracted = await extractSurgeryPackageFromImages(images, (done, total) => {
-          statusEl.innerHTML = logLines.join('<br>') + `${logLines.length ? '<br>' : ''}(${i + 1}/${pairs.length}) "${escapeHtml(p.base)}" PDF 표 읽는 중... (${done}/${total} 묶음)`;
-        });
-      } else {
-        const listText = await p.listFile.text();
-        extracted = await extractSurgeryPackageFromText(listText);
-      }
-      const surgeries = (extracted.items || []).filter(s => s.surgery_name);
-      window.__surgeryPkgPairs.push({ base: p.base, insurer, packageName, termsText, surgeries });
-      logLines.push(`✅ ${escapeHtml(p.base)} — 수술 ${surgeries.length}건 읽음`);
-    } catch (e) {
-      logLines.push(`❌ ${escapeHtml(p.base)} — ${escapeHtml(e.message)}`);
-    }
-    statusEl.innerHTML = logLines.join('<br>');
+  // 파일 쌍마다 순서대로 하나씩 처리하지 않고, 여러 쌍을 동시에 처리한다 (묶음 내부도 이미 동시처리라
+  // 너무 한꺼번에 몰리지 않게 쌍 단위는 3개까지만 동시에 진행한다)
+  const pairStatus = pairs.map(p => `⏳ "${p.base}" 대기 중...`);
+  function renderStatus() {
+    statusEl.innerHTML = [...logLines, ...pairStatus].join('<br>');
   }
+  renderStatus();
+
+  const CONCURRENCY = 3;
+  let nextIndex = 0;
+  async function worker() {
+    while (nextIndex < pairs.length) {
+      const idx = nextIndex++;
+      const p = pairs[idx];
+      const listIsPdf = /\.pdf$/i.test(p.listFile.name);
+      pairStatus[idx] = `⏳ "${escapeHtml(p.base)}" ${listIsPdf ? 'PDF 표' : '분류표 텍스트'} 읽는 중...`;
+      renderStatus();
+      try {
+        const [insurer, ...rest] = p.base.split('_');
+        const packageName = rest.join('_') || p.base;
+        const termsText = await p.termsFile.text();
+        let extracted;
+        if (listIsPdf) {
+          const images = await pdfToImageBase64List(p.listFile);
+          extracted = await extractSurgeryPackageFromImages(images, (done, total) => {
+            pairStatus[idx] = `⏳ "${escapeHtml(p.base)}" PDF 표 읽는 중... (${done}/${total} 묶음)`;
+            renderStatus();
+          });
+        } else {
+          const listText = await p.listFile.text();
+          extracted = await extractSurgeryPackageFromText(listText);
+        }
+        const surgeries = (extracted.items || []).filter(s => s.surgery_name);
+        window.__surgeryPkgPairs.push({ base: p.base, insurer, packageName, termsText, surgeries });
+        pairStatus[idx] = `✅ ${escapeHtml(p.base)} — 수술 ${surgeries.length}건 읽음`;
+      } catch (e) {
+        pairStatus[idx] = `❌ ${escapeHtml(p.base)} — ${escapeHtml(e.message)}`;
+      }
+      renderStatus();
+    }
+  }
+  const workers = Array.from({ length: Math.min(CONCURRENCY, pairs.length) }, () => worker());
+  await Promise.all(workers);
   btn.disabled = false;
   renderSurgeryPkgPreview();
 });
@@ -6054,7 +6076,7 @@ async function handlePdfUpload(file, statusId, sourceId, afterUpdate, opts = {})
 
 document.getElementById('genBtn').addEventListener('click', generateScript);
 
-async function callClaude(system, messages, retries = 2, tools = null, maxTokens = 2048) {
+async function callClaude(system, messages, retries = 2, tools = null, maxTokens = 2048, model = null) {
   let lastErr;
   for (let attempt = 0; attempt <= retries; attempt++) {
     const controller = new AbortController();
@@ -6064,7 +6086,7 @@ async function callClaude(system, messages, retries = 2, tools = null, maxTokens
       const response = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeaders() },
-        body: JSON.stringify({ system, messages, tools: tools || undefined, max_tokens: maxTokens }),
+        body: JSON.stringify({ system, messages, tools: tools || undefined, max_tokens: maxTokens, model: model || undefined }),
         signal: controller.signal
       });
       clearTimeout(timeoutId);

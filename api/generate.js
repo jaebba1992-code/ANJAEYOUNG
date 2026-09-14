@@ -1,5 +1,9 @@
 const { checkAppPassword } = require('./_auth');
 
+// 요청에서 모델을 고를 수 있게 하되, 임의 문자열이 들어오면 안 되니 허용 목록으로만 제한한다.
+// haiku는 sonnet보다 훨씬 저렴해서, 표 추출처럼 복잡한 추론이 덜 필요한 작업엔 이걸 쓰면 비용을 크게 아낄 수 있다.
+const ALLOWED_MODELS = ['claude-sonnet-4-6', 'claude-haiku-4-5-20251001'];
+
 module.exports = async function handler(req, res) {
   if (!checkAppPassword(req)) {
     return res.status(401).json({ error: '비밀번호가 필요해요.' });
@@ -13,11 +17,12 @@ module.exports = async function handler(req, res) {
     return res.status(500).json({ error: 'ANTHROPIC_API_KEY가 서버에 설정되지 않았어요. /api/health 에서 확인해주세요.' });
   }
 
-  const { system, messages, tools, max_tokens } = req.body || {};
+  const { system, messages, tools, max_tokens, model } = req.body || {};
   if (!messages) {
     return res.status(400).json({ error: 'messages가 필요합니다.' });
   }
   const safeMaxTokens = Math.min(Math.max(parseInt(max_tokens, 10) || 2048, 256), 4096);
+  const safeModel = ALLOWED_MODELS.includes(model) ? model : 'claude-sonnet-4-6';
 
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -28,7 +33,7 @@ module.exports = async function handler(req, res) {
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
+        model: safeModel,
         max_tokens: safeMaxTokens,
         system: system || undefined,
         messages,
