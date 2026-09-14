@@ -1838,7 +1838,7 @@
     <div id="surgeryPkgAdminBody" style="display:none; margin-top:14px;">
       <p style="font-size:12px; color:var(--paper-mute); line-height:1.7; margin:0 0 10px;">
         파일명 끝에 <b>약관</b> / <b>분류표</b> 를 붙여서 짝을 맞춰주세요 (밑줄이든 띄어쓰기든 상관없어요). 예: <code>삼성생명_153대수술비 약관.txt</code> + <code>삼성생명_153대수술비 분류표.pdf</code><br>
-        분류표는 PDF든 텍스트든 상관없어요 — 텍스트면 그대로 읽고, PDF면 AI가 표를 읽어요.
+        분류표는 PDF든 텍스트든 상관없어요 — 텍스트면 그대로 읽고, PDF면 AI가 표를 읽어요. <b>약관 없이 분류표만 올려도 돼요</b> (나중에 약관만 따로 추가해도 됨).
       </p>
       <input type="file" id="surgeryPkgFilesInput" accept=".txt,.pdf" multiple style="font-size:12px; color:var(--paper-dim);">
       <button class="mini-btn" id="surgeryPkgProcessBtn" style="margin-left:8px;">파일 읽고 짝 맞추기</button>
@@ -2731,29 +2731,22 @@ document.getElementById('surgeryPkgProcessBtn').addEventListener('click', async 
     groups[key][parsed.role] = parsed.file;
   });
 
+  // 약관+분류표가 둘 다 있으면 짝으로, 하나만 있어도(특히 분류표만) 그것만으로 등록할 수 있게 한다.
+  // (약관은 나중에 추가로 올려도 되고, 분류표만 먼저 넣어두고 싶은 경우가 많아서)
   const pairs = [];
-  const leftoverTerms = [], leftoverList = [];
   Object.values(groups).forEach(g => {
-    if (g.terms && g.list) pairs.push({ base: g.base, termsFile: g.terms, listFile: g.list });
-    else if (g.terms) leftoverTerms.push(g.terms);
-    else if (g.list) leftoverList.push(g.list);
+    if (g.terms || g.list) pairs.push({ base: g.base, termsFile: g.terms || null, listFile: g.list || null });
   });
-  // 그래도 짝이 안 맞는 게 약관 1개, 분류표 1개씩만 남았다면 — 어차피 하나씩밖에 없으니 그 둘을 짝으로 간주한다
-  if (leftoverTerms.length === 1 && leftoverList.length === 1) {
-    pairs.push({ base: leftoverTerms[0].name.replace(/\.(txt|pdf)$/i, ''), termsFile: leftoverTerms[0], listFile: leftoverList[0] });
-    leftoverTerms.length = 0; leftoverList.length = 0;
-  }
-  const unmatched = [...leftoverTerms.map(f => f.name + ' (약관, 짝 없음)'), ...leftoverList.map(f => f.name + ' (분류표, 짝 없음)')];
   if (!pairs.length) {
-    statusEl.textContent = '짝이 맞는 약관+분류표 쌍을 찾지 못했어요. 파일명을 확인해주세요.' + (unmatched.length ? ' (' + unmatched.join(', ') + ')' : '');
+    statusEl.textContent = '읽을 파일을 찾지 못했어요.';
     return;
   }
 
   btn.disabled = true;
   window.__surgeryPkgPairs = [];
-  const logLines = unmatched.map(u => `⚠️ ${escapeHtml(u)}`);
-  // 파일 쌍마다 순서대로 하나씩 처리하지 않고, 여러 쌍을 동시에 처리한다 (묶음 내부도 이미 동시처리라
-  // 너무 한꺼번에 몰리지 않게 쌍 단위는 3개까지만 동시에 진행한다)
+  const logLines = [];
+  // 파일마다 순서대로 하나씩 처리하지 않고, 여러 개를 동시에 처리한다 (묶음 내부도 이미 동시처리라
+  // 너무 한꺼번에 몰리지 않게 항목 단위는 3개까지만 동시에 진행한다)
   const pairStatus = pairs.map(p => `⏳ "${p.base}" 대기 중...`);
   function renderStatus() {
     statusEl.innerHTML = [...logLines, ...pairStatus].join('<br>');
@@ -2766,27 +2759,31 @@ document.getElementById('surgeryPkgProcessBtn').addEventListener('click', async 
     while (nextIndex < pairs.length) {
       const idx = nextIndex++;
       const p = pairs[idx];
-      const listIsPdf = /\.pdf$/i.test(p.listFile.name);
-      pairStatus[idx] = `⏳ "${escapeHtml(p.base)}" ${listIsPdf ? 'PDF 표' : '분류표 텍스트'} 읽는 중...`;
+      const hasList = !!p.listFile;
+      const listIsPdf = hasList && /\.pdf$/i.test(p.listFile.name);
+      pairStatus[idx] = `⏳ "${escapeHtml(p.base)}" ${!hasList ? '약관만 등록 중' : (listIsPdf ? 'PDF 표' : '분류표 텍스트') + ' 읽는 중'}...`;
       renderStatus();
       try {
         const [insurer, ...rest] = p.base.split('_');
         const packageName = rest.join('_') || p.base;
-        const termsText = await p.termsFile.text();
-        let extracted;
-        if (listIsPdf) {
-          const images = await pdfToImageBase64List(p.listFile);
-          extracted = await extractSurgeryPackageFromImages(images, (done, total) => {
-            pairStatus[idx] = `⏳ "${escapeHtml(p.base)}" PDF 표 읽는 중... (${done}/${total} 묶음)`;
-            renderStatus();
-          });
-        } else {
-          const listText = await p.listFile.text();
-          extracted = await extractSurgeryPackageFromText(listText);
+        const termsText = p.termsFile ? await p.termsFile.text() : '';
+        let surgeries = [];
+        if (hasList) {
+          let extracted;
+          if (listIsPdf) {
+            const images = await pdfToImageBase64List(p.listFile);
+            extracted = await extractSurgeryPackageFromImages(images, (done, total) => {
+              pairStatus[idx] = `⏳ "${escapeHtml(p.base)}" PDF 표 읽는 중... (${done}/${total} 묶음)`;
+              renderStatus();
+            });
+          } else {
+            const listText = await p.listFile.text();
+            extracted = await extractSurgeryPackageFromText(listText);
+          }
+          surgeries = (extracted.items || []).filter(s => s.surgery_name);
         }
-        const surgeries = (extracted.items || []).filter(s => s.surgery_name);
         window.__surgeryPkgPairs.push({ base: p.base, insurer, packageName, termsText, surgeries });
-        pairStatus[idx] = `✅ ${escapeHtml(p.base)} — 수술 ${surgeries.length}건 읽음`;
+        pairStatus[idx] = `✅ ${escapeHtml(p.base)} — ${hasList ? `수술 ${surgeries.length}건 읽음` : '약관만 등록(분류표 없음)'}`;
       } catch (e) {
         pairStatus[idx] = `❌ ${escapeHtml(p.base)} — ${escapeHtml(e.message)}`;
       }
