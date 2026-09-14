@@ -2734,6 +2734,7 @@ async function extractSurgeryPackageFromText(text) {
 [규칙]
 - 텍스트에 있는 내용을 정확히 그대로 옮긴다. 지어내거나 추측하지 않는다.
 - 요약/개요성 나열(예: "27대 질병: OOO, OOO, OOO..." 처럼 쉼표로 죽 나열된 부분)보다는, 개별 항목+코드가 한 줄씩(또는 표 형태로) 나오는 **상세 목록**을 우선적으로 찾아서 뽑는다. 상세 목록이 있는데 요약만 뽑고 끝내지 않는다. 예를 들어 "구분/분류항목/분류코드" 같은 열이 있는 표가 있으면, 그 표의 분류항목(또는 그에 해당하는 이름)과 분류코드를 각각 한 항목씩으로 뽑는다.
+- **중요**: 이 텍스트는 PDF 표에서 그대로 뽑아낸 것이라, 표의 시각적 배치(행마다 이름+코드가 나란히)가 아니라 **"이름들이 먼저 쭉 나열되고, 그다음에 코드들이 같은 순서로 쭉 나열되는" 형태**로 되어있을 수 있다(세로 열 단위로 텍스트가 추출됐기 때문). 이런 경우, 이름 목록과 코드 목록의 **개수와 순서를 맞춰서** 첫 번째 이름=첫 번째 코드, 두 번째 이름=두 번째 코드 식으로 정확히 짝지어라. 개수가 안 맞으면 억지로 짝짓지 말고, 짝을 확신할 수 있는 것만 뽑는다.
 - 텍스트 안에 없는 항목은 절대 추가하지 않는다.
 - 다른 설명, 코드블록 기호 없이 JSON만 출력한다.`;
 
@@ -2758,6 +2759,24 @@ async function extractSurgeryPackageFromText(text) {
 }
 
 window.__surgeryPkgPairs = [];
+// PDF에 실제 텍스트가 있는지 먼저 pdf.js로 직접 읽어본다 (사진으로 바꿔서 AI가 읽는 것보다
+// 훨씬 정확하고 저렴함). 표 테두리는 보이는데 글자만 안 보이는 폰트 인코딩 문제가 있는 PDF도
+// 있어서, "화면에 그려지는지"와 "실제 텍스트 데이터가 있는지"는 다를 수 있다 — 그래서 이미지
+// 렌더링에 의존하지 않고 pdf.js의 텍스트 레이어에서 직접 뽑는다.
+async function extractPdfTextViaPdfJs(file) {
+  const buffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
+  const totalPages = Math.min(pdf.numPages, 30);
+  let allText = '';
+  for (let p = 1; p <= totalPages; p++) {
+    const page = await pdf.getPage(p);
+    const textContent = await page.getTextContent();
+    const pageText = textContent.items.map(it => it.str).join(' ').trim();
+    if (pageText) allText += pageText + '\n\n';
+  }
+  return allText.trim();
+}
+
 document.getElementById('surgeryPkgProcessBtn').addEventListener('click', async () => {
   const files = Array.from(document.getElementById('surgeryPkgFilesInput').files || []);
   const statusEl = document.getElementById('surgeryPkgStatus');
@@ -2830,11 +2849,21 @@ document.getElementById('surgeryPkgProcessBtn').addEventListener('click', async 
         if (hasList) {
           let extracted;
           if (listIsPdf) {
-            const images = await pdfToImageBase64List(p.listFile);
-            extracted = await extractSurgeryPackageFromImages(images, (done, total) => {
-              pairStatus[idx] = `⏳ "${escapeHtml(p.base)}" PDF 표 읽는 중... (${done}/${total} 묶음)`;
+            // 먼저 실제 텍스트 레이어를 직접 읽어본다 — 표 테두리는 렌더링되지만 글자가 이미지로는
+            // 안 보이는(폰트 인코딩 문제) PDF가 있어서, 사진으로 바꾸기 전에 텍스트부터 시도한다.
+            let pdfText = '';
+            try { pdfText = await extractPdfTextViaPdfJs(p.listFile); } catch (e) { /* 텍스트 추출 실패 시 아래에서 이미지 방식으로 진행 */ }
+            if (pdfText.length > 100) {
+              pairStatus[idx] = `⏳ "${escapeHtml(p.base)}" PDF 텍스트 읽는 중...`;
               renderStatus();
-            });
+              extracted = await extractSurgeryPackageFromText(pdfText);
+            } else {
+              const images = await pdfToImageBase64List(p.listFile);
+              extracted = await extractSurgeryPackageFromImages(images, (done, total) => {
+                pairStatus[idx] = `⏳ "${escapeHtml(p.base)}" PDF 표 읽는 중... (${done}/${total} 묶음)`;
+                renderStatus();
+              });
+            }
           } else {
             const listText = await p.listFile.text();
             extracted = await extractSurgeryPackageFromText(listText);
