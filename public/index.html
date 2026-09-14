@@ -2634,7 +2634,7 @@ document.getElementById('surgeryPkgAdminToggle').addEventListener('click', () =>
 });
 
 // PDF(수술분류표) 안의 표를 AI가 읽어서 {수술명, 진단코드} 목록으로 뽑아낸다
-async function extractSurgeryPackageFromImages(images) {
+async function extractSurgeryPackageFromImages(images, onProgress) {
   const system = `당신은 보험 약관 안의 "수술분류표" 부속서류를 읽어서 구조화된 데이터로 정리하는 전문가입니다. 이미지(들) 안에서 수술명과 진단코드(질병분류기호, 있으면)의 표를 찾아 정리하세요.
 
 아래 JSON 스키마로만 출력하세요:
@@ -2650,12 +2650,26 @@ async function extractSurgeryPackageFromImages(images) {
 - 글자가 흐릿해서 확실하지 않은 항목은 건너뛴다.
 - 다른 설명, 코드블록 기호 없이 JSON만 출력한다.`;
 
-  const content = images.map(b64 => ({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: b64 } }));
-  content.push({ type: 'text', text: '위 이미지(들)에서 수술명+진단코드 표를 찾아 JSON으로 정리해줘.' });
-
-  const raw = await callClaude(system, [{ role: 'user', content }], 2, null, 6000);
-  const cleaned = raw.replace(/```json|```/g, '').trim();
-  return JSON.parse(cleaned);
+  // 페이지가 많은 표는 한 번에 다 보내면(예: 14장) 처리 시간이 너무 길어져서 타임아웃이 나기 쉽다.
+  // 그래서 몇 장씩 나눠서(배치) 여러 번 요청하고, 결과를 합친다 — 요청 하나하나는 훨씬 빨라져서 안정적이다.
+  const BATCH_SIZE = 4;
+  const allItems = [];
+  const totalBatches = Math.ceil(images.length / BATCH_SIZE);
+  for (let i = 0; i < images.length; i += BATCH_SIZE) {
+    if (onProgress) onProgress(Math.floor(i / BATCH_SIZE) + 1, totalBatches);
+    const batch = images.slice(i, i + BATCH_SIZE);
+    const content = batch.map(b64 => ({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: b64 } }));
+    content.push({ type: 'text', text: '위 이미지(들)에서 수술명+진단코드 표를 찾아 JSON으로 정리해줘.' });
+    const raw = await callClaude(system, [{ role: 'user', content }], 2, null, 6000);
+    const cleaned = raw.replace(/```json|```/g, '').trim();
+    try {
+      const parsed = JSON.parse(cleaned);
+      if (Array.isArray(parsed.items)) allItems.push(...parsed.items);
+    } catch (e) {
+      // 한 배치가 실패해도 나머지 배치는 계속 진행한다 (전체를 포기하지 않음)
+    }
+  }
+  return { items: allItems };
 }
 
 // 분류표가 PDF가 아니라 텍스트(메모장)로 되어있을 때 — 이미지 OCR 없이 텍스트만으로 뽑아낸다 (더 저렴하고 빠름)
@@ -2744,7 +2758,9 @@ document.getElementById('surgeryPkgProcessBtn').addEventListener('click', async 
       let extracted;
       if (listIsPdf) {
         const images = await pdfToImageBase64List(p.listFile);
-        extracted = await extractSurgeryPackageFromImages(images);
+        extracted = await extractSurgeryPackageFromImages(images, (done, total) => {
+          statusEl.innerHTML = logLines.join('<br>') + `${logLines.length ? '<br>' : ''}(${i + 1}/${pairs.length}) "${escapeHtml(p.base)}" PDF 표 읽는 중... (${done}/${total} 묶음)`;
+        });
       } else {
         const listText = await p.listFile.text();
         extracted = await extractSurgeryPackageFromText(listText);
