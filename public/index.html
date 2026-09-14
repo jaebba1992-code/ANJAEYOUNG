@@ -837,6 +837,7 @@
       <a href="https://hq276-portal.vercel.app/boards/069a9efe-b4c5-42cf-ae83-422ca51f111a" target="_blank" style="flex:1; text-align:center; font-size:11px; color:var(--rail-muted); background:rgba(255,255,255,0.06); border-radius:8px; padding:8px 4px; text-decoration:none;">276본부 포털<br>바로가기</a>
       <a href="https://sangpum-ai.sangpum-ai.workers.dev/" target="_blank" style="flex:1; text-align:center; font-size:11px; color:var(--rail-muted); background:rgba(255,255,255,0.06); border-radius:8px; padding:8px 4px; text-decoration:none;">구글시트<br>바로가기</a>
     </div>
+    <a href="https://clinquant-malabi-e8fc81.netlify.app/" target="_blank" style="display:block; text-align:center; font-size:11px; color:var(--rail-muted); background:rgba(255,255,255,0.06); border-radius:8px; padding:8px 4px; text-decoration:none; margin-top:6px;">태아보험 특약 검색기</a>
 
     <div class="sb-usage">
       <div class="sb-usage-label">등록된 구글시트</div>
@@ -1832,7 +1833,7 @@
 
   <div class="panel">
     <div class="result-head" style="cursor:pointer;" id="surgeryPkgAdminToggle">
-      <p class="panel-title" style="border:none; padding:0; margin:0;">N대수술비 자료 관리 <span style="color:var(--paper-mute); font-weight:400; font-size:12px;">— 약관과 수술분류표를 파일명으로 짝지어 올리면 자동으로 매칭해서 등록해요</span></p>
+      <p class="panel-title" style="border:none; padding:0; margin:0;">N대수술비 · N대질병 자료 관리 <span style="color:var(--paper-mute); font-weight:400; font-size:12px;">— 약관과 분류표(수술명 또는 질병명)를 파일명으로 짝지어 올리면 자동으로 매칭해서 등록해요</span></p>
       <span class="copy-btn" id="surgeryPkgAdminToggleBtn">펼치기</span>
     </div>
     <div id="surgeryPkgAdminBody" style="display:none; margin-top:14px;">
@@ -2634,37 +2635,53 @@ document.getElementById('surgeryPkgAdminToggle').addEventListener('click', () =>
 });
 
 // PDF(수술분류표) 안의 표를 AI가 읽어서 {수술명, 진단코드} 목록으로 뽑아낸다
+// 항목이 많은 표는 AI 응답이 글자 수 한도에 걸려서 JSON이 중간에 뚝 끊기는 경우가 있다.
+// 이럴 때 전체를 버리지 않고, 끊기기 전까지 완성된 항목들만이라도 살려서 쓴다.
+function parseJsonWithRepair(raw) {
+  const cleaned = raw.replace(/```json|```/g, '').trim();
+  try {
+    return JSON.parse(cleaned);
+  } catch (e) {
+    const lastComplete = cleaned.lastIndexOf('},');
+    if (lastComplete === -1) throw e;
+    const salvaged = cleaned.slice(0, lastComplete + 1) + ']}';
+    return JSON.parse(salvaged); // 여기서도 실패하면 그대로 에러 던짐 (호출부에서 처리)
+  }
+}
+
 async function extractSurgeryPackageFromImages(images, onProgress) {
-  const system = `당신은 보험 약관 안의 "수술분류표" 부속서류를 읽어서 구조화된 데이터로 정리하는 전문가입니다. 이미지(들) 안에서 수술명과 진단코드(질병분류기호, 있으면)의 표를 찾아 정리하세요.
+  const system = `당신은 보험 약관 안의 "N대수술비" 또는 "N대질병" 분류표 부속서류를 읽어서 구조화된 데이터로 정리하는 전문가입니다. 이 표는 수술명 목록일 수도 있고, 질병명(진단명) 목록일 수도 있습니다 — 문서에 실제로 있는 걸 그대로 뽑으세요.
 
 아래 JSON 스키마로만 출력하세요:
 {
   "items": [
-    {"surgery_name": "표에 적힌 수술명 그대로", "diagnosis_code": "진단코드/질병분류기호 (없으면 빈 문자열)"}
+    {"surgery_name": "표에 적힌 수술명 또는 질병명(진단명) 그대로", "diagnosis_code": "진단코드/분류코드/질병분류기호 (없으면 빈 문자열)"}
   ]
 }
+("surgery_name" 필드지만, 수술명이 아니라 질병명이 적힌 표라면 질병명을 그대로 넣으면 됩니다.)
 
 [규칙]
 - 표에 있는 내용을 정확히 그대로 옮긴다. 지어내거나 추측하지 않는다.
+- 요약/개요성 나열(예: "27대 질병: OOO, OOO, OOO..." 처럼 쉼표로 죽 나열된 부분)보다는, 개별 항목+코드가 한 줄씩 나오는 **상세 표**를 우선적으로 찾아서 뽑는다. 상세 표가 있는데 요약만 뽑고 끝내지 않는다.
 - 표 안에 없는 항목은 절대 추가하지 않는다.
 - 글자가 흐릿해서 확실하지 않은 항목은 건너뛴다.
 - 다른 설명, 코드블록 기호 없이 JSON만 출력한다.`;
 
-  // 페이지가 많은 표는 한 번에 다 보내면(예: 14장) 처리 시간이 너무 길어져서 타임아웃이 나기 쉽다.
-  // 그래서 몇 장씩 나눠서(배치) 여러 번 요청하는데, 이 배치들을 순서대로가 아니라 동시에 보내서 훨씬 빠르게 만든다.
+  // 페이지가 많은 표는 한 번에 다 보내면(예: 14장) 처리 시간이 너무 길어져서 타임아웃이 나기 쉽고,
+  // 항목이 너무 많으면 응답이 글자 수 한도에 걸려 중간에 끊길 수도 있다. 그래서 3장씩만 묶어서
+  // 여러 번 요청하는데, 이 배치들을 순서대로가 아니라 동시에 보내서 훨씬 빠르게 만든다.
   // 표 읽기는 복잡한 추론이 필요 없는 작업이라 haiku(훨씬 저렴한 모델)로도 충분해서, 비용도 같이 아낀다.
-  const BATCH_SIZE = 4;
+  const BATCH_SIZE = 3;
   const batches = [];
   for (let i = 0; i < images.length; i += BATCH_SIZE) batches.push(images.slice(i, i + BATCH_SIZE));
 
   let doneCount = 0;
   const results = await Promise.all(batches.map(async (batch) => {
     const content = batch.map(b64 => ({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: b64 } }));
-    content.push({ type: 'text', text: '위 이미지(들)에서 수술명+진단코드 표를 찾아 JSON으로 정리해줘.' });
+    content.push({ type: 'text', text: '위 이미지(들)에서 수술명(또는 질병명)+코드 표를 찾아 JSON으로 정리해줘.' });
     try {
-      const raw = await callClaude(system, [{ role: 'user', content }], 2, null, 6000, 'claude-haiku-4-5-20251001');
-      const cleaned = raw.replace(/```json|```/g, '').trim();
-      const parsed = JSON.parse(cleaned);
+      const raw = await callClaude(system, [{ role: 'user', content }], 2, null, 8000, 'claude-haiku-4-5-20251001');
+      const parsed = parseJsonWithRepair(raw);
       return Array.isArray(parsed.items) ? parsed.items : [];
     } catch (e) {
       return []; // 한 배치가 실패해도 나머지 배치는 계속 진행한다 (전체를 포기하지 않음)
@@ -2678,24 +2695,40 @@ async function extractSurgeryPackageFromImages(images, onProgress) {
 
 // 분류표가 PDF가 아니라 텍스트(메모장)로 되어있을 때 — 이미지 OCR 없이 텍스트만으로 뽑아낸다 (더 저렴하고 빠름)
 async function extractSurgeryPackageFromText(text) {
-  const system = `당신은 보험 약관 안의 "수술분류표" 텍스트를 읽어서 구조화된 데이터로 정리하는 전문가입니다. 아래 텍스트 안에서 수술명과 진단코드(질병분류기호, 있으면)를 찾아 정리하세요.
+  const system = `당신은 보험 약관 안의 "N대수술비" 또는 "N대질병" 분류표 텍스트를 읽어서 구조화된 데이터로 정리하는 전문가입니다. 이 표는 수술명 목록일 수도 있고, 질병명(진단명) 목록일 수도 있습니다 — 문서에 실제로 있는 걸 그대로 뽑으세요.
 
 아래 JSON 스키마로만 출력하세요:
 {
   "items": [
-    {"surgery_name": "수술명 그대로", "diagnosis_code": "진단코드/질병분류기호 (없으면 빈 문자열)"}
+    {"surgery_name": "수술명 또는 질병명(진단명) 그대로", "diagnosis_code": "진단코드/분류코드/질병분류기호 (없으면 빈 문자열)"}
   ]
 }
+("surgery_name" 필드지만, 수술명이 아니라 질병명이 적힌 문서라면 질병명을 그대로 넣으면 됩니다.)
 
 [규칙]
 - 텍스트에 있는 내용을 정확히 그대로 옮긴다. 지어내거나 추측하지 않는다.
+- 요약/개요성 나열(예: "27대 질병: OOO, OOO, OOO..." 처럼 쉼표로 죽 나열된 부분)보다는, 개별 항목+코드가 한 줄씩(또는 표 형태로) 나오는 **상세 목록**을 우선적으로 찾아서 뽑는다. 상세 목록이 있는데 요약만 뽑고 끝내지 않는다. 예를 들어 "구분/분류항목/분류코드" 같은 열이 있는 표가 있으면, 그 표의 분류항목(또는 그에 해당하는 이름)과 분류코드를 각각 한 항목씩으로 뽑는다.
 - 텍스트 안에 없는 항목은 절대 추가하지 않는다.
 - 다른 설명, 코드블록 기호 없이 JSON만 출력한다.`;
 
-  // 이것도 단순 추출 작업이라 저렴한 모델(haiku)로 충분하다
-  const raw = await callClaude(system, [{ role: 'user', content: `[수술분류표 텍스트]\n${text.slice(0, 20000)}` }], 2, null, 6000, 'claude-haiku-4-5-20251001');
-  const cleaned = raw.replace(/```json|```/g, '').trim();
-  return JSON.parse(cleaned);
+  // 텍스트도 항목이 아주 많으면 응답이 잘릴 수 있어서, 너무 길면 나눠서 처리한다 (한 번에 최대 15,000자 정도씩)
+  const CHUNK_SIZE = 15000;
+  if (text.length <= CHUNK_SIZE) {
+    const raw = await callClaude(system, [{ role: 'user', content: `[분류표 텍스트]\n${text}` }], 2, null, 8000, 'claude-haiku-4-5-20251001');
+    return parseJsonWithRepair(raw);
+  }
+  const chunks = [];
+  for (let i = 0; i < text.length; i += CHUNK_SIZE) chunks.push(text.slice(i, i + CHUNK_SIZE));
+  const results = await Promise.all(chunks.map(async (chunk) => {
+    try {
+      const raw = await callClaude(system, [{ role: 'user', content: `[분류표 텍스트 일부]\n${chunk}` }], 2, null, 8000, 'claude-haiku-4-5-20251001');
+      const parsed = parseJsonWithRepair(raw);
+      return Array.isArray(parsed.items) ? parsed.items : [];
+    } catch (e) {
+      return [];
+    }
+  }));
+  return { items: results.flat() };
 }
 
 window.__surgeryPkgPairs = [];
@@ -8108,12 +8141,12 @@ async function generateSearchAnswer() {
 - "이번달 소식지 정리해줘" 같은 요청이면, 등록된 보험사별로 나눠서 각 회사 소식지 핵심을 간단히 리뷰하듯 정리한다 (보험사 A: ~, 보험사 B: ~ 식으로).
 - 목록에 없는 상품을 지어내지 않는다. 목록이 비어있으면 "등록된 추천 상품이 아직 없다"고 솔직히 말한다.
 
-[수술 관련 질문일 때 — 중요]
-"이 수술 몇 종이야?", "이 수술 급여야 비급여야?", "삼성생명 153대수술비에 이 수술 해당돼?" 같은 질문이면:
+[수술/질병 관련 질문일 때 — 중요]
+"이 수술 몇 종이야?", "이 수술 급여야 비급여야?", "삼성생명 153대수술비에 이 수술 해당돼?", "이 진단명이 N대질병에 해당돼?" 같은 질문이면:
 1) **급여/비급여 여부** — 일반적인 의료 상식으로 판단해서 먼저 알려준다 (등록된 자료에 명시돼 있으면 그걸 우선 따른다).
 2) **종수술 분류(1~8종 등)** — [등록된 종수술 분류 자료]에서 정확히 같은 수술명이 있으면 그대로 알려준다. 정확히 같은 이름이 없으면, 자료에 있는 비슷한 수술명(예: 같은 부위·같은 계열 수술) 중 가장 가까운 것을 찾아서 "정확히 같은 명칭은 없지만, OOO 자료를 보면 비슷한 OOO 수술이 O종으로 분류돼 있어 (출처: OOO)"처럼 근거와 함께 답한다. 절대 자료에도 없고 확실하지도 않은 종수를 지어내지 않는다 — 못 찾으면 "정확한 분류는 등록된 자료에서 확인 못 했다"고 솔직히 말한다. 이 부분은 실제 보험금 청구에 영향을 주니 특히 정확해야 한다.
-3) **N대수술비 해당 여부** — [등록된 N대수술비 자료]에서 질문한 수술명을 찾아본다. 있으면 "OO생명 153대수술비에 해당돼 (진단코드: OOO)"처럼 알려주고, 등록된 자료 안에 없으면 "등록된 자료에서는 못 찾았다, 해당 안 되거나 아직 자료에 없을 수 있다"고 솔직히 말한다 — 없다고 확정하지 말고, "찾지 못했다"는 뉘앙스로 표현한다 (아직 다 등록 안 됐을 수 있으니까).
-4) 셋 다 자료에 전혀 없으면 일반 의료·보험 상식으로 급여/비급여 정도는 답하되, 종수술 분류나 특정 보험사 N대수술비 해당 여부처럼 정확한 숫자가 중요한 부분은 절대 추측하지 않는다.
+3) **N대수술비/N대질병 해당 여부** — [등록된 N대수술비 자료]는 수술명뿐 아니라 질병명(진단명) 목록도 같이 등록되어 있을 수 있다. 질문한 수술명 또는 질병명을 찾아본다. 있으면 "OO생명 153대수술비에 해당돼 (진단코드: OOO)"처럼 알려주고, 등록된 자료 안에 없으면 "등록된 자료에서는 못 찾았다, 해당 안 되거나 아직 자료에 없을 수 있다"고 솔직히 말한다 — 없다고 확정하지 말고, "찾지 못했다"는 뉘앙스로 표현한다 (아직 다 등록 안 됐을 수 있으니까).
+4) 셋 다 자료에 전혀 없으면 일반 의료·보험 상식으로 급여/비급여 정도는 답하되, 종수술 분류나 특정 보험사 N대수술비/N대질병 해당 여부처럼 정확한 숫자가 중요한 부분은 절대 추측하지 않는다.
 
 [상품 추천/비교 질문일 때 — 중요]
 "이번달 공격적으로 팔 만한 상품", "종신보험 추천해줘", "환급률 어디가 제일 좋아" 같은 추천·비교 질문이면:
