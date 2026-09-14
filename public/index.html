@@ -1832,12 +1832,13 @@
 
   <div class="panel">
     <div class="result-head" style="cursor:pointer;" id="surgeryPkgAdminToggle">
-      <p class="panel-title" style="border:none; padding:0; margin:0;">N대수술비 자료 관리 <span style="color:var(--paper-mute); font-weight:400; font-size:12px;">— 약관(.txt)과 수술분류표(.pdf)를 같은 파일명으로 짝지어 올리면 자동으로 매칭해서 등록해요</span></p>
+      <p class="panel-title" style="border:none; padding:0; margin:0;">N대수술비 자료 관리 <span style="color:var(--paper-mute); font-weight:400; font-size:12px;">— 약관과 수술분류표를 파일명으로 짝지어 올리면 자동으로 매칭해서 등록해요</span></p>
       <span class="copy-btn" id="surgeryPkgAdminToggleBtn">펼치기</span>
     </div>
     <div id="surgeryPkgAdminBody" style="display:none; margin-top:14px;">
       <p style="font-size:12px; color:var(--paper-mute); line-height:1.7; margin:0 0 10px;">
-        파일명을 <b>보험사명_패키지명.txt</b>(약관, 보상/비보상 조건) / <b>보험사명_패키지명.pdf</b>(수술분류표, 수술명+진단코드)로 똑같이 맞춰서, 두 파일을 한 번에 선택해주세요. 예: <code>삼성생명_153대수술비.txt</code> + <code>삼성생명_153대수술비.pdf</code>
+        파일명을 <b>보험사명_패키지명_약관.txt</b> / <b>보험사명_패키지명_분류표.pdf(또는 .txt)</b> 로 맞춰서, 두 파일을 한 번에 선택해주세요. 예: <code>삼성생명_153대수술비_약관.txt</code> + <code>삼성생명_153대수술비_분류표.pdf</code><br>
+        분류표는 PDF든 텍스트든 상관없어요 — 텍스트면 그대로 읽고, PDF면 AI가 표를 읽어요.
       </p>
       <input type="file" id="surgeryPkgFilesInput" accept=".txt,.pdf" multiple style="font-size:12px; color:var(--paper-dim);">
       <button class="mini-btn" id="surgeryPkgProcessBtn" style="margin-left:8px;">파일 읽고 짝 맞추기</button>
@@ -2657,31 +2658,74 @@ async function extractSurgeryPackageFromImages(images) {
   return JSON.parse(cleaned);
 }
 
+// 분류표가 PDF가 아니라 텍스트(메모장)로 되어있을 때 — 이미지 OCR 없이 텍스트만으로 뽑아낸다 (더 저렴하고 빠름)
+async function extractSurgeryPackageFromText(text) {
+  const system = `당신은 보험 약관 안의 "수술분류표" 텍스트를 읽어서 구조화된 데이터로 정리하는 전문가입니다. 아래 텍스트 안에서 수술명과 진단코드(질병분류기호, 있으면)를 찾아 정리하세요.
+
+아래 JSON 스키마로만 출력하세요:
+{
+  "items": [
+    {"surgery_name": "수술명 그대로", "diagnosis_code": "진단코드/질병분류기호 (없으면 빈 문자열)"}
+  ]
+}
+
+[규칙]
+- 텍스트에 있는 내용을 정확히 그대로 옮긴다. 지어내거나 추측하지 않는다.
+- 텍스트 안에 없는 항목은 절대 추가하지 않는다.
+- 다른 설명, 코드블록 기호 없이 JSON만 출력한다.`;
+
+  const raw = await callClaude(system, [{ role: 'user', content: `[수술분류표 텍스트]\n${text.slice(0, 20000)}` }], 2, null, 6000);
+  const cleaned = raw.replace(/```json|```/g, '').trim();
+  return JSON.parse(cleaned);
+}
+
 window.__surgeryPkgPairs = [];
 document.getElementById('surgeryPkgProcessBtn').addEventListener('click', async () => {
   const files = Array.from(document.getElementById('surgeryPkgFilesInput').files || []);
   const statusEl = document.getElementById('surgeryPkgStatus');
   const previewEl = document.getElementById('surgeryPkgPreview');
   const btn = document.getElementById('surgeryPkgProcessBtn');
-  if (!files.length) { alert('.txt와 .pdf 파일을 같이 선택해주세요.'); return; }
+  if (!files.length) { alert('약관 파일과 분류표 파일을 같이 선택해주세요.'); return; }
 
-  // 파일명(확장자 제외)이 같은 것끼리 짝을 맞춘다
+  // 맥/윈도우 한글 파일명 인코딩 차이, 앞뒤 공백, "(1)" 같은 자동 중복 접미사는 무시하고 너그럽게 비교한다.
+  function cleanName(name) {
+    return name.normalize('NFC').trim().replace(/\s+/g, ' ').replace(/\s*\(\d+\)$/, '');
+  }
+  // "_약관" / "_분류표" 표시가 파일명에 있으면 그걸로 역할을 정확히 구분한다.
+  // 표시가 없으면(예전 방식) 확장자로 구분한다: txt=약관, pdf=분류표.
+  function parseFile(f) {
+    const name = cleanName(f.name);
+    const noExt = name.replace(/\.(txt|pdf)$/i, '');
+    const isPdf = /\.pdf$/i.test(name);
+    if (/_약관$|_terms$/i.test(noExt)) return { role: 'terms', base: noExt.replace(/_약관$|_terms$/i, ''), file: f };
+    if (/_분류표$|_list$/i.test(noExt)) return { role: 'list', base: noExt.replace(/_분류표$|_list$/i, ''), file: f };
+    // 표시가 없는 예전 방식 — 확장자로 판단
+    return { role: isPdf ? 'list' : 'terms', base: noExt, file: f };
+  }
+
   const groups = {};
   files.forEach(f => {
-    const base = f.name.replace(/\.(txt|pdf)$/i, '');
-    if (!groups[base]) groups[base] = {};
-    if (/\.txt$/i.test(f.name)) groups[base].txt = f;
-    else if (/\.pdf$/i.test(f.name)) groups[base].pdf = f;
+    const parsed = parseFile(f);
+    const key = parsed.base.toLowerCase();
+    if (!groups[key]) groups[key] = { base: parsed.base };
+    groups[key][parsed.role] = parsed.file;
   });
 
   const pairs = [];
-  const unmatched = [];
-  Object.entries(groups).forEach(([base, g]) => {
-    if (g.txt && g.pdf) pairs.push({ base, txtFile: g.txt, pdfFile: g.pdf });
-    else unmatched.push(base + (g.txt ? '.txt' : '.pdf') + ' (짝 없음)');
+  const leftoverTerms = [], leftoverList = [];
+  Object.values(groups).forEach(g => {
+    if (g.terms && g.list) pairs.push({ base: g.base, termsFile: g.terms, listFile: g.list });
+    else if (g.terms) leftoverTerms.push(g.terms);
+    else if (g.list) leftoverList.push(g.list);
   });
+  // 그래도 짝이 안 맞는 게 약관 1개, 분류표 1개씩만 남았다면 — 어차피 하나씩밖에 없으니 그 둘을 짝으로 간주한다
+  if (leftoverTerms.length === 1 && leftoverList.length === 1) {
+    pairs.push({ base: leftoverTerms[0].name.replace(/\.(txt|pdf)$/i, ''), termsFile: leftoverTerms[0], listFile: leftoverList[0] });
+    leftoverTerms.length = 0; leftoverList.length = 0;
+  }
+  const unmatched = [...leftoverTerms.map(f => f.name + ' (약관, 짝 없음)'), ...leftoverList.map(f => f.name + ' (분류표, 짝 없음)')];
   if (!pairs.length) {
-    statusEl.textContent = '짝이 맞는 .txt+.pdf 쌍을 찾지 못했어요. 파일명을 확인해주세요.' + (unmatched.length ? ' (' + unmatched.join(', ') + ')' : '');
+    statusEl.textContent = '짝이 맞는 약관+분류표 쌍을 찾지 못했어요. 파일명을 확인해주세요.' + (unmatched.length ? ' (' + unmatched.join(', ') + ')' : '');
     return;
   }
 
@@ -2690,13 +2734,20 @@ document.getElementById('surgeryPkgProcessBtn').addEventListener('click', async 
   const logLines = unmatched.map(u => `⚠️ ${escapeHtml(u)}`);
   for (let i = 0; i < pairs.length; i++) {
     const p = pairs[i];
-    statusEl.innerHTML = logLines.join('<br>') + `${logLines.length ? '<br>' : ''}(${i + 1}/${pairs.length}) "${escapeHtml(p.base)}" PDF 표 읽는 중...`;
+    const listIsPdf = /\.pdf$/i.test(p.listFile.name);
+    statusEl.innerHTML = logLines.join('<br>') + `${logLines.length ? '<br>' : ''}(${i + 1}/${pairs.length}) "${escapeHtml(p.base)}" ${listIsPdf ? 'PDF 표' : '분류표 텍스트'} 읽는 중...`;
     try {
       const [insurer, ...rest] = p.base.split('_');
       const packageName = rest.join('_') || p.base;
-      const termsText = await p.txtFile.text();
-      const images = await pdfToImageBase64List(p.pdfFile);
-      const extracted = await extractSurgeryPackageFromImages(images);
+      const termsText = await p.termsFile.text();
+      let extracted;
+      if (listIsPdf) {
+        const images = await pdfToImageBase64List(p.listFile);
+        extracted = await extractSurgeryPackageFromImages(images);
+      } else {
+        const listText = await p.listFile.text();
+        extracted = await extractSurgeryPackageFromText(listText);
+      }
       const surgeries = (extracted.items || []).filter(s => s.surgery_name);
       window.__surgeryPkgPairs.push({ base: p.base, insurer, packageName, termsText, surgeries });
       logLines.push(`✅ ${escapeHtml(p.base)} — 수술 ${surgeries.length}건 읽음`);
