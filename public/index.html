@@ -1837,7 +1837,7 @@
     </div>
     <div id="surgeryPkgAdminBody" style="display:none; margin-top:14px;">
       <p style="font-size:12px; color:var(--paper-mute); line-height:1.7; margin:0 0 10px;">
-        파일명을 <b>보험사명_패키지명_약관.txt</b> / <b>보험사명_패키지명_분류표.pdf(또는 .txt)</b> 로 맞춰서, 두 파일을 한 번에 선택해주세요. 예: <code>삼성생명_153대수술비_약관.txt</code> + <code>삼성생명_153대수술비_분류표.pdf</code><br>
+        파일명 끝에 <b>약관</b> / <b>분류표</b> 를 붙여서 짝을 맞춰주세요 (밑줄이든 띄어쓰기든 상관없어요). 예: <code>삼성생명_153대수술비 약관.txt</code> + <code>삼성생명_153대수술비 분류표.pdf</code><br>
         분류표는 PDF든 텍스트든 상관없어요 — 텍스트면 그대로 읽고, PDF면 AI가 표를 읽어요.
       </p>
       <input type="file" id="surgeryPkgFilesInput" accept=".txt,.pdf" multiple style="font-size:12px; color:var(--paper-dim);">
@@ -2697,8 +2697,9 @@ document.getElementById('surgeryPkgProcessBtn').addEventListener('click', async 
     const name = cleanName(f.name);
     const noExt = name.replace(/\.(txt|pdf)$/i, '');
     const isPdf = /\.pdf$/i.test(name);
-    if (/_약관$|_terms$/i.test(noExt)) return { role: 'terms', base: noExt.replace(/_약관$|_terms$/i, ''), file: f };
-    if (/_분류표$|_list$/i.test(noExt)) return { role: 'list', base: noExt.replace(/_분류표$|_list$/i, ''), file: f };
+    // 밑줄(_)이든 띄어쓰기든 상관없이 "약관"/"분류표"로 끝나면 인식한다
+    if (/[\s_]*(약관|terms)$/i.test(noExt)) return { role: 'terms', base: noExt.replace(/[\s_]*(약관|terms)$/i, '').trim(), file: f };
+    if (/[\s_]*(분류표|list)$/i.test(noExt)) return { role: 'list', base: noExt.replace(/[\s_]*(분류표|list)$/i, '').trim(), file: f };
     // 표시가 없는 예전 방식 — 확장자로 판단
     return { role: isPdf ? 'list' : 'terms', base: noExt, file: f };
   }
