@@ -28,6 +28,16 @@ module.exports = async function handler(req, res) {
       const { data: packages, error } = await query;
       if (error) throw error;
 
+      // 목록에 "실제로 세부 항목(질병명/수술명)이 몇 건 등록돼 있는지"도 같이 보여준다 —
+      // 패키지만 등록되고 분류표(세부 목록)는 아직 안 올라간 경우를 관리자가 한눈에 알아챌 수 있게.
+      const packagesWithCounts = await Promise.all((packages || []).map(async (p) => {
+        const { count } = await supabase
+          .from('surgery_package_items')
+          .select('id', { count: 'exact', head: true })
+          .eq('package_id', p.id);
+        return { ...p, item_count: count || 0 };
+      }));
+
       // 상세 조회(id 지정 시) — 해당 패키지의 전체 수술 목록도 같이 반환
       if (req.query.id) {
         const { data: items, error: itemErr } = await supabase
@@ -39,7 +49,7 @@ module.exports = async function handler(req, res) {
         return res.status(200).json({ items });
       }
 
-      return res.status(200).json({ packages });
+      return res.status(200).json({ packages: packagesWithCounts });
     }
 
     // 등록/삭제는 관리자만 (잘못된 데이터가 섞이면 실제 청구 안내에 영향을 줄 수 있어서)
