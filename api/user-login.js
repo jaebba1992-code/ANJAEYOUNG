@@ -31,11 +31,25 @@ module.exports = async function handler(req, res) {
     }
 
     const token = generateToken();
-    const { error: updateErr } = await supabase
-      .from('app_users')
-      .update({ session_token: token, last_seen_at: new Date().toISOString() })
-      .eq('id', user.id);
-    if (updateErr) throw updateErr;
+    // 예전엔 app_users.session_token 딱 1개만 덮어써서, 다른 기기/팀원이 로그인하면
+    // 방금 전 세션이 즉시 끊겼다 — 이제 세션을 별도 테이블에 "추가"만 해서 여러 기기가
+    // 동시에 로그인해 있어도 서로 끊기지 않게 한다.
+    const { error: insertErr } = await supabase
+      .from('app_user_sessions')
+      .insert({ user_id: user.id, session_token: token });
+    if (insertErr) throw insertErr;
+    await supabase.from('app_users').update({ last_seen_at: new Date().toISOString() }).eq('id', user.id);
+
+    // 오래 방치된(30일 넘게 하트비트 없는) 세션은 정리해서 테이블이 무한정 커지지 않게 한다
+    (async () => {
+      try {
+        await supabase
+          .from('app_user_sessions')
+          .delete()
+          .eq('user_id', user.id)
+          .lt('last_seen_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
+      } catch (e) { /* 정리 실패해도 로그인 자체는 문제 없게 무시 */ }
+    })();
 
     // 로그인에 성공(+승인됨)하면, 기존에 쓰던 공용 비밀번호 체계를 사용자가 직접 입력할 필요 없이
     // 뒤에서 자동으로 넘겨준다 — 25개 넘는 API 파일의 인증 로직을 안 건드리고도, 사용자 경험만

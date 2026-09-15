@@ -2376,7 +2376,9 @@ function startSessionHeartbeat() {
     if (!token) return;
     try {
       const res = await fetch('/api/user-session', { method: 'POST', headers: { 'x-user-token': token } });
-      if (!res.ok) {
+      // 진짜 세션 만료(401)일 때만 로그아웃한다 — 서버 일시적 오류(500 등)까지 세션 만료로
+      // 오인해서 튕기지 않게 구분한다.
+      if (res.status === 401) {
         alert('세션이 만료됐거나 계정이 더 이상 승인되지 않아요. 다시 로그인해주세요.');
         logoutUser();
       }
