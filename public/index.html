@@ -2454,8 +2454,11 @@ async function showUsageStats(name) {
   body.innerHTML = '불러오는 중...';
   modal.style.display = 'flex';
   try {
+    // 관리자가 "이 사람"의 사용 내역을 보는 화면이므로, 로그인한 관리자 본인 기록이 아니라
+    // 전체 기록(fetchAllHistoryAdmin)에서 그 사람 이름으로 걸러야 한다. 예전엔 fetchAllHistory()를
+    // 썼는데, 그건 "지금 로그인한 사람 본인"의 기록만 가져오는 함수라서 항상 0건으로 나왔었다.
     const [all, visitsData] = await Promise.all([
-      fetchAllHistory(),
+      fetchAllHistoryAdmin(),
       apiGet('/api/visits').catch(() => null)
     ]);
     const mine = all.filter(h => (h.visitor_name || '') === name);
