@@ -2457,9 +2457,10 @@ async function showUsageStats(name) {
     // 관리자가 "이 사람"의 사용 내역을 보는 화면이므로, 로그인한 관리자 본인 기록이 아니라
     // 전체 기록(fetchAllHistoryAdmin)에서 그 사람 이름으로 걸러야 한다. 예전엔 fetchAllHistory()를
     // 썼는데, 그건 "지금 로그인한 사람 본인"의 기록만 가져오는 함수라서 항상 0건으로 나왔었다.
-    const [all, visitsData] = await Promise.all([
+    const [all, visitsData, usageCost] = await Promise.all([
       fetchAllHistoryAdmin(),
-      apiGet('/api/visits').catch(() => null)
+      apiGet('/api/visits').catch(() => null),
+      apiGetAdmin('/api/usage-cost?visitor_name=' + encodeURIComponent(name)).catch(() => null)
     ]);
     const mine = all.filter(h => (h.visitor_name || '') === name);
     const counts = { script: 0, cafe: 0, blog: 0, reco: 0, search: 0, ppt: 0, card: 0, proposal: 0 };
@@ -2473,6 +2474,10 @@ async function showUsageStats(name) {
       ${visitInfo ? `<div style="display:flex; gap:16px; margin-bottom:14px; font-size:13px;">
         <span style="color:var(--ink0);">오늘 방문 <b style="color:var(--green0);">${visitInfo.today}회</b></span>
         <span style="color:var(--ink0);">총 방문 <b style="color:var(--green0);">${visitInfo.count}회</b></span>
+      </div>` : ''}
+      ${usageCost ? `<div style="background:var(--paper-2, #f7f6f2); border-radius:8px; padding:10px 12px; margin-bottom:14px; font-size:13px; display:flex; justify-content:space-between; align-items:center;">
+        <span style="color:var(--ink0);">누적 API 사용 비용</span>
+        <span style="color:var(--seal, #b3452e); font-weight:700; font-size:14.5px;">$${usageCost.totalCost.toFixed(3)} <span style="color:var(--muted0); font-weight:400; font-size:11.5px;">(${usageCost.totalCalls.toLocaleString()}회 호출)</span></span>
       </div>` : ''}
       <div style="font-size:13px; color:var(--muted0); margin-bottom:14px;">총 ${total}건 생성</div>
       ${Object.entries(USAGE_CATEGORY_LABEL).map(([key, label]) => `
@@ -6612,7 +6617,7 @@ async function callClaude(system, messages, retries = 2, tools = null, maxTokens
       const response = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeaders() },
-        body: JSON.stringify({ system, messages, tools: tools || undefined, max_tokens: maxTokens, model: model || undefined }),
+        body: JSON.stringify({ system, messages, tools: tools || undefined, max_tokens: maxTokens, model: model || undefined, visitor_name: localStorage.getItem('ins_visitor_name') || null }),
         signal: controller.signal
       });
       clearTimeout(timeoutId);

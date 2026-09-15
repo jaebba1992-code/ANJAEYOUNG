@@ -104,3 +104,17 @@ CREATE TABLE IF NOT EXISTS app_user_sessions (
 );
 CREATE INDEX IF NOT EXISTS idx_app_user_sessions_token ON app_user_sessions(session_token);
 CREATE INDEX IF NOT EXISTS idx_app_user_sessions_user ON app_user_sessions(user_id);
+
+-- 10. API 사용량/비용 로그 — AI 호출 한 번마다 누가(visitor_name), 어떤 모델을, 토큰 몇 개
+--     썼는지 기록해서, 사람별로 실제 달러(API 비용)를 합산해 볼 수 있게 한다.
+CREATE TABLE IF NOT EXISTS api_usage_log (
+  id BIGSERIAL PRIMARY KEY,
+  visitor_name TEXT,
+  model TEXT,
+  input_tokens INTEGER,
+  output_tokens INTEGER,
+  cost_usd NUMERIC(12,6),
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_api_usage_log_visitor ON api_usage_log(visitor_name);
+CREATE INDEX IF NOT EXISTS idx_api_usage_log_created ON api_usage_log(created_at);
