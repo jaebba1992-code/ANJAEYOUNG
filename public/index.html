@@ -9,6 +9,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;600;700&family=Pretendard:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-dynamic-subset.css">
 <style>
   @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css');
   :root {
@@ -1367,6 +1369,17 @@
 
       <div class="row">
         <div class="field">
+          <label>생성 방식</label>
+          <select id="cardModeSelect">
+            <option value="template" selected>기존 템플릿 (자동 배치, 9종 템플릿)</option>
+            <option value="theme">테마 카드뉴스 — 어두운/밝은 카드 6가지 테마, AI가 직접 HTML로 디자인</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="cardTemplateModeFields">
+      <div class="row">
+        <div class="field">
           <label>요청 내용 <span class="opt">주제, 훅 문구, 강조하고 싶은 포인트를 자유롭게 적어주세요 — 아래 "예시 카드뉴스 세트"를 올렸다면 비워둬도 괜찮아요</span></label>
           <textarea id="cardRequestInput" rows="6" placeholder="예: 간병인보험 직접치료 문구 기재 O/X 차이. '이 문구 한 줄 때문에' 로 시작해서, 단 1개 회사만 365일 요양병원 보장하는 이유, 치매 10년 사례로 180일 vs 365일 비교, 마지막엔 무료공유 유도로 마무리해줘"></textarea>
         </div>
@@ -1497,9 +1510,69 @@
           </div>
         </div>
       </div>
+      </div>
 
       <button class="generate" id="cardGenBtn">카드뉴스 생성하기</button>
       <p id="cardGenStatus" style="font-size:12px; color:var(--paper-mute); margin-top:10px;"></p>
+
+      <div id="cardThemeModeFields" style="display:none;">
+        <p style="font-size:12px; color:var(--paper-mute); line-height:1.7; margin:0 0 14px;">
+          어두운 카드 / 밝은 카드 2종이 교차하는 6가지 테마 중 하나를 골라서, AI가 직접 HTML로 카드뉴스를 그려요. 표지엔 자동으로 무료 스톡사진이 들어가요.
+        </p>
+        <div class="row">
+          <div class="field">
+            <label>테마</label>
+            <select id="cnThemeSelect">
+              <option value="A" selected>A. 민트 다크 (#2FE0A0)</option>
+              <option value="B">B. 옐로 블랙 (#FFD400)</option>
+              <option value="C">C. 블루 잉크 (#2F6BFF)</option>
+              <option value="D">D. 레드 뉴스 (#FF3B30)</option>
+              <option value="E">E. 핑크 소프트 (#FFB3C7)</option>
+              <option value="F">F. 라임 네온 (#B6FF3B)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>카드 장수</label>
+            <select id="cnCardCountSelect">
+              <option value="6">6장</option>
+              <option value="8" selected>8장 (기본)</option>
+            </select>
+          </div>
+        </div>
+        <div class="row">
+          <div class="field"><label>상품명</label><input type="text" id="cnProductInput" placeholder="예: AIA생명 달러연금"></div>
+          <div class="field"><label>워터마크</label><input type="text" id="cnWatermarkInput" value="보험즈" placeholder="예: 보험즈 또는 @bohum.z"></div>
+        </div>
+        <div class="row">
+          <div class="field"><label>핵심 수치 <span class="opt">헤드라인·초대형 숫자 카드에 쓰여요</span></label><textarea id="cnNumberInput" rows="2" placeholder="예: 미국 기준금리 +1~1.5% 복리, 월 20만원부터"></textarea></div>
+        </div>
+        <div class="row">
+          <div class="field"><label>실제 예시 계산</label><textarea id="cnExampleInput" rows="3" placeholder="예: 원금 3,600만원(월 20만원×15년) → 20년 후 약 5,200만원 → 차액 약 1,600만원 (예시 수치)"></textarea></div>
+        </div>
+        <div class="row">
+          <div class="field"><label>비교 포인트 (타사 vs 우리)</label><textarea id="cnCompareInput" rows="2" placeholder="예: 타사는 원화 공시이율 2%대, 우리는 달러 자산으로 미국 금리 연동"></textarea></div>
+        </div>
+        <div class="row">
+          <div class="field"><label>CTA 문구</label><input type="text" id="cnCtaInput" placeholder="예: 무료 시뮬레이션 받아보기, 저장 후 상담 문의"></div>
+        </div>
+        <div class="row">
+          <div class="field"><label>추가로 반영할 내용 (선택)</label><textarea id="cnExtraInput" rows="2" placeholder="자유롭게 추가 지침을 적어주세요"></textarea></div>
+        </div>
+        <button class="generate" id="cnGenBtn">테마 카드뉴스 생성하기</button>
+        <p id="cnGenStatus" style="font-size:12px; color:var(--paper-mute); margin-top:10px;"></p>
+      </div>
+    </div>
+
+    <div class="panel" id="cnResultPanel" style="display:none;">
+      <div class="result-head">
+        <div class="result-head-left">
+          <p class="panel-title">테마 카드뉴스 결과</p>
+        </div>
+        <div style="display:flex; gap:8px;">
+          <button class="copy-btn" id="cnDownloadAllBtn">전체 PNG 다운로드 (zip)</button>
+        </div>
+      </div>
+      <div id="cnPreviewWrap" style="overflow-x:auto; padding:20px 0;"></div>
     </div>
 
     <div class="panel" id="cardPreviewPanel" style="display:none;">
@@ -4353,6 +4426,179 @@ function downloadZipFromBase64(base64, filename) {
   setTimeout(() => URL.revokeObjectURL(url), 3000);
 }
 
+/* ===================== 테마 카드뉴스 (AI 자유형 HTML 디자인) ===================== */
+document.getElementById('cardModeSelect').addEventListener('change', () => {
+  const isTheme = document.getElementById('cardModeSelect').value === 'theme';
+  document.getElementById('cardTemplateModeFields').style.display = isTheme ? 'none' : '';
+  document.getElementById('cardGenBtn').style.display = isTheme ? 'none' : '';
+  document.getElementById('cardGenStatus').style.display = isTheme ? 'none' : '';
+  document.getElementById('cardThemeModeFields').style.display = isTheme ? 'block' : 'none';
+});
+
+const CN_THEMES = {
+  A: { label: '민트 다크', dark: '#0E1116', box: '#181D24', accent: '#2FE0A0', light: '#F4F1EA', lightText: '#10151B', lightAccentText: '#0B6B4F' },
+  B: { label: '옐로 블랙', dark: '#111111', box: '#1C1C1C', accent: '#FFD400', light: '#F5F3EE', lightText: '#1A1400', lightAccentText: '#7A6300' },
+  C: { label: '블루 잉크', dark: '#0B1220', box: '#16202F', accent: '#2F6BFF', light: '#EEF2F8', lightText: '#0F1B33', lightAccentText: '#1B3F9E' },
+  D: { label: '레드 뉴스', dark: '#121212', box: '#1E1C1C', accent: '#FF3B30', light: '#F6F2F0', lightText: '#1C1414', lightAccentText: '#9E1F17' },
+  E: { label: '핑크 소프트', dark: '#17121A', box: '#241C29', accent: '#FFB3C7', light: '#FBF1F3', lightText: '#2A0F17', lightAccentText: '#9B2E4D' },
+  F: { label: '라임 네온', dark: '#0C0C0C', box: '#191919', accent: '#B6FF3B', light: '#F2F4EE', lightText: '#141A0A', lightAccentText: '#4C6B12' }
+};
+
+function cnDesignSystemPrompt(themeKey) {
+  const t = CN_THEMES[themeKey];
+  return `너는 인스타그램 금융 카드뉴스 전문 디자이너다. 아래 규칙을 절대 규칙으로 지켜 HTML 카드뉴스를 만들어라.
+
+1. 캔버스·여백
+- 1장 = 1080 × 1350px 고정. box-sizing:border-box, overflow:hidden, flex:none.
+- 안전여백 상하 92px / 좌우 84px. 이 밖으로 글자가 나가면 실패.
+- 카드 내부는 display:flex; flex-direction:column; justify-content:space-between → 상단 / 중앙 / 하단(페이지번호+워터마크) 3구역. 하단이 텅 비는 레이아웃 금지.
+- 고정 height·nowrap 금지. 줄바꿈은 <br>로 직접 제어. letter-spacing:-0.03em~-0.045em.
+- 작업 후 모든 카드가 1350px 안에 들어갔는지 확인하고, 넘치면 글자 크기를 줄여 다시 맞춰라.
+
+2. 타입 스케일 (이 값에서만 고르기)
+- 초대형 숫자(카드당 1개) 200~240px / 800
+- 헤드라인 88~112px / 800 / line-height 1.14
+- 서브 강조 52~72px / 800
+- 본문 34~40px / 600 / line-height 1.5
+- 상단 라벨 30~34px / 800
+- 캡션·출처·페이지번호 28~30px / 700
+- 한 카드에 서로 다른 크기 3~4개를 반드시 쓴다. 비슷한 크기만 나열하면 실패.
+- 폰트 Pretendard(이미 로드돼 있음), weight 600/700/800만.
+
+3. 테마 — 이번엔 "${themeKey}. ${t.label}" 하나만 적용한다. 배경은 어두운 카드(${t.dark}, 박스 ${t.box})와 밝은 카드(${t.light}) 2종만 교차하고 포인트색(${t.accent}) 1개만 쓴다. 그라데이션 남용·색 3개 이상 혼용 금지.
+- 밝은 배경에서 포인트색을 본문 글자색으로 쓰지 마라(가독성 문제). 밝은 배경에서는 포인트색을 형광펜 블록(배경)으로 쓰고 글자는 어두운 색(${t.lightText} 또는 ${t.lightAccentText})으로.
+
+4. 사진 규칙 (1장 커버는 사진 필수)
+- 커버 카드의 배경 사진 자리에는 정확히 이 태그를 그대로 넣는다: <div class="cn-photo" data-photo-query="영어 검색어 2~3단어" style="position:absolute;inset:0;background:#333"></div> (실제 사진은 나중에 자동으로 채워진다. data-photo-query는 이 카드 주제에 어울리는 영어 키워드로 채운다, 예: "dollar currency finance")
+- 그 사진 div 바로 다음에 오버레이를 추가한다: <div style="position:absolute;inset:0;background:linear-gradient(180deg, rgba(0,0,0,.55), rgba(0,0,0,.30) 30%, rgba(0,0,0,.82) 62%, #000);pointer-events:none"></div>
+- 사진 위 텍스트는 100% 불투명 흰색만. 반투명 글자 금지.
+- 커버 구성: 상단 우측 아웃라인 배지 → 하단 블록에 작은 배지 + "Feat. ~" 한 줄 + 가로 구분선 → 헤드라인 3줄(핵심 단어 1개만 포인트색 형광펜 블록) → 후킹 2줄 → 페이지번호 + 워터마크.
+
+5. 레이아웃
+- 수치·조건·비교는 문장으로 늘어놓지 말고 카드형 블록(radius 28~32px, padding 44~56px)에 "작은 라벨 + 큰 수치" 2단으로.
+- 비교는 2열 그리드 — 한쪽 회색(타사), 한쪽 포인트색(우리).
+- 한 장에 메시지 1개. 4줄 넘으면 카드를 쪼갠다.
+- 하단 좌측 "0N / 총장수", 하단 우측 워터마크 항상 고정.
+- 추정·가정 수치에는 "예시 수치" 고지를 캡션 크기로 작게.
+
+6. 카드 구성 — 1 커버(사진) / 2 문제 제기(수치 2개) / 3 핵심 구조 / 4 추가 혜택(조건+결과) / 5 핵심 숫자 1장(초대형) / 6 실제 예시(원금→결과→차액 3블록) / 7 타사 vs 우리 2열 / 8 CTA(상담+저장 유도). 카드 장수를 6장으로 요청받으면 2~7 중 덜 중요한 것부터 통합해서 6장으로 줄인다.
+
+7. 출력 형식 — 매우 중요
+- 요청받은 장수만큼 <section> 태그를 만들고, 각각 style="width:1080px;height:1350px;flex:none;box-sizing:border-box;padding:92px 84px;background:[테마 배경색];position:relative;overflow:hidden;color:[텍스트색]" 과 data-screen-label="01 커버" 형식의 속성을 준다.
+- 모든 스타일 인라인. CSS 클래스·외부 스타일시트·<style> 태그 금지 (cn-photo는 예외로 클래스명만 허용, 스타일은 없어도 됨).
+- 수치는 사용자가 준 값만 쓰고 임의로 만들지 않는다.
+- <section> 여러 개를 display:flex;flex-wrap:wrap;gap:40px 인 하나의 <div>로 감싸서 출력한다.
+- 다른 설명, 마크다운 코드블록 기호 없이, <div style="display:flex...">로 시작해서 </div>로 끝나는 HTML 코드만 출력한다.`;
+}
+
+async function generateThemeCardNews() {
+  const btn = document.getElementById('cnGenBtn');
+  const statusEl = document.getElementById('cnGenStatus');
+  const themeKey = document.getElementById('cnThemeSelect').value;
+  const cardCount = document.getElementById('cnCardCountSelect').value;
+  const product = document.getElementById('cnProductInput').value.trim();
+  const watermark = document.getElementById('cnWatermarkInput').value.trim() || '보험즈';
+  const numberInfo = document.getElementById('cnNumberInput').value.trim();
+  const exampleInfo = document.getElementById('cnExampleInput').value.trim();
+  const compareInfo = document.getElementById('cnCompareInput').value.trim();
+  const ctaText = document.getElementById('cnCtaInput').value.trim();
+  const extraInfo = document.getElementById('cnExtraInput').value.trim();
+
+  if (!product && !numberInfo && !exampleInfo) { alert('상품명이나 핵심 수치 중 최소 하나는 적어주세요.'); return; }
+
+  btn.disabled = true;
+  btn.textContent = '카드뉴스 디자인 중... (최대 1~2분 정도 걸려요)';
+  statusEl.textContent = '';
+
+  const contentBlock = `[내용]
+- 카드 장수: ${cardCount}장
+- 상품명: ${product || '(미입력)'}
+- 핵심 수치: ${numberInfo || '(미입력)'}
+- 실제 예시 계산: ${exampleInfo || '(미입력)'}
+- 비교 포인트(타사 vs 우리): ${compareInfo || '(미입력)'}
+- CTA 문구: ${ctaText || '(미입력)'}
+- 워터마크: ${watermark}
+${extraInfo ? '- 추가로 반영할 내용: ' + extraInfo : ''}`;
+
+  try {
+    const system = cnDesignSystemPrompt(themeKey);
+    const raw = await callClaude(system, [{ role: 'user', content: contentBlock }], 2, null, 8000);
+    let html = raw.replace(/```html|```/g, '').trim();
+
+    // 사진 자리(cn-photo)를 실제 Unsplash 사진으로 채운다
+    const photoSlotRe = /<div class="cn-photo" data-photo-query="([^"]*)"[^>]*><\/div>/g;
+    const queries = [...html.matchAll(photoSlotRe)].map(m => m[1]);
+    const uniqueQueries = [...new Set(queries)];
+    const photoMap = {};
+    await Promise.all(uniqueQueries.map(async (q) => {
+      try {
+        const result = await apiGet('/api/unsplash?query=' + encodeURIComponent(q || 'finance'));
+        photoMap[q] = result.url || result.imageUrl || '';
+      } catch (e) { photoMap[q] = ''; }
+    }));
+    html = html.replace(photoSlotRe, (m, q) => {
+      const url = photoMap[q];
+      return url
+        ? `<div class="cn-photo" style="position:absolute;inset:0;background-image:url('${url}');background-size:cover;background-position:center"></div>`
+        : `<div class="cn-photo" style="position:absolute;inset:0;background:linear-gradient(135deg,#333,#111)"></div>`;
+    });
+
+    const wrap = document.getElementById('cnPreviewWrap');
+    // AI가 이미 "display:flex;flex-wrap:wrap;gap:40px" 감싸는 div까지 포함해서 출력하므로 그대로 넣는다.
+    wrap.innerHTML = html;
+    if (!wrap.querySelector('section')) {
+      // 혹시 감싸는 div 없이 <section>들만 왔으면 직접 감싸준다
+      wrap.innerHTML = `<div style="display:flex;flex-wrap:wrap;gap:40px;">${html}</div>`;
+    }
+
+    document.getElementById('cnResultPanel').style.display = 'block';
+    document.getElementById('cnResultPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    statusEl.textContent = '완료! 아래에서 확인하고 PNG로 다운로드하세요.';
+
+    await addToHistory({
+      id: Date.now(), topic: product || '테마 카드뉴스', category: '카드뉴스', format: 'card',
+      script: JSON.stringify({ theme: themeKey, html })
+    });
+  } catch (e) {
+    statusEl.textContent = '';
+    alert('생성 실패: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '테마 카드뉴스 생성하기';
+  }
+}
+document.getElementById('cnGenBtn').addEventListener('click', generateThemeCardNews);
+
+document.getElementById('cnDownloadAllBtn').addEventListener('click', async () => {
+  const btn = document.getElementById('cnDownloadAllBtn');
+  const sections = document.querySelectorAll('#cnPreviewWrap section');
+  if (!sections.length) { alert('먼저 카드뉴스를 생성해주세요.'); return; }
+  btn.disabled = true;
+  const oldText = btn.textContent;
+  const zip = new JSZip();
+  try {
+    for (let i = 0; i < sections.length; i++) {
+      btn.textContent = `이미지로 저장 중... (${i + 1}/${sections.length})`;
+      const canvas = await html2canvas(sections[i], { width: 1080, height: 1350, scale: 1, useCORS: true });
+      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+      zip.file(`card_${String(i + 1).padStart(2, '0')}.png`, blob);
+    }
+    btn.textContent = 'zip 압축 중...';
+    const content = await zip.generateAsync({ type: 'blob' });
+    const url = URL.createObjectURL(content);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = '테마카드뉴스.zip';
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    alert('다운로드 실패: ' + e.message + ' (사진이 다른 도메인이라 캡처가 막혔을 수 있어요 — 사진 없이 다시 시도해보세요)');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = oldText;
+  }
+});
+
 document.getElementById('cardGenBtn').addEventListener('click', async () => {
   const request = document.getElementById('cardRequestInput').value.trim();
   const theme = document.getElementById('cardThemeSelect').value;
@@ -6731,6 +6977,68 @@ ${citeOn ? `- 통계·수치·사실관계를 언급할 때는 반드시 문장 
 
 const WEB_SEARCH_TOOL = [{ type: 'web_search_20250305', name: 'web_search' }];
 
+// 대본 끝에 "이 주제에서 부족한 부분을 메꿀 수 있는 상품"을 자연스럽게 하나 추천하기 위해,
+// 등록된 추천상품(소식지에서 뽑은 것) 목록을 가져온다. 목록이 크지 않아서 전부 가져와도 괜찮고,
+// 실제로 뭘 추천할지는 AI가 주제와 맞춰서 판단하게 한다.
+async function buildRecommendationBlock(topic, category) {
+  try {
+    const { items } = await apiGet('/api/recommended');
+    if (!items || !items.length) return '';
+    const listed = items.slice(0, 60).map(p => `■ ${p.insurer || ''} ${p.product_name || ''} (${p.category || ''}) — ${p.reason || ''}`).join('\n');
+    return `\n\n[등록된 추천 상품 목록 — 소식지에서 뽑은 것]\n${listed}`;
+  } catch (e) {
+    return '';
+  }
+}
+
+// 라이브러리에서 "세일즈살롱"이 제목에 들어간 자료를 찾는다 (클로징/영업 화법 모음 텍스트).
+// topic 키워드 매칭이 아니라 제목 자체로 찾는다 — 주제가 뭐든 항상 참고해야 하는 자료라서.
+function findSalonScript() {
+  const hit = (cachedLibrary || []).find(item => normalizeForSearch(item.title || '').includes(normalizeForSearch('세일즈살롱')));
+  if (!hit) return '';
+  return `\n\n[세일즈살롱 — 클로징/영업 화법 참고자료. 이 안의 말투·화법을 참고해서 마무리 CTA에 자연스럽게 녹여라. 통째로 베끼지 말고, 이번 대본 주제·톤에 맞게 표현을 바꿔서 쓴다]\n${(hit.content || '').slice(0, 3000)}`;
+}
+
+// 원출처(정부기관·학회·공공데이터)를 우선적으로 찾는 리서치 단계 — 숏폼/롱폼 공통으로 쓴다.
+// 뉴스 기사가 먼저 나와도 거기서 끝내지 않고, 그 뉴스가 인용한 원 발표 기관까지 한 번 더 검색해서
+// 찾아내도록 지시한다 (뉴스는 대부분 2차 출처이기 때문).
+async function buildResearchBlock(contextLine) {
+  const researchSystem = `당신은 리서치 보조원입니다. 주어진 주제와 관련된 보험/금융 관련 실제 통계나 사실을 web_search 도구로 찾아서, 아래 형식으로만 정리해 출력하세요. 다른 설명 없이 목록만 출력합니다.
+형식: - [찾은 사실/수치 한 문장] (출처: 기관/사이트명, 정확한 전체 URL)
+신뢰할 수 있는 출처(정부기관, 공공데이터, 주요 언론사, 학회 등)만 사용하고, 3~6개 정도만 찾아서 정리하세요.
+
+중요 1 - 원출처 우선 원칙 (반드시 지킬 것): 뉴스 기사는 대부분 정부기관·공공데이터·학회의 통계를 가져다 쓴 것입니다. 처음 검색에서 뉴스 기사가 나왔다면, 그걸로 끝내지 말고 반드시 아래 순서를 따르세요.
+  1단계: 뉴스 기사 본문에서 원 출처 기관명을 찾는다 — "국민건강보험공단", "통계청", "금융감독원", "질병관리청", "국립암센터", "대한소화기내시경학회"처럼 조사·발표 주체가 있는지 확인한다. 보험/금융 통계뿐 아니라 건강검진·질병 통계도 이런 기관·학회가 원출처인 경우가 많다.
+  2단계: 원 출처 기관명을 찾았으면, "그 기관명 + 통계 이름"으로 다시 한 번 반드시 검색해서, 그 기관이 직접 발표한 원본 자료(보고서, 통계연보, 보도자료, 학회 발표자료)를 찾는다. 이 재검색을 생략하지 마세요 — 뉴스 링크만 쓰고 끝내는 것은 금지합니다.
+  3단계: 원본 자료를 찾았으면 그 링크를 쓰고, 그래도 원본 페이지를 못 찾았으면 뉴스 링크를 쓰되 반드시 "(출처: OO뉴스 보도, 원자료: OO기관/학회 OO통계)" 형식으로 원출처 기관명을 함께 적으세요. 원출처 기관명을 전혀 언급하지 않고 뉴스 링크만 적는 것은 절대 금지합니다 — 기사 안에 조사·발표 주체가 안 보이면, 그 통계 내용으로 별도 검색을 한 번 더 해서라도 주체를 찾아보세요.
+
+중요 2 - 링크는 최대한 구체적으로: 그 기관의 대표 홈페이지 주소(예: nhis.or.kr)로 뭉뚱그리지 말고, 가능한 한 아래 우선순위로 더 깊이 찾으세요.
+  1순위: 그 통계가 실린 보고서/통계연보/학회 발표자료 원문 PDF 다운로드 링크
+  2순위: 국가통계포털(KOSIS, kosis.kr) 등에서 해당 표를 바로 보여주는 페이지 링크
+  3순위: 그 기관·학회의 보도자료/통계 발표 페이지 링크
+  이 중 어느 것도 못 찾으면, URL은 기관 대표 페이지로 하되, 반드시 "(정확한 문서명: 'OOOO년 OOO 통계연보' 또는 'OOO 보도자료, OOOO년 O월)"처럼 그 자료의 정확한 제목·발표 시기를 같이 적어서, 나중에 그 기관 홈페이지에서 검색만 하면 바로 찾을 수 있게 하세요.
+
+중요 3 - URL은 검색 결과에 나온 그 정보가 실제로 있는 구체적인 페이지의 전체 주소를 정확히 그대로 적으세요. 홈페이지 도메인만 적거나 줄여 쓰지 마세요.`;
+  const researchPrompt = `${contextLine}\n\n위 주제로 대본을 쓸 때 근거로 쓸 수 있는 실제 통계나 사실을 검색해서 찾아줘.`;
+  try {
+    const researchResult = await callClaude(researchSystem, [{ role: 'user', content: researchPrompt }], 1, WEB_SEARCH_TOOL, 2600);
+    if (researchResult && researchResult.trim()) {
+      return `\n\n[웹 검색으로 찾은 관련 자료 — 필요할 때 이 안의 수치와 출처를 인용하세요]\n${researchResult.trim()}`;
+    }
+  } catch (e) { /* 검색 실패해도 첨부자료만으로 계속 진행 */ }
+  return '';
+}
+
+// 추천상품·세일즈살롱을 대본 끝에 자연스럽게 녹이라는 공통 지침. baseSystem 뒤에 덧붙여서 쓴다.
+function crossSourceInstructions() {
+  return `
+
+[마무리에 상품 추천 + 클로징 — 중요]
+- [등록된 추천 상품 목록]이 있으면, 이번 대본 주제상 부족한 부분(예: 이 제도·상품만으로는 안 채워지는 위험)을 메꿔줄 수 있는 상품을 딱 1개만 골라서, 대본 흐름 자연스럽게(광고처럼 딱딱하지 않게) 짧게 언급한다. 왜 이 상품을 같이 보는 게 좋은지 이유도 한 문장으로 붙인다. 목록에 마땅한 게 없으면 억지로 끼워넣지 않는다.
+- 등록된 목록 외에도, 너가 알기에 이 주제와 자연스럽게 어울리는 추천 방향이 있으면 "이런 것도 같이 알아보면 좋다" 정도로 가볍게 하나 더 제안해도 좋다 (단, 구체적인 상품명·보험사명을 지어내지 않는다 — 방향성만 제안한다).
+- [세일즈살롱] 자료가 있으면, 그 안의 클로징/영업 화법 톤을 참고해서 마지막 CTA 문장에 자연스럽게 녹인다. 문장을 통째로 복사하지 말고 이번 대본에 맞게 바꿔 쓴다.`;
+}
+
 let lfState = null;
 
 async function generateScript() {
@@ -6778,6 +7086,10 @@ async function generateScript() {
     }
   }
 
+  // 소식지 추천상품 + 세일즈살롱(클로징 화법) — 롱폼/숏폼 공통으로 항상 같이 넣는다
+  const recoBlock = await buildRecommendationBlock(topic, category);
+  const salonBlock = findSalonScript();
+
   const MAX_SOURCE_CHARS = 6000;
   let sourceForPrompt = source;
   let sourceTruncated = false;
@@ -6789,13 +7101,21 @@ async function generateScript() {
   // 라이브러리/8천페이지 자료는 어디까지나 보조 참고이지, 핵심 주제를 대체하거나 다른 방향으로 새게 하면 안 된다.
   const sourceBlock = (source
     ? `\n\n[이번 영상의 핵심 출처자료 — 이 내용을 중심으로 구체적으로 설명한다. 아래 다른 참고 블록(라이브러리/8천페이지 자료)이 있어도, 이 출처자료가 다루는 주제에서 벗어난 다른 이야기(예: 다른 세대·다른 상품·다른 제도)로 새면 안 된다]\n${sourceForPrompt}${sourceTruncated ? '\n\n(※ 출처자료가 길어 앞부분만 반영됩니다. 특정 부분을 꼭 반영해야 하면 그 부분만 따로 붙여넣어주세요.)' : ''}`
-    : '') + libBlock + corpusBlock;
+    : '') + libBlock + corpusBlock + recoBlock + salonBlock;
   const contextLine = `보험 분야: ${category}\n주제: ${topic}\n${host ? '진행자 호칭: ' + host : ''}\n${target ? '타겟 고객: ' + target : ''}\n톤앤매너: ${tone}\n${extra ? '추가 반영 사항: ' + extra : ''}`;
 
   try {
     if (format === 'short') {
       resultLabel.textContent = '숏폼 대본 (45~75초)';
-      const system = baseSystem(false) + `
+      // 예전엔 숏폼이 citeOn을 강제로 꺼서(baseSystem(false)) 원출처 검색·인용이 아예 안 됐다 —
+      // 롱폼과 똑같이 실제 토글 값을 따르게 맞춘다.
+      let researchBlock = '';
+      if (citeOn) {
+        progressWrap.style.display = 'block';
+        progressText.textContent = '관련 통계·원출처 검색 중...';
+        researchBlock = await buildResearchBlock(contextLine);
+      }
+      const system = baseSystem(citeOn) + `
 - 45~75초 숏폼 대본. 분량 500~650자. (예전보다 더 밀도 있게, 중간에 이탈하지 않고 끝까지 보게 만드는 구조로 작성한다.)
 
 [기승전결 구조로 작성 — 4단계 다 채운다]
@@ -6823,9 +7143,9 @@ async function generateScript() {
 [끝까지 보게 만드는 장치 — 필수]
 - 영상 중간(승→전 넘어가는 지점)에 "근데 진짜 중요한 건 지금부터예요", "그리고 여기서 반전이 있어요" 같은 패턴 인터럽트 문장을 최소 1번 넣어서, 시청자가 스킵하지 않고 계속 보게 만든다.
 - 정보를 처음부터 다 주지 않고 단계적으로 공개해서 궁금증을 끝까지 유지한다.
-- 문장을 짧게 끊어서 리듬감 있게 쓴다 (한 문장에 정보 욱여넣지 않기).`;
-      const userPrompt = `${contextLine}\n\n위 조건에 맞는 숏폼 대본을 작성해줘.` + (sourceBlock ? `\n${sourceBlock}\n\n(위 참고자료 안의 사실·수치를 자연스러운 구어체 문장 속에 녹여서 쓰고, 문장마다 "(출처: ~)" 표시는 넣지 않는다.)` : '');
-      const script = await callClaude(system, [{ role: 'user', content: userPrompt }]);
+- 문장을 짧게 끊어서 리듬감 있게 쓴다 (한 문장에 정보 욱여넣지 않기).` + crossSourceInstructions();
+      const userPrompt = `${contextLine}\n\n위 조건에 맞는 숏폼 대본을 작성해줘.` + (sourceBlock ? `\n${sourceBlock}\n\n(위 참고자료 안의 사실·수치를 자연스러운 구어체 문장 속에 녹여서 쓰고, 문장마다 "(출처: ~)" 표시는 넣지 않는다.)` : '') + researchBlock;
+      const script = await callClaude(system, [{ role: 'user', content: userPrompt }], 2, citeOn ? WEB_SEARCH_TOOL : null);
       resultBody.innerHTML = '';
       const div = document.createElement('div');
       div.className = 'script-body';
@@ -6841,37 +7161,14 @@ async function generateScript() {
 
       let researchBlock = '';
       if (citeOn) {
-        progressText.textContent = '관련 통계·근거자료 검색 중... (최대 1분 정도 걸려요)';
-        try {
-          const researchSystem = `당신은 리서치 보조원입니다. 주어진 주제와 관련된 보험/금융 관련 실제 통계나 사실을 web_search 도구로 찾아서, 아래 형식으로만 정리해 출력하세요. 다른 설명 없이 목록만 출력합니다.
-형식: - [찾은 사실/수치 한 문장] (출처: 기관/사이트명, 정확한 전체 URL)
-신뢰할 수 있는 출처(정부기관, 공공데이터, 주요 언론사, 학회 등)만 사용하고, 3~6개 정도만 찾아서 정리하세요.
-
-중요 1 - 원출처 우선 원칙 (반드시 지킬 것): 뉴스 기사는 대부분 정부기관·공공데이터·학회의 통계를 가져다 쓴 것입니다. 처음 검색에서 뉴스 기사가 나왔다면, 그걸로 끝내지 말고 반드시 아래 순서를 따르세요.
-  1단계: 뉴스 기사 본문에서 원 출처 기관명을 찾는다 — "국민건강보험공단", "통계청", "금융감독원", "질병관리청", "국립암센터", "대한소화기내시경학회"처럼 조사·발표 주체가 있는지 확인한다. 보험/금융 통계뿐 아니라 건강검진·질병 통계도 이런 기관·학회가 원출처인 경우가 많다.
-  2단계: 원 출처 기관명을 찾았으면, "그 기관명 + 통계 이름"으로 다시 한 번 반드시 검색해서, 그 기관이 직접 발표한 원본 자료(보고서, 통계연보, 보도자료, 학회 발표자료)를 찾는다. 이 재검색을 생략하지 마세요 — 뉴스 링크만 쓰고 끝내는 것은 금지합니다.
-  3단계: 원본 자료를 찾았으면 그 링크를 쓰고, 그래도 원본 페이지를 못 찾았으면 뉴스 링크를 쓰되 반드시 "(출처: OO뉴스 보도, 원자료: OO기관/학회 OO통계)" 형식으로 원출처 기관명을 함께 적으세요. 원출처 기관명을 전혀 언급하지 않고 뉴스 링크만 적는 것은 절대 금지합니다 — 기사 안에 조사·발표 주체가 안 보이면, 그 통계 내용으로 별도 검색을 한 번 더 해서라도 주체를 찾아보세요.
-
-중요 2 - 링크는 최대한 구체적으로: 그 기관의 대표 홈페이지 주소(예: nhis.or.kr)로 뭉뚱그리지 말고, 가능한 한 아래 우선순위로 더 깊이 찾으세요.
-  1순위: 그 통계가 실린 보고서/통계연보/학회 발표자료 원문 PDF 다운로드 링크
-  2순위: 국가통계포털(KOSIS, kosis.kr) 등에서 해당 표를 바로 보여주는 페이지 링크
-  3순위: 그 기관·학회의 보도자료/통계 발표 페이지 링크
-  이 중 어느 것도 못 찾으면, URL은 기관 대표 페이지로 하되, 반드시 "(정확한 문서명: 'OOOO년 OOO 통계연보' 또는 'OOO 보도자료, OOOO년 O월)"처럼 그 자료의 정확한 제목·발표 시기를 같이 적어서, 나중에 그 기관 홈페이지에서 검색만 하면 바로 찾을 수 있게 하세요.
-
-중요 3 - URL은 검색 결과에 나온 그 정보가 실제로 있는 구체적인 페이지의 전체 주소를 정확히 그대로 적으세요. 홈페이지 도메인만 적거나 줄여 쓰지 마세요.`;
-          const researchPrompt = `${contextLine}\n\n위 주제로 대본을 쓸 때 근거로 쓸 수 있는 실제 통계나 사실을 검색해서 찾아줘.`;
-          const researchResult = await callClaude(researchSystem, [{ role: 'user', content: researchPrompt }], 1, WEB_SEARCH_TOOL, 2600); // 원출처를 찾기 위해 검색을 여러 번 하므로 토큰 여유를 더 준다
-          if (researchResult && researchResult.trim()) {
-            researchBlock = `\n\n[웹 검색으로 찾은 관련 자료 — 필요할 때 이 안의 수치와 출처를 인용하세요]\n${researchResult.trim()}`;
-          }
-        } catch (researchErr) {
-          progressText.textContent = '검색 자료를 못 가져왔어요 (첨부자료만으로 계속 진행할게요)';
-        }
+        progressText.textContent = '관련 통계·원출처 검색 중... (최대 1분 정도 걸려요)';
+        researchBlock = await buildResearchBlock(contextLine);
+        if (!researchBlock) progressText.textContent = '검색 자료를 못 가져왔어요 (첨부자료만으로 계속 진행할게요)';
       }
 
       const longSystem = baseSystem(citeOn) + `\n- 최종 대본 본문이 1만자 이상이어야 한다. 요약하지 말고 상세히 설명한다.
 - 지금은 전체 대본 중 한 부분만 이어서 쓴다. 이미 다룬 소제목/항목은 절대 반복하지 않는다.
-- 이번 청크는 문장이 중간에 끊기지 않게 완결된 단락으로 마무리한다.` + sourceBlock + researchBlock;
+- 이번 청크는 문장이 중간에 끊기지 않게 완결된 단락으로 마무리한다.` + crossSourceInstructions() + sourceBlock + researchBlock;
 
       lfState = {
         fullScript: '',
