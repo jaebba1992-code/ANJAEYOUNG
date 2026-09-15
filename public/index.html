@@ -1572,6 +1572,7 @@
           <button class="copy-btn" id="cnDownloadAllBtn">전체 PNG 다운로드 (zip)</button>
         </div>
       </div>
+      <div id="cnPhotoControls" style="margin-bottom:16px;"></div>
       <div id="cnPreviewWrap" style="overflow-x:auto; padding:20px 0;"></div>
     </div>
 
@@ -4525,9 +4526,11 @@ ${extraInfo ? '- 추가로 반영할 내용: ' + extraInfo : ''}`;
     const raw = await callClaude(system, [{ role: 'user', content: contentBlock }], 2, null, 8000);
     let html = raw.replace(/```html|```/g, '').trim();
 
-    // 사진 자리(cn-photo)를 실제 Unsplash 사진으로 채운다
+    // 사진 자리(cn-photo)를 실제 Unsplash 사진으로 채운다. 나중에 "이 사진 마음에 안 들면 바꾸기"가
+    // 가능하도록, 슬롯마다 고유 id(cn-photo-0, cn-photo-1...)를 붙여서 나중에 그 자리만 골라 교체한다.
     const photoSlotRe = /<div class="cn-photo" data-photo-query="([^"]*)"[^>]*><\/div>/g;
-    const queries = [...html.matchAll(photoSlotRe)].map(m => m[1]);
+    const matches = [...html.matchAll(photoSlotRe)];
+    const queries = matches.map(m => m[1]);
     const uniqueQueries = [...new Set(queries)];
     const photoMap = {};
     await Promise.all(uniqueQueries.map(async (q) => {
@@ -4536,12 +4539,14 @@ ${extraInfo ? '- 추가로 반영할 내용: ' + extraInfo : ''}`;
         photoMap[q] = result.url || result.imageUrl || '';
       } catch (e) { photoMap[q] = ''; }
     }));
+    let slotIndex = -1;
     html = html.replace(photoSlotRe, (m, q) => {
+      slotIndex++;
       const url = photoMap[q];
-      return url
-        ? `<div class="cn-photo" style="position:absolute;inset:0;background-image:url('${url}');background-size:cover;background-position:center"></div>`
-        : `<div class="cn-photo" style="position:absolute;inset:0;background:linear-gradient(135deg,#333,#111)"></div>`;
+      const bg = url ? `background-image:url('${url}');background-size:cover;background-position:center` : `background:linear-gradient(135deg,#333,#111)`;
+      return `<div class="cn-photo" id="cn-photo-${slotIndex}" data-photo-query="${escapeHtml(q)}" style="position:absolute;inset:0;${bg}"></div>`;
     });
+    window.__cnPhotoSlots = queries; // 슬롯별 원래 검색어 기억 (컨트롤 패널 만들 때 씀)
 
     const wrap = document.getElementById('cnPreviewWrap');
     // AI가 이미 "display:flex;flex-wrap:wrap;gap:40px" 감싸는 div까지 포함해서 출력하므로 그대로 넣는다.
@@ -4550,6 +4555,7 @@ ${extraInfo ? '- 추가로 반영할 내용: ' + extraInfo : ''}`;
       // 혹시 감싸는 div 없이 <section>들만 왔으면 직접 감싸준다
       wrap.innerHTML = `<div style="display:flex;flex-wrap:wrap;gap:40px;">${html}</div>`;
     }
+    renderCnPhotoControls();
 
     document.getElementById('cnResultPanel').style.display = 'block';
     document.getElementById('cnResultPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -4568,6 +4574,63 @@ ${extraInfo ? '- 추가로 반영할 내용: ' + extraInfo : ''}`;
   }
 }
 document.getElementById('cnGenBtn').addEventListener('click', generateThemeCardNews);
+
+// "자동으로 찾은 사진이 마음에 안 들면" — 슬롯별로 (1) 다른 검색어로 재검색 (2) 직접 업로드, 둘 다 지원한다.
+function renderCnPhotoControls() {
+  const el = document.getElementById('cnPhotoControls');
+  const slots = window.__cnPhotoSlots || [];
+  if (!slots.length) { el.innerHTML = ''; return; }
+  el.innerHTML = `<p style="font-size:12px; color:var(--paper-mute); margin:0 0 10px;">자동으로 찾은 사진이 마음에 안 들면, 검색어를 바꿔서 다시 찾거나 직접 파일을 올려서 바꿀 수 있어요.</p>
+    <div style="display:flex; flex-direction:column; gap:10px;">
+    ${slots.map((q, i) => `
+      <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:12.5px;">
+        <span style="color:var(--paper-mute); min-width:60px;">사진 ${i + 1}</span>
+        <input type="text" class="cn-photo-query-input" data-slot="${i}" value="${escapeHtml(q)}" style="flex:1; min-width:140px; padding:6px 10px; border:1px solid var(--line); border-radius:6px; font-size:12.5px;">
+        <button type="button" class="mini-btn cn-photo-search-btn" data-slot="${i}">이 검색어로 다시 찾기</button>
+        <label class="mini-btn" style="cursor:pointer; margin:0;">내 사진 업로드
+          <input type="file" accept="image/*" class="cn-photo-upload-input" data-slot="${i}" style="display:none;">
+        </label>
+      </div>
+    `).join('')}
+    </div>`;
+
+  el.querySelectorAll('.cn-photo-search-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const idx = btn.dataset.slot;
+      const query = el.querySelector(`.cn-photo-query-input[data-slot="${idx}"]`).value.trim() || 'finance';
+      const oldText = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = '찾는 중...';
+      try {
+        const result = await apiGet('/api/unsplash?query=' + encodeURIComponent(query));
+        const url = result.url || result.imageUrl || '';
+        if (!url) { alert('이 검색어로는 사진을 못 찾았어요. 다른 검색어로 시도해보세요.'); return; }
+        const slotEl = document.getElementById('cn-photo-' + idx);
+        if (slotEl) slotEl.style.cssText = `position:absolute;inset:0;background-image:url('${url}');background-size:cover;background-position:center`;
+        window.__cnPhotoSlots[idx] = query;
+      } catch (e) {
+        alert('검색 실패: ' + e.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = oldText;
+      }
+    });
+  });
+
+  el.querySelectorAll('.cn-photo-upload-input').forEach(input => {
+    input.addEventListener('change', () => {
+      const idx = input.dataset.slot;
+      const file = input.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        const slotEl = document.getElementById('cn-photo-' + idx);
+        if (slotEl) slotEl.style.cssText = `position:absolute;inset:0;background-image:url('${reader.result}');background-size:cover;background-position:center`;
+      };
+      reader.readAsDataURL(file);
+    });
+  });
+}
 
 document.getElementById('cnDownloadAllBtn').addEventListener('click', async () => {
   const btn = document.getElementById('cnDownloadAllBtn');
