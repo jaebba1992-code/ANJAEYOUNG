@@ -1592,10 +1592,38 @@
         <div class="result-head-left">
           <p class="panel-title">완성된 제안서</p>
         </div>
-        <a class="copy-btn" id="proposalDownloadBtn" download="제안서.png">이미지 다운로드</a>
+        <div style="display:flex; gap:8px;">
+          <button type="button" class="copy-btn" id="proposalEditToggleBtn">내용 수정</button>
+          <a class="copy-btn" id="proposalDownloadBtn" download="제안서.png">이미지 다운로드</a>
+        </div>
       </div>
       <div style="text-align:center; background:#f4f4f4; padding:16px; border-radius:8px;">
         <img id="proposalResultImg" style="max-width:100%; border-radius:6px; box-shadow:0 4px 20px rgba(0,0,0,.12);">
+      </div>
+      <div id="proposalEditPanel" style="display:none; margin-top:16px; padding-top:16px; border-top:1px solid var(--line);">
+        <p style="font-size:12px; color:var(--paper-mute); line-height:1.7; margin:0 0 12px;">
+          AI가 이미지를 잘못 읽었거나 오타가 있으면 여기서 바로 고치세요. <b>이미지를 다시 분석하지 않고</b>, 고친 내용 그대로 제안서를 다시 그려요 — 같은 실수가 반복될 걱정 없이 정확하게 고칠 수 있어요.
+        </p>
+        <div class="row">
+          <div class="field"><label>제목</label><input type="text" id="peTitle"></div>
+        </div>
+        <div class="row" style="margin-top:8px;">
+          <div class="field"><label>고객명</label><input type="text" id="peClientName"></div>
+          <div class="field"><label>설계사명</label><input type="text" id="peAgentName"></div>
+        </div>
+        <div class="row" style="margin-top:8px;">
+          <div class="field"><label>보험사(조합)</label><input type="text" id="peCarriers"></div>
+        </div>
+        <div id="peDesignsBlock" style="margin-top:8px;"></div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:18px;">
+          <label style="font-size:12.5px; font-weight:600; color:var(--ink);">담보 항목</label>
+          <button type="button" class="mini-btn" id="peAddRowBtn">+ 항목 추가</button>
+        </div>
+        <div id="peRowsBlock" style="margin-top:8px; display:flex; flex-direction:column; gap:8px;"></div>
+
+        <button class="generate" id="peRerenderBtn" style="margin-top:16px;">수정 내용으로 다시 그리기</button>
+        <p id="peStatus" style="font-size:11.5px; color:var(--paper-mute); margin-top:8px;"></p>
       </div>
     </div>
 
@@ -4914,6 +4942,9 @@ document.getElementById('proposalGenBtn').addEventListener('click', async () => 
     const dlBtn = document.getElementById('proposalDownloadBtn');
     dlBtn.href = imgSrc;
     dlBtn.download = (data.title || '제안서').replace(/[\\/:*?"<>|]/g, '') + '.png';
+    window.__lastProposalData = data; // "내용 수정" 버튼이 이걸 기준으로 편집 폼을 채운다
+    document.getElementById('proposalEditPanel').style.display = 'none';
+    document.getElementById('proposalEditToggleBtn').textContent = '내용 수정';
 
     statusEl.textContent = '완료!';
     await addToHistory({
@@ -4926,6 +4957,129 @@ document.getElementById('proposalGenBtn').addEventListener('click', async () => 
   } finally {
     btn.disabled = false;
     btn.textContent = '제안서 만들기';
+  }
+});
+
+/* ===================== 제안서 결과 편집 (AI 재분석 없이 직접 수정 후 재렌더링) ===================== */
+const PROPOSAL_CATEGORIES = ['기본계약', '진단비', '치료비', '수술비', '상해관련', '간병', '기타'];
+
+document.getElementById('proposalEditToggleBtn').addEventListener('click', () => {
+  const panel = document.getElementById('proposalEditPanel');
+  const btn = document.getElementById('proposalEditToggleBtn');
+  const show = panel.style.display === 'none';
+  if (show) {
+    if (!window.__lastProposalData) { alert('먼저 제안서를 만들거나 히스토리에서 불러와주세요.'); return; }
+    populateProposalEditor(window.__lastProposalData);
+  }
+  panel.style.display = show ? 'block' : 'none';
+  btn.textContent = show ? '수정 닫기' : '내용 수정';
+});
+
+function populateProposalEditor(data) {
+  document.getElementById('peTitle').value = data.title || '';
+  document.getElementById('peClientName').value = data.clientName || '';
+  document.getElementById('peAgentName').value = data.agentName || '';
+  document.getElementById('peCarriers').value = data.carriers || '';
+
+  const designLabels = data.designLabels && data.designLabels.length ? data.designLabels : ['A안'];
+  const designsBlock = document.getElementById('peDesignsBlock');
+  designsBlock.innerHTML = designLabels.map((label, i) => `
+    <div class="row" style="margin-top:4px;">
+      <div class="field"><label>${escapeHtml(label)} 보험료</label><input type="text" class="pe-premium" data-idx="${i}" value="${escapeHtml((data.premiums && data.premiums[i]) || '')}"></div>
+      <div class="field"><label>${escapeHtml(label)} 보험료 내역</label><input type="text" class="pe-breakdown" data-idx="${i}" value="${escapeHtml((data.premiumBreakdown && data.premiumBreakdown[i]) || '')}"></div>
+    </div>
+  `).join('');
+
+  window.__peDesignCount = designLabels.length;
+  window.__peDesignLabels = designLabels;
+
+  const rowsBlock = document.getElementById('peRowsBlock');
+  rowsBlock.innerHTML = '';
+  (data.rows || []).forEach(row => rowsBlock.appendChild(buildProposalEditRow(row)));
+}
+
+function buildProposalEditRow(row) {
+  row = row || { label: '', category: PROPOSAL_CATEGORIES[0], term: '', amounts: [], highlightStar: false, highlightNote: '' };
+  const wrap = document.createElement('div');
+  wrap.className = 'pe-row';
+  wrap.style.cssText = 'border:1px solid var(--line); border-radius:8px; padding:10px; display:flex; flex-direction:column; gap:6px;';
+  const amounts = window.__peDesignLabels.map((label, i) => `
+    <div class="field" style="flex:1;"><label style="font-size:10.5px;">${escapeHtml(label)} 가입금액</label><input type="text" class="pe-amount" data-idx="${i}" value="${escapeHtml((row.amounts && row.amounts[i]) || '')}"></div>
+  `).join('');
+  wrap.innerHTML = `
+    <div style="display:flex; gap:6px; align-items:flex-end;">
+      <div class="field" style="flex:2;"><label style="font-size:10.5px;">담보명</label><input type="text" class="pe-label" value="${escapeHtml(row.label || '')}"></div>
+      <div class="field" style="flex:1;"><label style="font-size:10.5px;">카테고리</label>
+        <select class="pe-category">${PROPOSAL_CATEGORIES.map(c => `<option value="${c}" ${c === row.category ? 'selected' : ''}>${c}</option>`).join('')}</select>
+      </div>
+      <div class="field" style="flex:1;"><label style="font-size:10.5px;">납기/만기</label><input type="text" class="pe-term" value="${escapeHtml(row.term || '')}"></div>
+      <button type="button" class="mini-btn danger pe-remove-row" style="flex-shrink:0;">삭제</button>
+    </div>
+    <div style="display:flex; gap:6px;">${amounts}</div>
+    <div style="display:flex; gap:6px; align-items:center;">
+      <label style="font-size:10.5px; display:flex; align-items:center; gap:4px;"><input type="checkbox" class="pe-star" ${row.highlightStar ? 'checked' : ''}> 강조 표시</label>
+      <input type="text" class="pe-note" placeholder="강조 설명 (선택)" value="${escapeHtml(row.highlightNote || '')}" style="flex:1;">
+    </div>
+  `;
+  wrap.querySelector('.pe-remove-row').addEventListener('click', () => wrap.remove());
+  return wrap;
+}
+
+document.getElementById('peAddRowBtn').addEventListener('click', () => {
+  document.getElementById('peRowsBlock').appendChild(buildProposalEditRow());
+});
+
+document.getElementById('peRerenderBtn').addEventListener('click', async () => {
+  const btn = document.getElementById('peRerenderBtn');
+  const statusEl = document.getElementById('peStatus');
+  const base = window.__lastProposalData || {};
+
+  const premiums = Array.from(document.querySelectorAll('.pe-premium')).map(el => el.value.trim());
+  const premiumBreakdown = Array.from(document.querySelectorAll('.pe-breakdown')).map(el => el.value.trim());
+  const rows = Array.from(document.querySelectorAll('#peRowsBlock .pe-row')).map((wrap, i) => ({
+    no: i + 1,
+    label: wrap.querySelector('.pe-label').value.trim(),
+    category: wrap.querySelector('.pe-category').value,
+    term: wrap.querySelector('.pe-term').value.trim(),
+    amounts: Array.from(wrap.querySelectorAll('.pe-amount')).map(el => el.value.trim()),
+    highlightStar: wrap.querySelector('.pe-star').checked,
+    highlightNote: wrap.querySelector('.pe-note').value.trim()
+  })).filter(r => r.label);
+
+  const data = {
+    ...base,
+    title: document.getElementById('peTitle').value.trim() || base.title,
+    clientName: document.getElementById('peClientName').value.trim(),
+    agentName: document.getElementById('peAgentName').value.trim(),
+    carriers: document.getElementById('peCarriers').value.trim(),
+    premiums, premiumBreakdown, rows
+  };
+
+  btn.disabled = true;
+  statusEl.textContent = '';
+  const oldText = btn.textContent;
+  btn.textContent = '다시 그리는 중...';
+  try {
+    // 이미지를 다시 분석하지 않고, 방금 고친 데이터 그대로 렌더링만 다시 한다 — AI가 같은 실수를
+    // 반복할 여지 자체가 없다.
+    const result = await apiPost('/api/generate-proposal', data);
+    const imgSrc = 'data:image/png;base64,' + result.base64;
+    document.getElementById('proposalResultImg').src = imgSrc;
+    const dlBtn = document.getElementById('proposalDownloadBtn');
+    dlBtn.href = imgSrc;
+    dlBtn.download = (data.title || '제안서').replace(/[\\/:*?"<>|]/g, '') + '.png';
+    window.__lastProposalData = data;
+    statusEl.textContent = '수정 완료!';
+    await addToHistory({
+      id: Date.now(), topic: data.title, category: data.clientName || '', format: 'proposal',
+      script: JSON.stringify({ data })
+    });
+  } catch (e) {
+    statusEl.textContent = '';
+    alert('다시 그리기 실패: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = oldText;
   }
 });
 
@@ -4969,6 +5123,9 @@ async function renderProposalHistory() {
         const dlBtn = document.getElementById('proposalDownloadBtn');
         dlBtn.href = imgSrc;
         dlBtn.download = (parsed.data.title || '제안서').replace(/[\\/:*?"<>|]/g, '') + '.png';
+        window.__lastProposalData = parsed.data;
+        document.getElementById('proposalEditPanel').style.display = 'none';
+        document.getElementById('proposalEditToggleBtn').textContent = '내용 수정';
         document.getElementById('proposalResultPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
       } catch (e) {
         alert('다시 만들기 실패: ' + e.message);
