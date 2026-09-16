@@ -4700,7 +4700,7 @@ ${content}
       return `<div class="cn-photo" id="cn-photo-${slotIndex}" data-photo-query="${escapeHtml(q)}" style="position:absolute;inset:0;${bg}"></div>`;
     });
     window.__cnLastTheme = themeKey;
-    window.__cnLastCardCount = cardCount;
+    window.__cnLastCardCount = cardCountSel;
     window.__cnPhotoSlots = queries; // 슬롯별 원래 검색어 기억 (컨트롤 패널 만들 때 씀)
 
     const wrap = document.getElementById('cnPreviewWrap');
