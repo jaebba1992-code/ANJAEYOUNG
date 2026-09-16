@@ -1697,11 +1697,36 @@
         </div>
         <div style="display:flex; gap:8px;">
           <button type="button" class="copy-btn" id="proposalEditToggleBtn">내용 수정</button>
+          <button type="button" class="copy-btn" id="proposalDocToggleBtn">AI 문서 디자인으로 보기 (베타)</button>
           <a class="copy-btn" id="proposalDownloadBtn" download="제안서.png">이미지 다운로드</a>
         </div>
       </div>
       <div style="text-align:center; background:#f4f4f4; padding:16px; border-radius:8px;">
         <img id="proposalResultImg" style="max-width:100%; border-radius:6px; box-shadow:0 4px 20px rgba(0,0,0,.12);">
+      </div>
+      <div id="proposalDocPanel" style="display:none; margin-top:16px; padding-top:16px; border-top:1px solid var(--line);">
+        <p style="font-size:12px; color:var(--paper-mute); line-height:1.7; margin:0 0 12px;">
+          인쇄용 문서 스타일로 다시 디자인해요 (마케팅 이미지가 아니라 A4 인쇄 문서 톤). 완성되면 브라우저 인쇄 대화상자에서 "PDF로 저장"을 고르시면 돼요.
+        </p>
+        <div class="row">
+          <div class="field">
+            <label>강조 색</label>
+            <select id="pdAccentSelect">
+              <option value="A">A. 잉크 그레이</option>
+              <option value="B" selected>B. 딥 네이비</option>
+              <option value="C">C. 버건디</option>
+              <option value="D">D. 포레스트</option>
+              <option value="E">E. 브론즈</option>
+              <option value="F">F. 슬레이트 블루</option>
+            </select>
+          </div>
+        </div>
+        <button class="generate" id="pdGenBtn" style="margin-top:8px;">문서 디자인 생성</button>
+        <p id="pdStatus" style="font-size:11.5px; color:var(--paper-mute); margin-top:8px;"></p>
+        <div id="pdPreviewWrap" style="margin-top:14px; display:none;">
+          <iframe id="pdPreviewFrame" style="width:100%; height:760px; border:1px solid var(--line); border-radius:6px; background:#fff;"></iframe>
+          <button type="button" class="mini-btn" id="pdPrintBtn" style="margin-top:10px;">인쇄 / PDF로 저장</button>
+        </div>
       </div>
       <div id="proposalEditPanel" style="display:none; margin-top:16px; padding-top:16px; border-top:1px solid var(--line);">
         <p style="font-size:12px; color:var(--paper-mute); line-height:1.7; margin:0 0 12px;">
@@ -5741,6 +5766,106 @@ document.getElementById('proposalEditToggleBtn').addEventListener('click', () =>
   }
   panel.style.display = show ? 'block' : 'none';
   btn.textContent = show ? '수정 닫기' : '내용 수정';
+});
+
+/* ===================== AI 문서 디자인 (제안서를 인쇄용 A4 문서 스타일로) ===================== */
+const PROPOSAL_DOC_ACCENTS = {
+  A: { label: '잉크 그레이', accent: '#16181C', body: '#16181C', sub: '#6E737A', hair: '#EAECEF' },
+  B: { label: '딥 네이비', accent: '#1B3A5C', body: '#16181C', sub: '#6E737A', hair: '#E6E9ED' },
+  C: { label: '버건디', accent: '#7A2231', body: '#1A1618', sub: '#6E6A6C', hair: '#EFE9EA' },
+  D: { label: '포레스트', accent: '#1F4A3A', body: '#15181A', sub: '#69706D', hair: '#E7EDEA' },
+  E: { label: '브론즈', accent: '#8A6A2E', body: '#1A1814', sub: '#706C62', hair: '#F0EBE1' },
+  F: { label: '슬레이트 블루', accent: '#3A5068', body: '#16181C', sub: '#6E737A', hair: '#E8EBEF' }
+};
+
+function proposalDocSystemPrompt(accentKey) {
+  const c = PROPOSAL_DOC_ACCENTS[accentKey];
+  return `보험 맞춤 설계 제안서를 문서(document)로 디자인해라. 마케팅 배너가 아니다. 아래는 절대 규칙이다.
+
+1. 색 — 강조는 "${c.label}"(${c.accent}) 하나만 쓴다. 강조색은 머리글 규칙선·상단 라벨·합계 수치에만. 그 외는 먹색(${c.body})과 회색(${c.sub}), 헤어라인(${c.hair}).
+
+금지 사항 (AI 느낌의 원인)
+- 그라데이션 배경 일절 금지. 헤더도 단색 흰 바탕 + 하단 2px 먹색 규칙선으로.
+- 카테고리마다 색을 다르게 주지 말 것. 카테고리 구분은 볼드 소제목 + 1px 규칙선으로만.
+- 금액·숫자에 색을 넣지 말 것. 강조는 굵기(700~800)로만.
+- 행 배경 줄무늬(zebra) 금지. 행 구분은 border-bottom:1px solid 헤어라인만.
+- 둥근 카드·그림자·이모지·아이콘 장식 금지. border-radius는 0.
+
+2. 구조
+① 헤더 — 좌측: 브랜드 라벨(9.5pt/700/letter-spacing:0.16em/회색) + 고객명 제목(25pt/800) + 보험사·납기 한 줄. 우측: 세로 구분선 좌측에 두고 월 보험료(27pt/800) + 구성 내역 한 줄. 하단 border-bottom:2px solid 본문색.
+② 핵심 요약 — 3칸 그리드, gap:1px에 배경 헤어라인색을 깔아 1px 격자만 보이게. 각 칸은 라벨(8.5pt/700/회색) + 수치(15pt/800).
+③ 담보 표 — 아래 3번.
+④ 푸터 — 상단 border-top:2px solid, 좌측 고지 문구(8.5pt/회색), 우측 브랜드명.
+
+3. 표
+- border-collapse:collapse, 세로 칼럼 선 없음. 가로선만.
+- 칼럼: NO(26px) / 담보명(가변) / 납기·만기(92px) / 가입금액(88px, 우측 정렬) / 비고(142px).
+- 머리글은 8.5pt/700/letter-spacing:0.08em/회색 + 하단 1.5px 본문색 선.
+- 카테고리 행은 colspan 전체 폭에 10pt/800 소제목 + 하단 1px 본문색 선, 위 여백 18px.
+- 데이터 행: 담보명 10pt/600, 금액 10.5pt/700, 납기 8.5pt/600 회색, 비고 8pt/500.
+- 모든 숫자 셀에 font-variant-numeric:tabular-nums. 금액 자리수가 세로로 맞아야 한다.
+- 담보명 괄호 보충 설명은 같은 줄에서 font-weight:500; color:보조색으로 낮춰라. 줄바꿈하지 말 것.
+- 비고가 없는 행은 빈 셀로 두고 "-" 같은 기호를 넣지 마라.
+
+4. 타이포
+- Pretendard(이미 로드돼 있음), weight 500/600/700/800.
+- pt 단위 사용. 본문 10pt, 최소 8pt.
+- 제목 letter-spacing:-0.035em, 라벨은 양수 letter-spacing으로 대비를 준다.
+
+5. 출력
+- 인쇄용 단일 문서. A4 기준, 여백 0.6in. <body> 또는 최상위 래퍼에 width:210mm; margin:0 auto; padding:0.6in; box-sizing:border-box; background:#fff 를 둔다.
+- 모든 스타일 인라인. CSS 클래스 금지 (다만 <thead>/<tbody> 등 표 태그 구조는 정상적으로 쓴다).
+- 표가 다음 장으로 넘어가면 머리글이 반복되도록 <thead>를 쓴다.
+- 수치는 내가 준 값만 사용. 모르면 [확인 필요]로 남겨라.
+- 다른 설명, 마크다운 코드블록 기호 없이, HTML 코드만 출력한다 (완전한 조각이면 된다 — <html>/<head>/<body> 태그는 필요 없다, 최상위 래퍼 div부터 시작).`;
+}
+
+document.getElementById('proposalDocToggleBtn').addEventListener('click', () => {
+  const panel = document.getElementById('proposalDocPanel');
+  const show = panel.style.display === 'none';
+  if (show && !window.__lastProposalData) { alert('먼저 제안서를 만들거나 히스토리에서 불러와주세요.'); return; }
+  panel.style.display = show ? 'block' : 'none';
+});
+
+document.getElementById('pdGenBtn').addEventListener('click', async () => {
+  const btn = document.getElementById('pdGenBtn');
+  const statusEl = document.getElementById('pdStatus');
+  const data = window.__lastProposalData;
+  if (!data) { alert('먼저 제안서를 만들거나 히스토리에서 불러와주세요.'); return; }
+
+  const accentKey = document.getElementById('pdAccentSelect').value;
+  btn.disabled = true;
+  statusEl.textContent = '문서 디자인 생성 중... (30초~1분 정도 걸려요)';
+  try {
+    const system = proposalDocSystemPrompt(accentKey);
+    const userPrompt = `아래 데이터로 제안서 문서를 만들어줘.\n\n${JSON.stringify(data, null, 2)}`;
+    const raw = await callClaude(system, [{ role: 'user', content: userPrompt }], 2, null, 8000, 'claude-opus-5');
+    const bodyHtml = raw.replace(/```html|```/g, '').trim();
+
+    const fullDoc = `<!DOCTYPE html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-dynamic-subset.css">
+<style>
+  @page { size: A4; margin: 0; }
+  body { margin:0; background:#fff; font-family:Pretendard,"Apple SD Gothic Neo",system-ui,sans-serif; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+</style>
+</head><body>${bodyHtml}</body></html>`;
+
+    const frame = document.getElementById('pdPreviewFrame');
+    frame.srcdoc = fullDoc;
+    document.getElementById('pdPreviewWrap').style.display = 'block';
+    statusEl.textContent = '완료! 아래에서 확인하고 "인쇄 / PDF로 저장"을 눌러주세요.';
+  } catch (e) {
+    statusEl.textContent = '';
+    alert('생성 실패: ' + e.message);
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+document.getElementById('pdPrintBtn').addEventListener('click', () => {
+  const frame = document.getElementById('pdPreviewFrame');
+  frame.contentWindow.focus();
+  frame.contentWindow.print();
 });
 
 function populateProposalEditor(data) {
