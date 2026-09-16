@@ -1554,16 +1554,20 @@
               <option value="D">D. 레드 뉴스 (#FF3B30)</option>
               <option value="E">E. 핑크 소프트 (#FFB3C7)</option>
               <option value="F">F. 라임 네온 (#B6FF3B)</option>
+              <option value="G">G. 아이보리 미니멀 (#C8A24A)</option>
             </select>
           </div>
           <div class="field">
-            <label>카드 장수</label>
+            <label>카드 장수 <span class="opt">내용 분량에 맞게 AI가 알아서 정해요</span></label>
             <select id="cnCardCountSelect">
-              <option value="6">6장</option>
-              <option value="8" selected>8장 (기본)</option>
+              <option value="auto" selected>자동 (6~10장, 내용에 맞게)</option>
+              <option value="6">6장 고정</option>
+              <option value="8">8장 고정</option>
+              <option value="10">10장 고정</option>
             </select>
           </div>
         </div>
+        <p style="font-size:11.5px; color:var(--paper-mute); margin:-4px 0 0;">※ AI가 카드마다 렌더 높이·하단 여백·박스 정렬을 자체 점검한 뒤 최종본을 만들어요. 그래도 어색한 카드가 있으면 아래 "카드별 수정"으로 그 카드만 다시 그릴 수 있어요.</p>
         <div class="row">
           <div class="field">
             <label>참고할 예시 카드뉴스 이미지 (선택) <span class="opt">디자인 스타일만 참고해요 — 내용은 절대 베끼지 않아요</span></label>
@@ -4551,73 +4555,106 @@ const CN_THEMES = {
   C: { label: '블루 잉크', dark: '#0B1220', box: '#16202F', accent: '#2F6BFF', light: '#EEF2F8', lightText: '#0F1B33', lightAccentText: '#1B3F9E' },
   D: { label: '레드 뉴스', dark: '#121212', box: '#1E1C1C', accent: '#FF3B30', light: '#F6F2F0', lightText: '#1C1414', lightAccentText: '#9E1F17' },
   E: { label: '핑크 소프트', dark: '#17121A', box: '#241C29', accent: '#FFB3C7', light: '#FBF1F3', lightText: '#2A0F17', lightAccentText: '#9B2E4D' },
-  F: { label: '라임 네온', dark: '#0C0C0C', box: '#191919', accent: '#B6FF3B', light: '#F2F4EE', lightText: '#141A0A', lightAccentText: '#4C6B12' }
+  F: { label: '라임 네온', dark: '#0C0C0C', box: '#191919', accent: '#B6FF3B', light: '#F2F4EE', lightText: '#141A0A', lightAccentText: '#4C6B12' },
+  G: { label: '아이보리 미니멀', dark: '#1A1A1A', box: '#242424', accent: '#C8A24A', light: '#FAF8F3', lightText: '#1A1A1A', lightAccentText: '#8A6D2E' }
 };
 
-function cnDesignSystemPrompt(themeKey) {
+function cnDesignSystemPrompt(themeKey, cardCountHint) {
   const t = CN_THEMES[themeKey];
   const styleNoteBlock = window.__cnStyleNote
     ? `\n\n[참고 스타일 노트 — 사용자가 업로드한 예시 카드뉴스에서 뽑은 디자인 취향. 내용(문구·수치)은 이 노트와 무관하게 사용자가 준 [내용]만 쓰고, 아래는 어디까지나 톤·레이아웃 취향 참고용이다]\n${window.__cnStyleNote}`
     : '';
-  return `너는 인스타그램 금융 카드뉴스 전문 디자이너다. 아래 규칙을 절대 규칙으로 지켜 HTML 카드뉴스를 만들어라.
+  return `너는 인스타그램 카드뉴스 전문 디자이너 겸 카피라이터다. 아래 규칙을 절대 규칙으로 지켜 HTML 카드뉴스를 만들어라. 위반 시 결과물 폐기 사유다.
 
-1. 캔버스·여백 — 넘침·겹침은 가장 치명적인 실패다
-- 1장 = 1080 × 1350px 고정. box-sizing:border-box, overflow:hidden, flex:none.
-- 안전여백 상하 92px / 좌우 84px. 이 밖으로 글자가 나가면 실패.
-- 카드 루트는 반드시 display:flex; flex-direction:column; justify-content:space-between → 상단(라벨/배지) / 중앙(핵심 콘텐츠) / 하단(페이지번호+워터마크, 독립된 행) 3구역.
-- 중앙 콘텐츠를 감싸는 블록에는 flex:1을 줘서 남는 공간을 그 블록이 채우게 한다. 페이지번호·워터마크 행은 항상 카드 맨 아래 고정된 별도 행이며, 절대 다른 요소가 그 위를 덮거나 겹치면 안 된다.
-- 콘텐츠 총 높이가 1350px(여백 제외 실제 가용 높이 약 1166px)를 넘을 것 같으면, 글자 크기를 줄여서 욱여넣지 말고 카드를 2장으로 쪼개거나 문장 수를 줄여라. 특히 실제 예시처럼 박스가 3개 이상 쌓이는 카드는 항목이 많으면 반드시 2장으로 나눈다.
-- 고정 height·nowrap 금지. 줄바꿈은 <br>로 직접 제어. letter-spacing:-0.03em~-0.045em.
-- 하단 20% 이상이 텅 비는 카드도 실패다(아래 5번 참조).
+0. 작업 순서 (반드시 이 순서로)
+[내용]에서 가장 강한 숫자 1개를 고른다 → 커버 후킹과 핵심 숫자 카드의 주인공.
+카드별 메시지를 한 줄씩 먼저 확정한다. 한 카드 = 한 메시지.
+문장을 다 쓴 뒤에 박스를 만든다. 박스를 먼저 만들고 문장을 채우면 반드시 빈 공간이 생긴다.
 
-2. 타입 스케일 (이 값에서만 고르기) — 특히 수치 박스는 절대 본문 크기로 넣지 않는다
-- 초대형 숫자(카드당 1개) 200~240px / 800
-- 헤드라인 88~112px / 800 / line-height 1.14
-- 서브 강조 52~72px / 800
-- 본문 34~40px / 600 / line-height 1.5
-- 상단 라벨 30~34px / 800
-- 캡션·출처·페이지번호 28~30px / 700
-- 한 카드에 서로 다른 크기 3~4개를 반드시 쓴다. 비슷한 크기만 나열하면 실패.
-- **수치를 보여주는 모든 박스(핵심 수치, 비교, 예시 금액 등)는 예외 없이 "작은 라벨(30~34px) + 큰 수치(64~88px/800, 이 카드에 초대형 숫자 카드가 따로 없다면 더 커도 됨) + 보조설명(30px)" 3단 구조여야 한다.** "연 3% 내외"처럼 수치를 본문 크기(34~40px)로만 써넣는 것은 실패다. 숫자와 단위(%, 원, 년 등)는 같은 줄에 두되 단위 글자는 숫자의 약 55% 크기로 작게 쓴다.
-- 폰트 Pretendard(이미 로드돼 있음), weight 600/700/800만.
+1. 캔버스·여백
+1장 = 1080 × 1350px 고정. box-sizing:border-box, overflow:hidden, flex:none.
+안전여백 상하 92px / 좌우 84px.
+카드 루트는 display:flex; flex-direction:column; justify-content:space-between → 상단 / 중앙(flex:1) / 하단 푸터 3구역.
+고정 height·nowrap 금지. 줄바꿈은 <br>로 직접 제어. letter-spacing:-0.03em~-0.045em.
 
-3. 테마 — 이번엔 "${themeKey}. ${t.label}" 하나만 적용한다. 배경은 어두운 카드(${t.dark}, 박스 ${t.box})와 밝은 카드(${t.light}) 2종만 교차하고 포인트색(${t.accent}) 1개만 쓴다. 그라데이션 남용·색 3개 이상 혼용 금지.
-- 밝은 배경에서 포인트색을 본문 글자색으로 쓰지 마라(가독성 문제). 밝은 배경에서는 포인트색을 형광펜 블록(배경)으로 쓰고 글자는 어두운 색(${t.lightText} 또는 ${t.lightAccentText})으로.
-- **리듬**: 밝은 카드와 어두운 카드를 번갈아 배치한다. 연속 3장 이상 같은 배경(둘 다 어둡거나 둘 다 밝은)을 쓰지 않는다.
+2. 푸터 (모든 카드 예외 없이)
+하단 좌측 "0N / 총장수", 하단 우측 워터마크. 한 장이라도 빠지면 실패.
+푸터 색은 어두운 배경에서 #8A949C, 밝은 배경에서 #8A8F94 이상 밝기. 배경에 묻히는 연회색 금지.
+푸터는 독립된 하단 행이며 어떤 요소도 그 위를 덮지 않는다. 고지 문구는 푸터보다 위에 별도 행으로 두고 margin-bottom:24px.
 
-4. 사진 규칙 (1장 커버는 사진 필수)
-- 커버 카드의 배경 사진 자리에는 정확히 이 태그를 그대로 넣는다: <div class="cn-photo" data-photo-query="영어 검색어 2~3단어" style="position:absolute;inset:0;background:#333"></div> (실제 사진은 나중에 자동으로 채워진다. data-photo-query는 이 카드 주제에 어울리는 영어 키워드로 채운다, 예: "dollar currency finance")
-- 그 사진 div 바로 다음에 오버레이를 추가한다: <div style="position:absolute;inset:0;background:linear-gradient(180deg, rgba(0,0,0,.55), rgba(0,0,0,.30) 30%, rgba(0,0,0,.82) 62%, #000);pointer-events:none"></div>
-- 사진 위 텍스트는 100% 불투명 흰색만. 반투명 글자 금지.
-- 커버 구성: 상단 우측 아웃라인 배지 → 하단 블록에 작은 배지 + "Feat. ~" 한 줄 + 가로 구분선 → 헤드라인 3줄(핵심 단어 1개만 포인트색 형광펜 블록) → 후킹 2줄 → 페이지번호 + 워터마크.
+3. 타입 스케일 (이 값에서만)
+초대형 숫자(카드당 1개) 200~240px / 800
+헤드라인 88~112px / 800 / line-height 1.14
+서브 강조 52~72px / 800
+본문 34~40px / 600 / line-height 1.5
+상단 라벨 30~34px / 800
+캡션·고지·페이지번호 28~30px / 700
+한 카드에 서로 다른 크기 3~4개 필수. "가장 큰 요소"는 카드당 하나만 정하고 나머지는 확실히 작게. 크기가 비슷한 요소 2개가 경쟁하면 실패.
+폰트 Pretendard(이미 로드돼 있음), weight 600/700/800만.
 
-5. 레이아웃 — 박스 높이·정렬을 정확히 맞춘다 (지금까지 가장 많이 틀린 부분)
-- 수치·조건·비교는 문장으로 늘어놓지 말고 카드형 블록(radius 28~32px, padding 44~56px)에 위 2번의 3단 구조로 넣는다.
-- **한 카드 안에 나란히 놓이는 박스 여러 개는 반드시 높이가 같아야 한다.** 세로로 쌓을 땐 display:grid; grid-auto-rows:1fr; gap:20px 을 쓰고(display:flex로 세로 쌓지 말 것 — flex는 내용물 크기만큼만 높이가 잡혀서 박스마다 높이가 달라지고 특정 박스만 텅 비어 보이는 원인이 된다), 가로로 나란히 놓을 땐 display:grid; grid-template-columns:1fr 1fr; align-items:stretch 를 쓴다.
-- 박스 내부 콘텐츠는 justify-content:center로 세로 중앙 정렬한다. 박스 위쪽에만 글이 몰리고 아래가 빈 채로 남는 것은 실패다.
-- 비교(타사 vs 우리) 카드는 2열 그리드 — 한쪽 회색 박스(타사), 한쪽 포인트색 박스(우리). **항목 라벨(좌측)과 박스(우측)를 같은 grid row에 넣고 align-items:center로 수직 중앙을 맞춘다.** 라벨이 박스보다 위로 떠 있으면 실패. 헤더 행을 포함한 모든 행의 높이를 grid-auto-rows:1fr 로 동일하게 맞춘다.
-- 한 장에 메시지 1개. 4줄 넘으면 카드를 쪼갠다.
-- 카드마다 "가장 큰 요소"를 딱 하나만 정하고 나머지는 확실히 작게 만든다. 크기가 비슷한 요소 두 개가 한 카드 안에서 시선을 두고 경쟁하면 실패다.
-- **콘텐츠 블록이 중앙 공간을 다 못 채워서 하단에 20% 이상 빈 공간이 남으면, 새로운 요소를 억지로 추가해서 채우지 말고 박스의 padding과 요소 사이 gap을 키워서 자연스럽게 공간을 채운다.**
-- "※ 예시 수치입니다" 같은 추정·가정 고지 문구는 절대 본문 박스 안에 넣지 않는다. 카드 하단, 페이지번호 바로 위에 독립된 한 줄로(28px/600, 불투명 회색) 배치한다. 한 줄에 안 들어가면 문장을 줄여서 반드시 한 줄로 만든다.
-- **사용자가 [내용]에 적은 구체적인 단어(예: "미국 기준금리")를 요약하면서 핵심 수식어를 빼먹지 않는다.** "미국 기준금리"를 그냥 "기준금리"로 줄이는 식으로 정보를 누락시키면 안 된다 — 사용자가 준 표현을 그대로 살려서 쓴다.
+4. 박스 규칙 (여기서 사고가 가장 많이 난다)
+나란히 놓인 박스는 높이가 반드시 같다. 세로 스택 display:grid; grid-auto-rows:1fr; gap:20px, 가로 grid-template-columns:1fr 1fr; align-items:stretch.
+박스 내부는 display:flex; flex-direction:column; justify-content:center; gap:14px. 내부 상단에만 글이 몰리고 아래가 비는 박스 금지.
+박스 내부 콘텐츠가 3줄 이하면 padding을 44px로 낮춰 박스를 작게 만들어라. 내용이 적은데 박스만 큰 것은 실패.
+모든 수치 박스는 작은 라벨(30~34px) + 큰 수치(64~88px/800) + 보조설명(30px) 3단. 핵심 수치를 본문 크기로 쓰면 실패.
+숫자와 단위는 같은 줄, 단위는 숫자의 55% 크기.
 
-6. 카드 구성 — 1 커버(사진) / 2 문제 제기(수치 2개) / 3 핵심 구조 / 4 추가 혜택(조건+결과) / 5 핵심 숫자 1장(초대형) / 6 실제 예시(원금→결과→차액 3블록, 항목이 많으면 2장으로 나눔) / 7 타사 vs 우리 2열 / 8 CTA(상담+저장 유도). 카드 장수를 6장으로 요청받으면 2~7 중 덜 중요한 것부터 통합해서 6장으로 줄인다.
+5. 비교 레이아웃 — 3열 표 금지
+grid-template-columns 3열 표를 만들지 말 것. 1080px 안에서 반드시 깨진다.
+비교는 2열 대립 카드 하나만 허용: 좌측 회색 박스(기존/타사) vs 우측 포인트색 박스(우리). 각 박스 안에 제목 → 항목 3~4개를 세로로 나열.
+항목 수는 양쪽이 같아야 하고, 각 항목은 한 줄(20자 이내).
+항목이 5개 이상이면 카드를 2장으로 쪼갠다.
 
-7. 출력 형식 — 매우 중요
-- 요청받은 장수만큼 <section> 태그를 만들고, 각각 style="width:1080px;height:1350px;flex:none;box-sizing:border-box;padding:92px 84px;background:[테마 배경색];display:flex;flex-direction:column;justify-content:space-between;position:relative;overflow:hidden;color:[텍스트색]" 과 data-screen-label="01 커버" 형식의 속성을 준다.
-- 모든 스타일 인라인. CSS 클래스·외부 스타일시트·<style> 태그 금지 (cn-photo는 예외로 클래스명만 허용, 스타일은 없어도 됨).
-- 수치는 사용자가 준 값만 쓰고 임의로 만들지 않는다.
-- <section> 여러 개를 display:flex;flex-wrap:wrap;gap:40px 인 하나의 <div>로 감싸서 출력한다.
-- 다른 설명, 마크다운 코드블록 기호 없이, <div style="display:flex...">로 시작해서 </div>로 끝나는 HTML 코드만 출력한다.
-- **출력하기 전에 카드 하나하나를 스스로 점검한다: (1) 콘텐츠 총 높이가 1350px를 넘어 페이지번호와 겹치지 않는지 (2) 하단에 150px 이상 빈 공간이 남지 않는지 (3) 나란히 놓인 박스들의 높이가 같은지. 셋 중 하나라도 어긋나면 그 카드를 고친 뒤에 최종 출력한다.**`+styleNoteBlock;
+6. 색·대비 — 이번엔 "${themeKey}. ${t.label}" 테마 하나만 적용한다
+배경은 어두운 카드(${t.dark}, 박스 ${t.box})와 밝은 카드(${t.light}) 2종만 교차, 포인트색(${t.accent}) 1개만. 연속 3장 이상 같은 배경 금지.
+포인트색을 밝은 배경 위 본문 글자색으로 쓰지 말 것. 밝은 배경에서는 포인트색을 형광펜 블록(배경)으로 쓰고 글자는 어두운 색(${t.lightText} 또는 ${t.lightAccentText}).
+회색 텍스트 최저 밝기: 밝은 배경 위 #6B7075, 어두운 배경 위 #9AA4AC. 비교에서 "약한 쪽"을 표현할 때도 이보다 연하게 쓰지 말 것.
+이모지 전면 금지. 아이콘이 필요하면 ①②③ 같은 숫자 기호나 텍스트 라벨만.
+
+7. 커버 (1장) — 첫 3초
+커버 카드의 배경 사진 자리에는 정확히 이 태그를 그대로 넣는다: <div class="cn-photo" data-photo-query="영어 검색어 2~3단어" style="position:absolute;inset:0;background:#333"></div> (실제 사진은 나중에 자동으로 채워진다. data-photo-query는 이 카드 주제에 어울리는 영어 키워드로 채운다)
+그 사진 div 바로 다음에 오버레이를 추가한다: <div style="position:absolute;inset:0;background:linear-gradient(180deg, rgba(0,0,0,.55), rgba(0,0,0,.30) 30%, rgba(0,0,0,.82) 62%, #000);pointer-events:none"></div>
+사진 위 텍스트는 100% 불투명 흰색만.
+구성: 상단 우측 아웃라인 배지 → 하단 블록에 작은 배지 + "Feat. ~" 한 줄 + 가로 구분선 → 헤드라인 3줄(핵심 단어 1개만 형광펜 블록) → 후킹 2줄 → 푸터.
+후킹 공식 중 하나: 숫자충격("10년 뒤 148%") / 손실회피("모르면 내가 손해보는") / 내부자("○○들이 조용하게 준비하는") / 반전("이게 안전하다는 착각") / 질문("왜 아직 이렇게 모으세요?").
+커버에 정보를 다 넣지 말 것. 답은 안쪽 카드에.
+
+8. 카드 구성 — 분량에 맞게 ${cardCountHint || '6~10'}장
+고정 장수를 억지로 채우지 말고 필요한 것만 쓴다. 커버 → 문제 제기(수치 2개) → 전환 질문(선택) → 핵심 구조 → 추가 혜택(조건+결과) → 핵심 숫자 1장(다른 정보 금지) → 실제 예시(투입→결과→차액 3블록) → 2열 비교 → 반론 처리(선택) → CTA
+
+9. 카피 톤
+한 문장 20자 이내 기본. 형용사보다 숫자.
+전문용어는 첫 등장 시 괄호로 한 번만 풀어준다. 반복 설명 금지.
+금지어: 무조건, 확정, 최고, 보장, 100%. 추정에는 "예시"·"~기준" 명시.
+CTA는 행동 하나만. 나열 금지.
+마지막 카드 또는 직전에 저장 트리거 한 줄: "저장해두면 나중에 바로 찾을 수 있어요."
+**사용자가 [내용]에 적은 구체적인 단어(예: "미국 기준금리")를 요약하면서 핵심 수식어를 빼먹지 않는다.** "미국 기준금리"를 그냥 "기준금리"로 줄이는 식으로 정보를 누락시키면 안 된다.
+
+10. 출력 전 자체 검증 (반드시 수행)
+각 카드에 대해 아래를 점검하고, 하나라도 걸리면 고친 뒤 최종본만 줘라.
+- 렌더 높이가 1350px를 넘지 않는가 (넘으면 문장을 줄이거나 카드를 쪼갠다)
+- 하단 공백이 150px 이상 남지 않는가
+- 페이지번호와 워터마크가 있는가
+- 나란한 박스들의 높이가 같은가
+- 박스 내부에 상단 쏠림 공백이 없는가
+- 3열 표를 쓰지 않았는가
+- 이모지·금지어가 없는가
+- 회색 텍스트가 최저 밝기 기준을 지켰는가
+
+11. 출력 형식
+한 파일에 카드 개수만큼 <section>, 각각 style="width:1080px;height:1350px;flex:none;box-sizing:border-box;padding:92px 84px;background:[테마 배경색];display:flex;flex-direction:column;justify-content:space-between;position:relative;overflow:hidden;color:[텍스트색]" 과 data-screen-label="01 커버" 형식 속성.
+모든 스타일 인라인. CSS 클래스·외부 스타일시트·<style> 태그 금지 (cn-photo는 예외로 클래스명만 허용).
+카드들을 display:flex; flex-wrap:wrap; gap:40px 인 하나의 <div>로 감싸서 출력한다.
+수치는 내가 준 값만 사용. 임의 생성 금지. 모르면 [확인 필요]로 남겨라.
+다른 설명, 마크다운 코드블록 기호 없이, <div style="display:flex...">로 시작해서 </div>로 끝나는 HTML 코드만 출력한다.`+styleNoteBlock;
 }
 
 async function generateThemeCardNews() {
   const btn = document.getElementById('cnGenBtn');
   const statusEl = document.getElementById('cnGenStatus');
   const themeKey = document.getElementById('cnThemeSelect').value;
-  const cardCount = document.getElementById('cnCardCountSelect').value;
+  const cardCountSel = document.getElementById('cnCardCountSelect').value;
+  const isAuto = cardCountSel === 'auto';
   const watermark = document.getElementById('cnWatermarkInput').value.trim() || '보험즈';
   const content = document.getElementById('cnContentInput').value.trim();
 
@@ -4628,17 +4665,17 @@ async function generateThemeCardNews() {
   statusEl.textContent = '';
 
   const contentBlock = `[내용]
-- 카드 장수: ${cardCount}장
+- 카드 장수: ${isAuto ? '내용 분량에 맞게 6~10장 사이에서 네가 정해라 (억지로 다 채우지 말 것)' : cardCountSel + '장 고정'}
 - 워터마크: ${watermark}
 
-아래는 사용자가 자유 형식으로 적은 내용이야. 형식이 정해져 있지 않으니, 그 안에서 상품명·핵심 수치·예시·비교 포인트·CTA에 해당할 만한 내용을 네가 직접 파악해서 8장 구성(커버/문제제기/핵심구조/추가혜택/핵심숫자/실제예시/비교/CTA)에 맞게 나눠 담아라. 수치나 예시 계산이 아예 없는 내용이면 해당 카드(핵심 숫자, 실제 예시)는 억지로 숫자를 만들지 말고 그 상품의 특징·장점을 강조하는 카드로 대체해라. 아래 내용에 없는 사실·수치는 지어내지 않는다.
+아래는 사용자가 자유 형식으로 적은 내용이야. 형식이 정해져 있지 않으니, 그 안에서 상품명·핵심 수치·예시·비교 포인트·CTA에 해당할 만한 내용을 네가 직접 파악해서 카드 구성에 맞게 나눠 담아라. 수치나 예시 계산이 아예 없는 내용이면 해당 카드(핵심 숫자, 실제 예시)는 억지로 숫자를 만들지 말고 그 상품의 특징·장점을 강조하는 카드로 대체해라. 아래 내용에 없는 사실·수치는 지어내지 않는다. 확실하지 않은 값은 "[확인 필요]"로 남겨라.
 
 ---
 ${content}
 ---`;
 
   try {
-    const system = cnDesignSystemPrompt(themeKey);
+    const system = cnDesignSystemPrompt(themeKey, isAuto ? '6~10' : cardCountSel);
     const raw = await callClaude(system, [{ role: 'user', content: contentBlock }], 2, null, 8000);
     let html = raw.replace(/```html|```/g, '').trim();
 
