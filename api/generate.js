@@ -3,12 +3,14 @@ const { getSupabase } = require('./_supabaseClient');
 
 // 요청에서 모델을 고를 수 있게 하되, 임의 문자열이 들어오면 안 되니 허용 목록으로만 제한한다.
 // haiku는 sonnet보다 훨씬 저렴해서, 표 추출처럼 복잡한 추론이 덜 필요한 작업엔 이걸 쓰면 비용을 크게 아낄 수 있다.
-const ALLOWED_MODELS = ['claude-sonnet-4-6', 'claude-haiku-4-5-20251001'];
+// opus는 카드뉴스 디자인처럼 공간 배치·위계 판단이 중요한 작업에만 선택적으로 쓴다 (비싸지만 이런 작업엔 품질 차이가 크다).
+const ALLOWED_MODELS = ['claude-sonnet-4-6', 'claude-haiku-4-5-20251001', 'claude-opus-5'];
 
 // 백만 토큰당 달러 (2026년 9월 기준 Anthropic 공식 요금). 사람별 사용량(달러) 집계에 쓴다.
 const PRICING_PER_MTOK = {
   'claude-sonnet-4-6': { input: 3.00, output: 15.00 },
-  'claude-haiku-4-5-20251001': { input: 1.00, output: 5.00 }
+  'claude-haiku-4-5-20251001': { input: 1.00, output: 5.00 },
+  'claude-opus-5': { input: 5.00, output: 25.00 }
 };
 
 module.exports = async function handler(req, res) {
