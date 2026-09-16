@@ -1599,6 +1599,7 @@
           <button class="copy-btn" id="cnDownloadAllBtn">전체 PNG 다운로드 (zip)</button>
         </div>
       </div>
+      <div id="cnCopyPreview" style="display:none; background:var(--panel-2); border-radius:8px; padding:14px 16px; margin-bottom:16px;"></div>
       <div id="cnPhotoControls" style="margin-bottom:16px;"></div>
       <div id="cnCardEditControls" style="margin-bottom:16px;"></div>
       <div id="cnPreviewWrap" style="overflow-x:auto; padding:20px 0;"></div>
@@ -4642,11 +4643,89 @@ CTA는 행동 하나만. 나열 금지.
 - 회색 텍스트가 최저 밝기 기준을 지켰는가
 
 11. 출력 형식
-한 파일에 카드 개수만큼 <section>, 각각 style="width:1080px;height:1350px;flex:none;box-sizing:border-box;padding:92px 84px;background:[테마 배경색];display:flex;flex-direction:column;justify-content:space-between;position:relative;overflow:hidden;color:[텍스트색]" 과 data-screen-label="01 커버" 형식 속성.
+한 파일에 카드 개수만큼 <section>, 각각 style="width:1080px;height:1350px;flex:none;box-sizing:border-box;padding:92px 84px;background:[테마 배경색];display:flex;flex-direction:column;position:relative;overflow:hidden;color:[텍스트색]" 과 data-screen-label="01 커버" 형식 속성. (justify-content:space-between은 쓰지 않는다 — 아래 12번 참조)
 모든 스타일 인라인. CSS 클래스·외부 스타일시트·<style> 태그 금지 (cn-photo는 예외로 클래스명만 허용).
 카드들을 display:flex; flex-wrap:wrap; gap:40px 인 하나의 <div>로 감싸서 출력한다.
 수치는 내가 준 값만 사용. 임의 생성 금지. 모르면 [확인 필요]로 남겨라.
-다른 설명, 마크다운 코드블록 기호 없이, <div style="display:flex...">로 시작해서 </div>로 끝나는 HTML 코드만 출력한다.`+styleNoteBlock;
+
+====================
+아래는 앞의 규칙보다 우선 적용되는 추가 규칙이다. 충돌하면 아래가 이긴다.
+====================
+
+12. 수직 리듬 (가장 중요)
+카드 루트에 justify-content:space-between을 쓰지 마라. 블록이 2~3개일 때 중간에 300px 넘는 구멍이 생긴다.
+justify-content:flex-start로 위에서부터 쌓고, 푸터만 margin-top:auto 로 바닥에 붙여라.
+인접 블록 사이 간격은 40~72px. 어떤 두 요소 사이도 120px을 넘기면 실패.
+남는 공간은 박스 padding과 내부 gap을 키워 흡수. 요소를 새로 만들어 채우지 마라.
+
+13. 카드마다 레이아웃 유형을 먼저 지정 (아래 4개 중 하나, 구조를 그대로 따를 것)
+A 스택형 — 라벨 → 헤드라인 2줄 → 동일 높이 박스 2~3개 세로 → 푸터. 박스 3개면 헤드라인 2줄 이내.
+B 초대형 숫자형 — 라벨 → 헤드라인 2줄 → 중앙에 숫자 하나(flex:1; justify-content:center) → 한 줄 설명 → 고지 → 푸터. 박스·다른 수치 금지, 위아래 여백 대칭.
+C 대립형 — 라벨 → 헤드라인 2줄 → 좌우 2열 박스 → 한 줄 결론 → 푸터.
+D 액션형(마지막 카드) — 라벨 → 헤드라인 2줄 → 행동 버튼 블록 1개(포인트색 채움, padding:48px, 44~52px/800, 가로 전체) → 저장 트리거 한 줄 → 푸터. CTA 카드에 정보 박스·요약 리스트 금지.
+
+14. 헤드라인 (레이아웃)
+2줄 기본, 3줄은 예외, 4줄 금지. 한 줄 12자 이내, 두 줄 길이를 비슷하게. 헤드라인→박스 간격 56~72px 고정.
+
+15. 푸터
+푸터에 padding-top:32px, 그 위 요소에 margin-top:auto. 푸터가 잘리거나 가려지면 실패.
+
+16. 색 (채움 박스)
+포인트색 채움 박스 위 글자는 어두운 색(#1A1A1A). 채움 박스 안에서 회색 라벨 쓰지 마라.
+
+17. 금지어 추가
+저절로, 자동으로 불어난다 — 위 9번 금지어 목록에 추가.
+
+18. 출력 전 추가 검증 (10번에 추가로 반드시 수행)
+- 인접 블록 사이 120px 넘는 공백이 없는가
+- 푸터가 모든 카드에 있고 잘리지 않았는가
+- 마지막 카드에 CTA 버튼 블록이 있는가
+- 헤드라인이 3줄 이하인가
+- 포인트색 채움 박스 안에 저대비 회색 글자가 없는가
+걸리는 항목이 있으면 고친 뒤 최종본만 다시 줘라.
+
+====================
+카피 규칙 — 디자인보다 먼저 수행한다
+====================
+디자인 전에 카드별 헤드라인을 먼저 다 써서 목록으로 보여주고, 그 문장을 그대로 디자인에 넣어라. 스펙을 헤드라인으로 옮겨 적지 마라.
+
+1) 헤드라인에 쓰면 안 되는 것
+- 상품 용어 그대로: "공시이율", "해약환급률", "3단 금리 구조", "가입 조건" → 이건 박스 안 라벨로만.
+- 설명형 어미: "~입니다", "~됩니다", "~할 수 있습니다".
+- 기능 나열: "복리 + 보너스 + 비과세".
+
+2) 헤드라인은 이 4가지 중 하나로 변환한다
+- 사람 등장 — 누가 하고 있는지: "설계사들이 조용하게 준비하는", "강남 엄마들이 먼저 넣는"
+- 손실 감각 — 안 하면 뭘 잃는지: "10년 뒤 이 차이가 뼈아프다", "모르면 내가 손해보는 조건"
+- 반전 — 상식을 깨는 한 줄: "적금이 안전하다는 착각", "은행에 넣는 게 제일 손해였다"
+- 질문 — 독자 머릿속 문장: "왜 아직 원화로만 모으세요?", "10년 뒤 얼마 받을지 아세요?"
+
+3) 정보는 헤드라인이 아니라 아래로 내린다
+구조는 항상 후킹 헤드라인(감정) → 박스 라벨(용어) → 수치(사실) → 보조설명(근거). "미국 기준금리 연동 공시이율"이 헤드라인이면 실패이고, 헤드라인은 "이자가 이자를 낳는 구간", 박스 라벨에 "공시이율"이 들어가야 맞다.
+
+4) 카드마다 "읽는 사람의 속마음"을 한 줄 적고 시작한다
+각 카드 작업 전에 [독자 속마음: ...]을 먼저 쓰고, 그 문장에 답하는 헤드라인을 써라. 예 — 2장 독자 속마음: "그래서 지금 적금이 뭐가 문제야?" → 헤드라인: "적금이 안전하다는 착각"
+
+5) 연결 장치
+카드 끝 한 줄로 다음 장을 궁금하게 만든다: "그런데 여기서 하나가 더 붙습니다", "문제는 그다음입니다".
+전체 카드 중 최소 3장에 이 연결 문장을 넣어라(카드 하단, 고지 문구 위에 캡션 크기로). 단 CTA 카드에는 넣지 않는다.
+
+6) 톤
+정보 전달자가 아니라 먼저 알아본 사람의 말투. "알려드립니다"가 아니라 "이건 좀 다릅니다".
+한 문장 20자 이내. 형용사보다 숫자.
+과장 금지: 무조건, 확정, 최고, 보장, 100%, 저절로.
+
+====================
+최종 출력 순서 (반드시 이 순서로, 둘 다 출력한다)
+====================
+1) 먼저 아래 형식으로 카드별 카피 목록을 일반 텍스트로 출력한다 (마크다운 헤더나 코드블록 기호 없이, 각 카드마다 4줄):
+카드 N
+독자 속마음: ...
+헤드라인: ...
+연결 문장: ... (없으면 "없음")
+
+2) 그 목록 바로 다음 줄에 정확히 "===HTML===" 이라고만 쓴 구분선을 넣는다.
+3) 그 다음에 위 규칙대로 만든 카드뉴스 HTML을 출력한다 (<div style="display:flex...">로 시작해서 </div>로 끝나는 코드만, 다른 설명이나 코드블록 기호 없이).`+styleNoteBlock;
 }
 
 async function generateThemeCardNews() {
@@ -4676,8 +4755,24 @@ ${content}
 
   try {
     const system = cnDesignSystemPrompt(themeKey, isAuto ? '6~10' : cardCountSel);
-    const raw = await callClaude(system, [{ role: 'user', content: contentBlock }], 2, null, 8000);
-    let html = raw.replace(/```html|```/g, '').trim();
+    const raw = await callClaude(system, [{ role: 'user', content: contentBlock }], 2, null, 12000);
+
+    // 응답이 "카피 목록 + ===HTML=== 구분선 + HTML" 순서로 온다. 카피 목록은 참고용으로 화면에
+    // 따로 보여주고, HTML 부분만 뽑아서 렌더링한다. (구분선이 안 보이면 통째로 HTML로 간주 — 예전
+    // 방식으로 응답이 왔을 때를 대비한 안전장치)
+    const splitIdx = raw.indexOf('===HTML===');
+    const copyListText = splitIdx >= 0 ? raw.slice(0, splitIdx).trim() : '';
+    const htmlPart = splitIdx >= 0 ? raw.slice(splitIdx + '===HTML==='.length) : raw;
+    let html = htmlPart.replace(/```html|```/g, '').trim();
+
+    const copyPreviewEl = document.getElementById('cnCopyPreview');
+    if (copyListText) {
+      copyPreviewEl.style.display = 'block';
+      copyPreviewEl.innerHTML = `<p style="font-size:12px; font-weight:700; color:var(--brass); margin:0 0 8px;">카드별 카피 초안 (독자 속마음 → 헤드라인 흐름)</p><pre style="white-space:pre-wrap; font-family:inherit; font-size:12.5px; line-height:1.7; color:var(--paper-dim); margin:0;">${escapeHtml(copyListText)}</pre>`;
+    } else {
+      copyPreviewEl.style.display = 'none';
+      copyPreviewEl.innerHTML = '';
+    }
 
     // 사진 자리(cn-photo)를 실제 Unsplash 사진으로 채운다. 나중에 "이 사진 마음에 안 들면 바꾸기"가
     // 가능하도록, 슬롯마다 고유 id(cn-photo-0, cn-photo-1...)를 붙여서 나중에 그 자리만 골라 교체한다.
@@ -4805,15 +4900,18 @@ async function regenerateSingleThemeCard() {
     const currentHtml = target.outerHTML;
     const system = cnDesignSystemPrompt(themeKey) + `
 
-[지금은 카드뭉치 전체가 아니라 이 카드 딱 1장만 다시 그린다]
+[지금은 카드뭉치 전체가 아니라 이 카드 딱 1장만 다시 그린다 — 위의 "최종 출력 순서"(카피 목록 + ===HTML=== 구분선)는 이번엔 적용하지 않는다]
 아래는 지금 이 카드의 현재 HTML이다 (사진 자리는 이미 실제 이미지 URL로 채워져 있을 수 있다 — 사진을 새로 바꾸고 싶다는 지시가 없으면 기존 이미지 URL을 그대로 유지한다):
 ${currentHtml}
 
 사용자의 수정 지시사항: ${instruction}
 
-다른 카드들과 테마·색·페이지번호 형식(예: "0N / 총장수")·워터마크는 그대로 유지하고, 지시사항만 정확히 반영해서 이 카드 1장의 <section>...</section> 코드만 출력해라. 감싸는 바깥 div 없이 <section> 하나만, 다른 설명이나 코드블록 기호 없이 출력한다.`;
+다른 카드들과 테마·색·페이지번호 형식(예: "0N / 총장수")·워터마크는 그대로 유지하고, 지시사항만 정확히 반영해서 이 카드 1장의 <section>...</section> 코드만 출력해라. 카피 목록이나 "===HTML===" 구분선 없이, 감싸는 바깥 div도 없이 <section> 하나만, 다른 설명이나 코드블록 기호 없이 출력한다.`;
     const raw = await callClaude(system, [{ role: 'user', content: '위 지시사항대로 이 카드를 다시 그려줘.' }], 2, null, 4000);
-    let newHtml = raw.replace(/```html|```/g, '').trim();
+    // 혹시 모델이 그래도 "===HTML===" 구분선을 붙여 보내면 방어적으로 그 뒤만 취한다
+    const splitIdx = raw.indexOf('===HTML===');
+    const rawHtmlPart = splitIdx >= 0 ? raw.slice(splitIdx + '===HTML==='.length) : raw;
+    let newHtml = rawHtmlPart.replace(/```html|```/g, '').trim();
 
     // 새로 생긴 사진 자리가 있으면(사진을 바꿔달라는 지시였을 경우) 채운다
     const photoSlotRe = /<div class="cn-photo" data-photo-query="([^"]*)"[^>]*><\/div>/g;

@@ -28,7 +28,7 @@ module.exports = async function handler(req, res) {
   if (!messages) {
     return res.status(400).json({ error: 'messages가 필요합니다.' });
   }
-  const safeMaxTokens = Math.min(Math.max(parseInt(max_tokens, 10) || 2048, 256), 8000);
+  const safeMaxTokens = Math.min(Math.max(parseInt(max_tokens, 10) || 2048, 256), 16000);
   const safeModel = ALLOWED_MODELS.includes(model) ? model : 'claude-sonnet-4-6';
 
   try {
