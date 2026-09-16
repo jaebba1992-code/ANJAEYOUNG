@@ -4560,7 +4560,7 @@ const CN_THEMES = {
   G: { label: '아이보리 미니멀', dark: '#1A1A1A', box: '#242424', accent: '#C8A24A', light: '#FAF8F3', lightText: '#1A1A1A', lightAccentText: '#8A6D2E' }
 };
 
-function cnDesignSystemPrompt(themeKey, cardCountHint) {
+function cnDesignSystemPrompt(themeKey, cardCountHint, htmlOnly) {
   const t = CN_THEMES[themeKey];
   const styleNoteBlock = window.__cnStyleNote
     ? `\n\n[참고 스타일 노트 — 사용자가 업로드한 예시 카드뉴스에서 뽑은 디자인 취향. 내용(문구·수치)은 이 노트와 무관하게 사용자가 준 [내용]만 쓰고, 아래는 어디까지나 톤·레이아웃 취향 참고용이다]\n${window.__cnStyleNote}`
@@ -4766,8 +4766,9 @@ cn-photo 사진 자리 div는 반드시 position:absolute; inset:0 이어야 하
 하나라도 걸리면 고친 뒤 최종본만 줘라.
 
 ====================
-최종 출력 순서 (반드시 이 순서로, 둘 다 출력한다)
+최종 출력 순서
 ====================
+${htmlOnly ? `사용자 메시지에 카드별 카피(독자 속마음·헤드라인·연결 문장)가 이미 확정되어 주어진다. 그 문장을 그대로 써서 디자인 HTML만 출력해라 — 카피 목록을 다시 쓰지 않는다. 다른 설명, 마크다운 코드블록 기호 없이, <div style="display:flex...">로 시작해서 </div>로 끝나는 HTML 코드만 출력한다.` : `(반드시 이 순서로, 둘 다 출력한다)
 1) 먼저 아래 형식으로 카드별 카피 목록을 일반 텍스트로 출력한다 (마크다운 헤더나 코드블록 기호 없이, 각 카드마다 4줄):
 카드 N
 독자 속마음: ...
@@ -4775,7 +4776,36 @@ cn-photo 사진 자리 div는 반드시 position:absolute; inset:0 이어야 하
 연결 문장: ... (없으면 "없음")
 
 2) 그 목록 바로 다음 줄에 정확히 "===HTML===" 이라고만 쓴 구분선을 넣는다.
-3) 그 다음에 위 규칙대로 만든 카드뉴스 HTML을 출력한다 (<div style="display:flex...">로 시작해서 </div>로 끝나는 코드만, 다른 설명이나 코드블록 기호 없이).`+styleNoteBlock;
+3) 그 다음에 위 규칙대로 만든 카드뉴스 HTML을 출력한다 (<div style="display:flex...">로 시작해서 </div>로 끝나는 코드만, 다른 설명이나 코드블록 기호 없이).`}`+styleNoteBlock;
+}
+
+// 카피(헤드라인)만 먼저 짧게 뽑는 1단계용 프롬프트. 디자인 규칙 없이 카피 규칙만 넘겨서, 응답을
+// 짧고 빠르게 받는다 — 이렇게 "카피 확정 → 디자인" 두 번의 요청으로 나누면 한 번의 요청이 너무
+// 오래 걸려서 서버 시간제한에 걸려 취소되는 걸 막을 수 있다.
+function cnCopyOnlyPrompt(cardCountHint) {
+  return `너는 인스타그램 카드뉴스 카피라이터다. 아래 규칙대로 카드별 카피(헤드라인)만 먼저 짜라. 디자인은 이번 단계에서 하지 않는다.
+
+카드 장수: ${cardCountHint}장 내외.
+
+[내용]에서 가장 강한 숫자 1개를 고른다 → 커버 후킹과 핵심 숫자 카드의 주인공.
+카드 구성: 커버 → 문제 제기(수치 2개) → 전환 질문(선택) → 핵심 구조 → 추가 혜택(조건+결과) → 핵심 숫자 1장(다른 정보 금지) → 실제 예시(투입→결과→차액 3블록) → 2열 비교 → 반론 처리(선택) → CTA. 고정 장수를 억지로 채우지 말고 필요한 것만 쓴다.
+
+카피 규칙:
+1) 헤드라인에 쓰면 안 되는 것: 상품 용어 그대로("공시이율", "해약환급률" 등 — 이건 디자인 단계에서 박스 라벨로만 쓴다), 설명형 어미("~입니다"), 기능 나열.
+2) 헤드라인은 이 4가지 중 하나로 변환한다: 사람 등장("설계사들이 조용하게 준비하는") / 손실 감각("10년 뒤 이 차이가 뼈아프다") / 반전("적금이 안전하다는 착각") / 질문("왜 아직 원화로만 모으세요?").
+3) 정보는 헤드라인이 아니라 박스 라벨·수치로 내린다. 헤드라인은 감정, 박스는 용어와 사실.
+4) 카드마다 "읽는 사람의 속마음"을 먼저 정하고, 그 질문에 답하는 헤드라인을 써라.
+5) 카드 끝에 다음 장을 궁금하게 만드는 연결 문장을 최소 3장에 넣는다("그런데 여기서 하나가 더 붙습니다"). CTA 카드는 제외.
+6) 한 문장 20자 이내, 헤드라인 한 줄 12자 이내(2줄 기본, 3줄까지만). 형용사보다 숫자. 금지어: 무조건, 확정, 최고, 보장, 100%, 저절로.
+7) 커버 카드에는 사진에 어울리는 영어 검색어(photo_query)도 같이 정한다.
+
+출력 형식 — 아래만 출력한다, 다른 설명 없이:
+카드 N (레이아웃유형: A스택형/B초대형숫자형/C대립형/D액션형 중 하나)
+독자 속마음: ...
+헤드라인: ...
+박스 라벨/수치 메모: ... (이 카드에 들어갈 용어·수치를 간단히, 디자인 단계에서 참고용)
+연결 문장: ... (없으면 "없음")
+photo_query: ... (커버 카드에만, 영어 2~3단어)`;
 }
 
 async function generateThemeCardNews() {
@@ -4808,16 +4838,11 @@ ${content}
 ---${salonBlock ? `\n\n${salonBlock}\n이 화법 톤을 CTA(마지막) 카드의 행동 버튼 문구·저장 트리거 문구에 참고해서 자연스럽게 녹여라. 통째로 베끼지 말고 짧은 카드뉴스 문구 길이에 맞게 압축한다.` : ''}`;
 
   try {
-    const system = cnDesignSystemPrompt(themeKey, isAuto ? '6~10' : cardCountSel);
-    const raw = await callClaude(system, [{ role: 'user', content: contentBlock }], 2, null, 12000, 'claude-opus-5');
-
-    // 응답이 "카피 목록 + ===HTML=== 구분선 + HTML" 순서로 온다. 카피 목록은 참고용으로 화면에
-    // 따로 보여주고, HTML 부분만 뽑아서 렌더링한다. (구분선이 안 보이면 통째로 HTML로 간주 — 예전
-    // 방식으로 응답이 왔을 때를 대비한 안전장치)
-    const splitIdx = raw.indexOf('===HTML===');
-    const copyListText = splitIdx >= 0 ? raw.slice(0, splitIdx).trim() : '';
-    const htmlPart = splitIdx >= 0 ? raw.slice(splitIdx + '===HTML==='.length) : raw;
-    let html = htmlPart.replace(/```html|```/g, '').trim();
+    statusEl.textContent = '';
+    btn.textContent = '1/2 카피(헤드라인) 짜는 중...';
+    const cardCountHint = isAuto ? '6~10' : cardCountSel;
+    const copySystem = cnCopyOnlyPrompt(cardCountHint);
+    const copyListText = (await callClaude(copySystem, [{ role: 'user', content: contentBlock }], 2, null, 2500, 'claude-opus-5')).trim();
 
     const copyPreviewEl = document.getElementById('cnCopyPreview');
     if (copyListText) {
@@ -4827,6 +4852,12 @@ ${content}
       copyPreviewEl.style.display = 'none';
       copyPreviewEl.innerHTML = '';
     }
+
+    btn.textContent = '2/2 확정된 카피로 디자인 그리는 중... (최대 1~2분)';
+    const system = cnDesignSystemPrompt(themeKey, cardCountHint, true);
+    const designPrompt = `${contentBlock}\n\n[확정된 카피 — 이 헤드라인·독자 속마음·연결 문장·레이아웃 유형을 그대로 써서 디자인만 만들어라. 카피를 다시 짓지 마라]\n${copyListText}`;
+    const raw = await callClaude(system, [{ role: 'user', content: designPrompt }], 2, null, 10000, 'claude-opus-5');
+    let html = raw.replace(/```html|```/g, '').trim();
 
     // 사진 자리(cn-photo)를 실제 Unsplash 사진으로 채운다. 나중에 "이 사진 마음에 안 들면 바꾸기"가
     // 가능하도록, 슬롯마다 고유 id(cn-photo-0, cn-photo-1...)를 붙여서 나중에 그 자리만 골라 교체한다.
