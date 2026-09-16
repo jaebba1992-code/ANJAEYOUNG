@@ -1,5 +1,6 @@
 const { getSupabase } = require('./_supabaseClient');
 const { checkAdminPassword } = require('./_auth');
+const { hashPassword, generateToken } = require('./_userAuth');
 
 const ACTIVE_WINDOW_MS = 3 * 60 * 1000; // 최근 3분 안에 하트비트가 있었으면 "지금 접속 중"으로 간주
 
@@ -25,9 +26,22 @@ module.exports = async function handler(req, res) {
     }
 
     if (req.method === 'POST') {
-      // action: 'approve' | 'reject' | 'setRole'
+      // action: 'approve' | 'reject' | 'setRole' | 'resetPassword'
       const { id, action, role } = req.body || {};
       if (!id || !action) return res.status(400).json({ error: 'id와 action이 필요합니다.' });
+
+      if (action === 'resetPassword') {
+        // 이메일 발송 기능이 없어서, 관리자가 임시 비밀번호를 직접 만들어서 본인에게 따로(카톡/문자 등) 전달하는 방식.
+        // 이 임시 비밀번호는 응답에 딱 한 번만 담겨 나가고, 서버엔 해시로만 저장돼서 평문으로는 남지 않는다.
+        const tempPassword = generateToken().slice(0, 10);
+        const { hash, salt } = hashPassword(tempPassword);
+        const { error: pwErr } = await supabase.from('app_users').update({ password_hash: hash, password_salt: salt }).eq('id', id);
+        if (pwErr) throw pwErr;
+        // 이 계정의 기존 로그인 세션은 전부 끊어서, 임시 비밀번호를 전달받기 전까지 예전 비밀번호로는 못 쓰게 한다
+        await supabase.from('app_user_sessions').delete().eq('user_id', id);
+        return res.status(200).json({ ok: true, tempPassword });
+      }
+
       const update = {};
       if (action === 'approve') { update.status = 'approved'; update.approved_at = new Date().toISOString(); }
       else if (action === 'reject') { update.status = 'rejected'; }

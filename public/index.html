@@ -738,6 +738,18 @@
       <p style="text-align:center; margin-top:16px; font-size:13px;">
         <a href="#" id="showRegisterLink" style="color:var(--brass);">계정이 없으신가요? 회원가입</a>
       </p>
+      <p style="text-align:center; margin-top:8px; font-size:12px;">
+        <a href="#" id="showForgotPwLink" style="color:var(--paper-mute); text-decoration:underline;">비밀번호를 잊으셨나요?</a>
+      </p>
+    </div>
+
+    <div id="forgotPwView" style="display:none;">
+      <p style="font-size:14px; color:var(--paper-dim); margin:0 0 14px; line-height:1.6;">
+        이 앱은 이메일로 재설정 링크를 보내는 기능이 없어요. 관리자에게 본인 이메일을 알려주시고 비밀번호 초기화를 요청해주세요 — 관리자가 임시 비밀번호를 만들어서 따로(카톡/문자 등) 전달해드릴 거예요. 로그인하신 뒤엔 바로 원하는 비밀번호로 바꾸실 수 있어요.
+      </p>
+      <p style="text-align:center; margin-top:16px; font-size:13px;">
+        <a href="#" id="backToLoginFromForgotLink" style="color:var(--brass);">← 로그인으로 돌아가기</a>
+      </p>
     </div>
 
     <div id="registerView" style="display:none;">
@@ -768,6 +780,19 @@
       <button type="button" id="usageStatsCloseBtn" style="background:none; border:none; font-size:18px; color:var(--muted0); cursor:pointer; line-height:1;">×</button>
     </div>
     <div id="usageStatsBody"></div>
+  </div>
+</div>
+
+<div id="changePwModal" style="position:fixed; inset:0; background:rgba(10,46,34,0.45); z-index:997; display:none; align-items:center; justify-content:center;">
+  <div style="width:100%; max-width:360px; padding:26px 28px; background:var(--card); border-radius:var(--r-card); box-shadow:var(--sh-card);">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px;">
+      <p style="font-size:15px; font-weight:700; color:var(--ink0); margin:0;">비밀번호 변경</p>
+      <button type="button" id="changePwCloseBtn" style="background:none; border:none; font-size:18px; color:var(--muted0); cursor:pointer; line-height:1;">×</button>
+    </div>
+    <input type="password" id="changePwCurrentInput" placeholder="현재 비밀번호" style="width:100%; background:var(--panel-2); border:1px solid var(--line); border-radius:4px; color:var(--ink0); padding:11px 13px; font-size:14px; margin-bottom:10px; box-sizing:border-box;">
+    <input type="password" id="changePwNewInput" placeholder="새 비밀번호 (6자 이상)" style="width:100%; background:var(--panel-2); border:1px solid var(--line); border-radius:4px; color:var(--ink0); padding:11px 13px; font-size:14px; margin-bottom:12px; box-sizing:border-box;">
+    <button class="generate" id="changePwSubmitBtn" style="width:100%;">변경하기</button>
+    <p id="changePwStatus" style="font-size:12.5px; margin-top:10px; text-align:center;"></p>
   </div>
 </div>
 
@@ -810,7 +835,7 @@
       </button>
       <div style="flex:1;">
         <div class="sb-app-name">안재영지사</div>
-        <div class="sb-account"><span id="sbLoggedInName"></span> <a href="#" id="sbLogoutLink" style="color:var(--paper-mute); text-decoration:underline; margin-left:4px;">로그아웃</a></div>
+        <div class="sb-account"><span id="sbLoggedInName"></span> <a href="#" id="sbChangePwLink" style="color:var(--paper-mute); text-decoration:underline; margin-left:4px;">비밀번호 변경</a> · <a href="#" id="sbLogoutLink" style="color:var(--paper-mute); text-decoration:underline;">로그아웃</a></div>
       </div>
       <button type="button" id="adminGearBtn" title="관리 (비밀번호 필요)" style="background:transparent; border:none; cursor:pointer; padding:6px; border-radius:8px; display:flex; align-items:center; opacity:0.6;">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 15a3 3 0 100-6 3 3 0 000 6z" stroke="currentColor" stroke-width="2"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 005 15a1.65 1.65 0 00-1.51-1H3.4a2 2 0 010-4h.09A1.65 1.65 0 005 8.6a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09A1.65 1.65 0 0015 4.6a1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019 8.6a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09A1.65 1.65 0 0019.4 15z" stroke="currentColor" stroke-width="1.6"/></svg>
@@ -1540,23 +1565,21 @@
           </div>
         </div>
         <div class="row">
-          <div class="field"><label>상품명</label><input type="text" id="cnProductInput" placeholder="예: AIA생명 달러연금"></div>
+          <div class="field">
+            <label>참고할 예시 카드뉴스 이미지 (선택) <span class="opt">디자인 스타일만 참고해요 — 내용은 절대 베끼지 않아요</span></label>
+            <input type="file" id="cnStyleRefInput" accept="image/*" multiple style="font-size:12px; color:var(--paper-dim);">
+            <button type="button" class="mini-btn" id="cnStyleRefAnalyzeBtn" style="margin-left:8px;">스타일 분석하기</button>
+            <p id="cnStyleRefStatus" style="font-size:11.5px; color:var(--paper-mute); margin-top:6px;"></p>
+          </div>
+        </div>
+        <div class="row">
           <div class="field"><label>워터마크</label><input type="text" id="cnWatermarkInput" value="보험즈" placeholder="예: 보험즈 또는 @bohum.z"></div>
         </div>
         <div class="row">
-          <div class="field"><label>핵심 수치 <span class="opt">헤드라인·초대형 숫자 카드에 쓰여요</span></label><textarea id="cnNumberInput" rows="2" placeholder="예: 미국 기준금리 +1~1.5% 복리, 월 20만원부터"></textarea></div>
-        </div>
-        <div class="row">
-          <div class="field"><label>실제 예시 계산</label><textarea id="cnExampleInput" rows="3" placeholder="예: 원금 3,600만원(월 20만원×15년) → 20년 후 약 5,200만원 → 차액 약 1,600만원 (예시 수치)"></textarea></div>
-        </div>
-        <div class="row">
-          <div class="field"><label>비교 포인트 (타사 vs 우리)</label><textarea id="cnCompareInput" rows="2" placeholder="예: 타사는 원화 공시이율 2%대, 우리는 달러 자산으로 미국 금리 연동"></textarea></div>
-        </div>
-        <div class="row">
-          <div class="field"><label>CTA 문구</label><input type="text" id="cnCtaInput" placeholder="예: 무료 시뮬레이션 받아보기, 저장 후 상담 문의"></div>
-        </div>
-        <div class="row">
-          <div class="field"><label>추가로 반영할 내용 (선택)</label><textarea id="cnExtraInput" rows="2" placeholder="자유롭게 추가 지침을 적어주세요"></textarea></div>
+          <div class="field">
+            <label>카드뉴스 내용 <span class="opt">상품명, 핵심 수치, 예시 계산, 비교 포인트, CTA 문구 등 자유롭게 적어주세요 — 어떤 보험 상품이든 상관없어요. AI가 이 내용을 8장 구성에 맞게 알아서 나눠 담아요</span></label>
+            <textarea id="cnContentInput" rows="10" placeholder="예: 상품명 - AIA생명 달러연금 / 핵심 수치 - 미국 기준금리 +1~1.5% 복리, 월 20만원부터 / 실제 예시 - 원금 3,600만원(월 20만원×15년) → 20년 후 약 5,200만원 → 차액 약 1,600만원 (예시 수치) / 비교 포인트 - 타사는 원화 공시이율 2%대, 우리는 달러 자산으로 미국 금리 연동 / CTA - 무료 시뮬레이션 받아보기, 저장 후 상담 문의&#10;&#10;※ 형식은 자유예요. 항목을 안 나눠도 되고, 수치가 없는 상품이면 그냥 특징·장점·설명 위주로 적어도 돼요."></textarea>
+          </div>
         </div>
         <button class="generate" id="cnGenBtn">테마 카드뉴스 생성하기</button>
         <p id="cnGenStatus" style="font-size:12px; color:var(--paper-mute); margin-top:10px;"></p>
@@ -1573,6 +1596,7 @@
         </div>
       </div>
       <div id="cnPhotoControls" style="margin-bottom:16px;"></div>
+      <div id="cnCardEditControls" style="margin-bottom:16px;"></div>
       <div id="cnPreviewWrap" style="overflow-x:auto; padding:20px 0;"></div>
     </div>
 
@@ -1893,7 +1917,15 @@
 
   <div id="adminTab" style="display:none;">
 
-  <div class="panel">
+  <div style="position:sticky; top:0; z-index:5; background:var(--bg, #F7F5F0); padding:10px 0 14px; margin-bottom:6px; display:flex; gap:8px; flex-wrap:wrap; border-bottom:1px solid var(--line);">
+    <button type="button" class="mini-btn admin-group-btn" data-group-filter="all" style="background:var(--brass-dim); color:var(--brass);">전체</button>
+    <button type="button" class="mini-btn admin-group-btn" data-group-filter="members">회원·계정</button>
+    <button type="button" class="mini-btn admin-group-btn" data-group-filter="notice">안내·공지</button>
+    <button type="button" class="mini-btn admin-group-btn" data-group-filter="data">자료 관리</button>
+    <button type="button" class="mini-btn admin-group-btn" data-group-filter="logs">현황·기록</button>
+  </div>
+
+  <div class="panel" data-admin-group="members">
     <div class="result-head" style="cursor:pointer;" id="usersAdminToggle">
       <p class="panel-title" style="border:none; padding:0; margin:0;">회원 승인 · 접속 현황 <span style="color:var(--paper-mute); font-weight:400; font-size:12px;">— 가입 승인/거절, 지금 누가 접속 중인지 확인할 수 있어요</span></p>
       <span class="copy-btn" id="usersAdminToggleBtn">펼치기</span>
@@ -1913,7 +1945,7 @@
     </div>
   </div>
 
-  <div class="panel">
+  <div class="panel" data-admin-group="notice">
     <div class="result-head" style="cursor:pointer;" id="searchHintAdminToggle">
       <p class="panel-title" style="border:none; padding:0; margin:0;">보험 Chat 안내 문구 관리 <span style="color:var(--paper-mute); font-weight:400; font-size:12px;">— 보험 Chat 탭 맨 위에 뜨는 안내 박스 내용이에요</span></p>
       <span class="copy-btn" id="searchHintAdminToggleBtn">펼치기</span>
@@ -1936,7 +1968,7 @@
     </div>
   </div>
 
-  <div class="panel">
+  <div class="panel" data-admin-group="data">
     <div class="result-head" style="cursor:pointer;" id="surgeryClassAdminToggle">
       <p class="panel-title" style="border:none; padding:0; margin:0;">종수술 분류(1~3·1~5·1~7·1~8종 등) 자료 관리 <span style="color:var(--paper-mute); font-weight:400; font-size:12px;">— 특정 보험사 상품이 아니라 "이 수술은 몇 종이다"를 정하는 업계 공통 심사 분류 기준표예요. "이 수술 몇 종이야?" 질문에 가장 먼저 이 자료를 찾아봐요</span></p>
       <span class="copy-btn" id="surgeryClassAdminToggleBtn">펼치기</span>
@@ -1962,7 +1994,7 @@
     </div>
   </div>
 
-  <div class="panel">
+  <div class="panel" data-admin-group="data">
     <div class="result-head" style="cursor:pointer;" id="surgeryPkgAdminToggle">
       <p class="panel-title" style="border:none; padding:0; margin:0;">N대수술비 · N대질병 자료 관리 <span style="color:var(--paper-mute); font-weight:400; font-size:12px;">— 약관과 분류표(수술명 또는 질병명)를 파일명으로 짝지어 올리면 자동으로 매칭해서 등록해요</span></p>
       <span class="copy-btn" id="surgeryPkgAdminToggleBtn">펼치기</span>
@@ -1989,7 +2021,7 @@
     </div>
   </div>
 
-  <div class="panel">
+  <div class="panel" data-admin-group="notice">
     <div class="result-head" style="cursor:pointer;" id="announcementAdminToggle">
       <p class="panel-title" style="border:none; padding:0; margin:0;">공지사항 관리 <span style="color:var(--paper-mute); font-weight:400; font-size:12px;">— 여기서 저장하면 다음에 접속하는 지사원들에게 팝업으로 보여요</span></p>
       <span class="copy-btn" id="announcementAdminToggleBtn">펼치기</span>
@@ -2019,7 +2051,7 @@
     </div>
   </div>
 
-  <div class="panel">
+  <div class="panel" data-admin-group="data">
     <div class="result-head" style="cursor:pointer;" id="recoUploadToggle">
       <p class="panel-title" style="border:none; padding:0; margin:0;">이번 달 추천 상품 자료(소식지) 업로드 <span style="color:var(--paper-mute); font-weight:400; font-size:12px;">— 보험사 소식지를 붙여넣거나 PPT/PDF로 첨부하면 AI가 항목별로 정리해서 저장해요. 여기서 저장한 내용은 보험 Chat 검색에도 같이 쓰여요</span></p>
       <span class="copy-btn" id="recoUploadToggleBtn">펼치기</span>
@@ -2045,7 +2077,7 @@
     </div>
   </div>
 
-  <div class="panel">
+  <div class="panel" data-admin-group="logs">
     <div class="result-head" style="cursor:pointer;" id="adminHistoryToggle">
       <p class="panel-title" style="border:none; padding:0; margin:0;">팀 전체 작업 기록 <span style="color:var(--paper-mute); font-weight:400; font-size:12px;">— 누가 무엇을 만들었는지 관리자만 확인할 수 있어요</span></p>
       <span class="copy-btn" id="adminHistoryToggleBtn">펼치기</span>
@@ -2078,7 +2110,7 @@
     </div>
   </div>
 
-  <div class="panel">
+  <div class="panel" data-admin-group="logs">
     <div class="result-head" style="cursor:pointer;" id="adminVisitsToggle">
       <p class="panel-title" style="border:none; padding:0; margin:0;">방문 기록 <span style="color:var(--paper-mute); font-weight:400; font-size:12px;">— 누가 언제 몇 번 왔는지 관리자만 확인할 수 있어요</span></p>
       <span class="copy-btn" id="adminVisitsToggleBtn">펼치기</span>
@@ -2090,7 +2122,7 @@
     </div>
   </div>
 
-  <div class="panel">
+  <div class="panel" data-admin-group="data">
     <div class="result-head" style="cursor:pointer;" id="libraryToggle">
       <p class="panel-title" style="border:none; padding:0; margin:0;">내 출처자료 라이브러리 <span style="color:var(--paper-mute); font-weight:400; font-size:12px;">— 자주 쓰는 근거자료를 저장해두면 다음부터 자동으로 먼저 찾아써요</span></p>
       <span class="copy-btn" id="libraryToggleBtn">펼치기</span>
@@ -2352,6 +2384,16 @@ document.getElementById('showLoginLink').addEventListener('click', (e) => {
   document.getElementById('registerView').style.display = 'none';
   document.getElementById('loginView').style.display = 'block';
 });
+document.getElementById('showForgotPwLink').addEventListener('click', (e) => {
+  e.preventDefault();
+  document.getElementById('loginView').style.display = 'none';
+  document.getElementById('forgotPwView').style.display = 'block';
+});
+document.getElementById('backToLoginFromForgotLink').addEventListener('click', (e) => {
+  e.preventDefault();
+  document.getElementById('forgotPwView').style.display = 'none';
+  document.getElementById('loginView').style.display = 'block';
+});
 document.getElementById('pendingBackBtn').addEventListener('click', () => {
   document.getElementById('pendingView').style.display = 'none';
   document.getElementById('loginView').style.display = 'block';
@@ -2463,6 +2505,46 @@ function startSessionHeartbeat() {
 document.getElementById('sbLogoutLink').addEventListener('click', (e) => {
   e.preventDefault();
   if (confirm('로그아웃할까요?')) logoutUser();
+});
+
+/* ===================== 비밀번호 변경 (본인) ===================== */
+document.getElementById('sbChangePwLink').addEventListener('click', (e) => {
+  e.preventDefault();
+  document.getElementById('changePwCurrentInput').value = '';
+  document.getElementById('changePwNewInput').value = '';
+  document.getElementById('changePwStatus').textContent = '';
+  document.getElementById('changePwModal').style.display = 'flex';
+});
+document.getElementById('changePwCloseBtn').addEventListener('click', () => {
+  document.getElementById('changePwModal').style.display = 'none';
+});
+document.getElementById('changePwSubmitBtn').addEventListener('click', async () => {
+  const btn = document.getElementById('changePwSubmitBtn');
+  const statusEl = document.getElementById('changePwStatus');
+  const currentPassword = document.getElementById('changePwCurrentInput').value;
+  const newPassword = document.getElementById('changePwNewInput').value;
+  if (!currentPassword || !newPassword) { statusEl.style.color = 'var(--seal)'; statusEl.textContent = '현재 비밀번호와 새 비밀번호를 모두 입력해주세요.'; return; }
+  btn.disabled = true;
+  statusEl.style.color = 'var(--muted0)';
+  statusEl.textContent = '변경하는 중...';
+  try {
+    const token = localStorage.getItem('ins_user_token');
+    const res = await fetch('/api/user-change-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-user-token': token || '' },
+      body: JSON.stringify({ currentPassword, newPassword })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || '변경 실패');
+    statusEl.style.color = 'var(--green0, #2f7a4d)';
+    statusEl.textContent = '변경됐어요!';
+    setTimeout(() => { document.getElementById('changePwModal').style.display = 'none'; }, 1200);
+  } catch (e) {
+    statusEl.style.color = 'var(--seal)';
+    statusEl.textContent = e.message;
+  } finally {
+    btn.disabled = false;
+  }
 });
 
 attemptSessionResume();
@@ -3385,6 +3467,22 @@ async function openAdminTab() {
 }
 document.getElementById('adminGearBtn').addEventListener('click', openAdminTab);
 document.getElementById('mobileAdminBtn').addEventListener('click', openAdminTab);
+
+// 관리 탭 항목이 많아서 스크롤이 길어지는 문제 — 카테고리 버튼으로 원하는 것만 보이게 필터링한다.
+// 기존 펼치기/접기 구조는 그대로 두고, 패널 자체를 통째로 숨기는 것만 추가한다.
+document.querySelectorAll('.admin-group-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const filter = btn.dataset.groupFilter;
+    document.querySelectorAll('.admin-group-btn').forEach(b => {
+      const active = b === btn;
+      b.style.background = active ? 'var(--brass-dim)' : '';
+      b.style.color = active ? 'var(--brass)' : '';
+    });
+    document.querySelectorAll('#adminTab [data-admin-group]').forEach(panel => {
+      panel.style.display = (filter === 'all' || panel.dataset.adminGroup === filter) ? '' : 'none';
+    });
+  });
+});
 document.getElementById('announcementAdminToggle').addEventListener('click', () => {
   const body = document.getElementById('announcementAdminBody');
   const btn = document.getElementById('announcementAdminToggleBtn');
@@ -3451,6 +3549,7 @@ async function loadUsersAdmin() {
             </div>
             <div class="lib-item-actions" style="display:flex; gap:6px;">
               <button class="mini-btn" data-role="${u.id}" data-newrole="${u.role === 'admin' ? 'member' : 'admin'}">${u.role === 'admin' ? '일반으로 변경' : '관리자로 지정'}</button>
+              <button class="mini-btn" data-resetpw="${u.id}" data-name="${escapeHtml(u.name)}">비밀번호 초기화</button>
               <button class="mini-btn danger" data-reject="${u.id}">접근 차단</button>
             </div>
           </div>
@@ -3491,6 +3590,16 @@ async function loadUsersAdmin() {
       btn.addEventListener('click', async () => {
         try { await apiPostAdmin('/api/users-admin', { id: Number(btn.dataset.role), action: 'setRole', role: btn.dataset.newrole }); loadUsersAdmin(); }
         catch (e) { alert('처리 실패: ' + e.message); }
+      });
+    });
+    document.querySelectorAll('[data-resetpw]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (!confirm(`"${btn.dataset.name}" 님의 비밀번호를 초기화할까요? 기존 비밀번호는 더 이상 안 되고, 새로 만들어진 임시 비밀번호를 이 화면에서 딱 한 번 보여드려요 — 그걸 그대로 그 분께 따로(카톡/문자 등) 전달해주세요.`)) return;
+        try {
+          const { tempPassword } = await apiPostAdmin('/api/users-admin', { id: Number(btn.dataset.resetpw), action: 'resetPassword' });
+          prompt(`"${btn.dataset.name}" 님께 아래 임시 비밀번호를 전달해주세요 (이 창을 닫으면 다시 볼 수 없어요):`, tempPassword);
+          loadUsersAdmin();
+        } catch (e) { alert('초기화 실패: ' + e.message); }
       });
     });
     document.querySelectorAll('[data-delete]').forEach(btn => {
@@ -4447,16 +4556,21 @@ const CN_THEMES = {
 
 function cnDesignSystemPrompt(themeKey) {
   const t = CN_THEMES[themeKey];
+  const styleNoteBlock = window.__cnStyleNote
+    ? `\n\n[참고 스타일 노트 — 사용자가 업로드한 예시 카드뉴스에서 뽑은 디자인 취향. 내용(문구·수치)은 이 노트와 무관하게 사용자가 준 [내용]만 쓰고, 아래는 어디까지나 톤·레이아웃 취향 참고용이다]\n${window.__cnStyleNote}`
+    : '';
   return `너는 인스타그램 금융 카드뉴스 전문 디자이너다. 아래 규칙을 절대 규칙으로 지켜 HTML 카드뉴스를 만들어라.
 
-1. 캔버스·여백
+1. 캔버스·여백 — 넘침·겹침은 가장 치명적인 실패다
 - 1장 = 1080 × 1350px 고정. box-sizing:border-box, overflow:hidden, flex:none.
 - 안전여백 상하 92px / 좌우 84px. 이 밖으로 글자가 나가면 실패.
-- 카드 내부는 display:flex; flex-direction:column; justify-content:space-between → 상단 / 중앙 / 하단(페이지번호+워터마크) 3구역. 하단이 텅 비는 레이아웃 금지.
+- 카드 루트는 반드시 display:flex; flex-direction:column; justify-content:space-between → 상단(라벨/배지) / 중앙(핵심 콘텐츠) / 하단(페이지번호+워터마크, 독립된 행) 3구역.
+- 중앙 콘텐츠를 감싸는 블록에는 flex:1을 줘서 남는 공간을 그 블록이 채우게 한다. 페이지번호·워터마크 행은 항상 카드 맨 아래 고정된 별도 행이며, 절대 다른 요소가 그 위를 덮거나 겹치면 안 된다.
+- 콘텐츠 총 높이가 1350px(여백 제외 실제 가용 높이 약 1166px)를 넘을 것 같으면, 글자 크기를 줄여서 욱여넣지 말고 카드를 2장으로 쪼개거나 문장 수를 줄여라. 특히 실제 예시처럼 박스가 3개 이상 쌓이는 카드는 항목이 많으면 반드시 2장으로 나눈다.
 - 고정 height·nowrap 금지. 줄바꿈은 <br>로 직접 제어. letter-spacing:-0.03em~-0.045em.
-- 작업 후 모든 카드가 1350px 안에 들어갔는지 확인하고, 넘치면 글자 크기를 줄여 다시 맞춰라.
+- 하단 20% 이상이 텅 비는 카드도 실패다(아래 5번 참조).
 
-2. 타입 스케일 (이 값에서만 고르기)
+2. 타입 스케일 (이 값에서만 고르기) — 특히 수치 박스는 절대 본문 크기로 넣지 않는다
 - 초대형 숫자(카드당 1개) 200~240px / 800
 - 헤드라인 88~112px / 800 / line-height 1.14
 - 서브 강조 52~72px / 800
@@ -4464,10 +4578,12 @@ function cnDesignSystemPrompt(themeKey) {
 - 상단 라벨 30~34px / 800
 - 캡션·출처·페이지번호 28~30px / 700
 - 한 카드에 서로 다른 크기 3~4개를 반드시 쓴다. 비슷한 크기만 나열하면 실패.
+- **수치를 보여주는 모든 박스(핵심 수치, 비교, 예시 금액 등)는 예외 없이 "작은 라벨(30~34px) + 큰 수치(64~88px/800, 이 카드에 초대형 숫자 카드가 따로 없다면 더 커도 됨) + 보조설명(30px)" 3단 구조여야 한다.** "연 3% 내외"처럼 수치를 본문 크기(34~40px)로만 써넣는 것은 실패다. 숫자와 단위(%, 원, 년 등)는 같은 줄에 두되 단위 글자는 숫자의 약 55% 크기로 작게 쓴다.
 - 폰트 Pretendard(이미 로드돼 있음), weight 600/700/800만.
 
 3. 테마 — 이번엔 "${themeKey}. ${t.label}" 하나만 적용한다. 배경은 어두운 카드(${t.dark}, 박스 ${t.box})와 밝은 카드(${t.light}) 2종만 교차하고 포인트색(${t.accent}) 1개만 쓴다. 그라데이션 남용·색 3개 이상 혼용 금지.
 - 밝은 배경에서 포인트색을 본문 글자색으로 쓰지 마라(가독성 문제). 밝은 배경에서는 포인트색을 형광펜 블록(배경)으로 쓰고 글자는 어두운 색(${t.lightText} 또는 ${t.lightAccentText})으로.
+- **리듬**: 밝은 카드와 어두운 카드를 번갈아 배치한다. 연속 3장 이상 같은 배경(둘 다 어둡거나 둘 다 밝은)을 쓰지 않는다.
 
 4. 사진 규칙 (1장 커버는 사진 필수)
 - 커버 카드의 배경 사진 자리에는 정확히 이 태그를 그대로 넣는다: <div class="cn-photo" data-photo-query="영어 검색어 2~3단어" style="position:absolute;inset:0;background:#333"></div> (실제 사진은 나중에 자동으로 채워진다. data-photo-query는 이 카드 주제에 어울리는 영어 키워드로 채운다, 예: "dollar currency finance")
@@ -4475,21 +4591,26 @@ function cnDesignSystemPrompt(themeKey) {
 - 사진 위 텍스트는 100% 불투명 흰색만. 반투명 글자 금지.
 - 커버 구성: 상단 우측 아웃라인 배지 → 하단 블록에 작은 배지 + "Feat. ~" 한 줄 + 가로 구분선 → 헤드라인 3줄(핵심 단어 1개만 포인트색 형광펜 블록) → 후킹 2줄 → 페이지번호 + 워터마크.
 
-5. 레이아웃
-- 수치·조건·비교는 문장으로 늘어놓지 말고 카드형 블록(radius 28~32px, padding 44~56px)에 "작은 라벨 + 큰 수치" 2단으로.
-- 비교는 2열 그리드 — 한쪽 회색(타사), 한쪽 포인트색(우리).
+5. 레이아웃 — 박스 높이·정렬을 정확히 맞춘다 (지금까지 가장 많이 틀린 부분)
+- 수치·조건·비교는 문장으로 늘어놓지 말고 카드형 블록(radius 28~32px, padding 44~56px)에 위 2번의 3단 구조로 넣는다.
+- **한 카드 안에 나란히 놓이는 박스 여러 개는 반드시 높이가 같아야 한다.** 세로로 쌓을 땐 display:grid; grid-auto-rows:1fr; gap:20px 을 쓰고(display:flex로 세로 쌓지 말 것 — flex는 내용물 크기만큼만 높이가 잡혀서 박스마다 높이가 달라지고 특정 박스만 텅 비어 보이는 원인이 된다), 가로로 나란히 놓을 땐 display:grid; grid-template-columns:1fr 1fr; align-items:stretch 를 쓴다.
+- 박스 내부 콘텐츠는 justify-content:center로 세로 중앙 정렬한다. 박스 위쪽에만 글이 몰리고 아래가 빈 채로 남는 것은 실패다.
+- 비교(타사 vs 우리) 카드는 2열 그리드 — 한쪽 회색 박스(타사), 한쪽 포인트색 박스(우리). **항목 라벨(좌측)과 박스(우측)를 같은 grid row에 넣고 align-items:center로 수직 중앙을 맞춘다.** 라벨이 박스보다 위로 떠 있으면 실패. 헤더 행을 포함한 모든 행의 높이를 grid-auto-rows:1fr 로 동일하게 맞춘다.
 - 한 장에 메시지 1개. 4줄 넘으면 카드를 쪼갠다.
-- 하단 좌측 "0N / 총장수", 하단 우측 워터마크 항상 고정.
-- 추정·가정 수치에는 "예시 수치" 고지를 캡션 크기로 작게.
+- 카드마다 "가장 큰 요소"를 딱 하나만 정하고 나머지는 확실히 작게 만든다. 크기가 비슷한 요소 두 개가 한 카드 안에서 시선을 두고 경쟁하면 실패다.
+- **콘텐츠 블록이 중앙 공간을 다 못 채워서 하단에 20% 이상 빈 공간이 남으면, 새로운 요소를 억지로 추가해서 채우지 말고 박스의 padding과 요소 사이 gap을 키워서 자연스럽게 공간을 채운다.**
+- "※ 예시 수치입니다" 같은 추정·가정 고지 문구는 절대 본문 박스 안에 넣지 않는다. 카드 하단, 페이지번호 바로 위에 독립된 한 줄로(28px/600, 불투명 회색) 배치한다. 한 줄에 안 들어가면 문장을 줄여서 반드시 한 줄로 만든다.
+- **사용자가 [내용]에 적은 구체적인 단어(예: "미국 기준금리")를 요약하면서 핵심 수식어를 빼먹지 않는다.** "미국 기준금리"를 그냥 "기준금리"로 줄이는 식으로 정보를 누락시키면 안 된다 — 사용자가 준 표현을 그대로 살려서 쓴다.
 
-6. 카드 구성 — 1 커버(사진) / 2 문제 제기(수치 2개) / 3 핵심 구조 / 4 추가 혜택(조건+결과) / 5 핵심 숫자 1장(초대형) / 6 실제 예시(원금→결과→차액 3블록) / 7 타사 vs 우리 2열 / 8 CTA(상담+저장 유도). 카드 장수를 6장으로 요청받으면 2~7 중 덜 중요한 것부터 통합해서 6장으로 줄인다.
+6. 카드 구성 — 1 커버(사진) / 2 문제 제기(수치 2개) / 3 핵심 구조 / 4 추가 혜택(조건+결과) / 5 핵심 숫자 1장(초대형) / 6 실제 예시(원금→결과→차액 3블록, 항목이 많으면 2장으로 나눔) / 7 타사 vs 우리 2열 / 8 CTA(상담+저장 유도). 카드 장수를 6장으로 요청받으면 2~7 중 덜 중요한 것부터 통합해서 6장으로 줄인다.
 
 7. 출력 형식 — 매우 중요
-- 요청받은 장수만큼 <section> 태그를 만들고, 각각 style="width:1080px;height:1350px;flex:none;box-sizing:border-box;padding:92px 84px;background:[테마 배경색];position:relative;overflow:hidden;color:[텍스트색]" 과 data-screen-label="01 커버" 형식의 속성을 준다.
+- 요청받은 장수만큼 <section> 태그를 만들고, 각각 style="width:1080px;height:1350px;flex:none;box-sizing:border-box;padding:92px 84px;background:[테마 배경색];display:flex;flex-direction:column;justify-content:space-between;position:relative;overflow:hidden;color:[텍스트색]" 과 data-screen-label="01 커버" 형식의 속성을 준다.
 - 모든 스타일 인라인. CSS 클래스·외부 스타일시트·<style> 태그 금지 (cn-photo는 예외로 클래스명만 허용, 스타일은 없어도 됨).
 - 수치는 사용자가 준 값만 쓰고 임의로 만들지 않는다.
 - <section> 여러 개를 display:flex;flex-wrap:wrap;gap:40px 인 하나의 <div>로 감싸서 출력한다.
-- 다른 설명, 마크다운 코드블록 기호 없이, <div style="display:flex...">로 시작해서 </div>로 끝나는 HTML 코드만 출력한다.`;
+- 다른 설명, 마크다운 코드블록 기호 없이, <div style="display:flex...">로 시작해서 </div>로 끝나는 HTML 코드만 출력한다.
+- **출력하기 전에 카드 하나하나를 스스로 점검한다: (1) 콘텐츠 총 높이가 1350px를 넘어 페이지번호와 겹치지 않는지 (2) 하단에 150px 이상 빈 공간이 남지 않는지 (3) 나란히 놓인 박스들의 높이가 같은지. 셋 중 하나라도 어긋나면 그 카드를 고친 뒤에 최종 출력한다.**`+styleNoteBlock;
 }
 
 async function generateThemeCardNews() {
@@ -4497,15 +4618,10 @@ async function generateThemeCardNews() {
   const statusEl = document.getElementById('cnGenStatus');
   const themeKey = document.getElementById('cnThemeSelect').value;
   const cardCount = document.getElementById('cnCardCountSelect').value;
-  const product = document.getElementById('cnProductInput').value.trim();
   const watermark = document.getElementById('cnWatermarkInput').value.trim() || '보험즈';
-  const numberInfo = document.getElementById('cnNumberInput').value.trim();
-  const exampleInfo = document.getElementById('cnExampleInput').value.trim();
-  const compareInfo = document.getElementById('cnCompareInput').value.trim();
-  const ctaText = document.getElementById('cnCtaInput').value.trim();
-  const extraInfo = document.getElementById('cnExtraInput').value.trim();
+  const content = document.getElementById('cnContentInput').value.trim();
 
-  if (!product && !numberInfo && !exampleInfo) { alert('상품명이나 핵심 수치 중 최소 하나는 적어주세요.'); return; }
+  if (!content) { alert('카드뉴스 내용을 적어주세요.'); return; }
 
   btn.disabled = true;
   btn.textContent = '카드뉴스 디자인 중... (최대 1~2분 정도 걸려요)';
@@ -4513,13 +4629,13 @@ async function generateThemeCardNews() {
 
   const contentBlock = `[내용]
 - 카드 장수: ${cardCount}장
-- 상품명: ${product || '(미입력)'}
-- 핵심 수치: ${numberInfo || '(미입력)'}
-- 실제 예시 계산: ${exampleInfo || '(미입력)'}
-- 비교 포인트(타사 vs 우리): ${compareInfo || '(미입력)'}
-- CTA 문구: ${ctaText || '(미입력)'}
 - 워터마크: ${watermark}
-${extraInfo ? '- 추가로 반영할 내용: ' + extraInfo : ''}`;
+
+아래는 사용자가 자유 형식으로 적은 내용이야. 형식이 정해져 있지 않으니, 그 안에서 상품명·핵심 수치·예시·비교 포인트·CTA에 해당할 만한 내용을 네가 직접 파악해서 8장 구성(커버/문제제기/핵심구조/추가혜택/핵심숫자/실제예시/비교/CTA)에 맞게 나눠 담아라. 수치나 예시 계산이 아예 없는 내용이면 해당 카드(핵심 숫자, 실제 예시)는 억지로 숫자를 만들지 말고 그 상품의 특징·장점을 강조하는 카드로 대체해라. 아래 내용에 없는 사실·수치는 지어내지 않는다.
+
+---
+${content}
+---`;
 
   try {
     const system = cnDesignSystemPrompt(themeKey);
@@ -4546,6 +4662,8 @@ ${extraInfo ? '- 추가로 반영할 내용: ' + extraInfo : ''}`;
       const bg = url ? `background-image:url('${url}');background-size:cover;background-position:center` : `background:linear-gradient(135deg,#333,#111)`;
       return `<div class="cn-photo" id="cn-photo-${slotIndex}" data-photo-query="${escapeHtml(q)}" style="position:absolute;inset:0;${bg}"></div>`;
     });
+    window.__cnLastTheme = themeKey;
+    window.__cnLastCardCount = cardCount;
     window.__cnPhotoSlots = queries; // 슬롯별 원래 검색어 기억 (컨트롤 패널 만들 때 씀)
 
     const wrap = document.getElementById('cnPreviewWrap');
@@ -4556,13 +4674,14 @@ ${extraInfo ? '- 추가로 반영할 내용: ' + extraInfo : ''}`;
       wrap.innerHTML = `<div style="display:flex;flex-wrap:wrap;gap:40px;">${html}</div>`;
     }
     renderCnPhotoControls();
+    renderCnCardEditControls();
 
     document.getElementById('cnResultPanel').style.display = 'block';
     document.getElementById('cnResultPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
     statusEl.textContent = '완료! 아래에서 확인하고 PNG로 다운로드하세요.';
 
     await addToHistory({
-      id: Date.now(), topic: product || '테마 카드뉴스', category: '카드뉴스', format: 'card',
+      id: Date.now(), topic: content.slice(0, 30) || '테마 카드뉴스', category: '카드뉴스', format: 'card',
       script: JSON.stringify({ theme: themeKey, html })
     });
   } catch (e) {
@@ -4575,7 +4694,117 @@ ${extraInfo ? '- 추가로 반영할 내용: ' + extraInfo : ''}`;
 }
 document.getElementById('cnGenBtn').addEventListener('click', generateThemeCardNews);
 
+document.getElementById('cnStyleRefAnalyzeBtn').addEventListener('click', async () => {
+  const btn = document.getElementById('cnStyleRefAnalyzeBtn');
+  const statusEl = document.getElementById('cnStyleRefStatus');
+  const files = Array.from(document.getElementById('cnStyleRefInput').files || []);
+  if (!files.length) { alert('참고할 이미지를 먼저 선택해주세요.'); return; }
+  btn.disabled = true;
+  statusEl.textContent = '분석 중...';
+  try {
+    const images = await Promise.all(files.slice(0, 6).map(f => new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result.split(',')[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(f);
+    })));
+    const system = `당신은 인스타그램 카드뉴스 디자인을 분석하는 전문가입니다. 첨부된 이미지(들)은 사용자가 "이런 스타일로 만들어줘"라고 참고용으로 보여준 기존 카드뉴스 예시입니다.
+이 이미지들의 디자인 스타일만 3~6줄로 요약해서 설명하세요 — 색 조합 경향, 박스/카드 모양(모서리 둥글기, 그림자 등), 타이포그래피 위계(어떤 글자가 크고 어떤 게 작은지), 레이아웃 구성 방식(여백, 정렬, 그리드 쓰는 방식) 위주로. 이미지 속 문구·숫자·상품명 같은 실제 내용은 절대 옮겨적지 마세요 — 스타일 특징만 말로 설명합니다. 다른 설명 없이 스타일 노트만 출력하세요.`;
+    const content = images.map(b64 => ({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: b64 } }));
+    content.push({ type: 'text', text: '이 이미지들의 디자인 스타일을 분석해서 스타일 노트로 정리해줘.' });
+    const note = await callClaude(system, [{ role: 'user', content }], 2, null, 800);
+    window.__cnStyleNote = (note || '').trim();
+    statusEl.textContent = window.__cnStyleNote ? `반영됨: "${window.__cnStyleNote.slice(0, 80)}..."` : '분석 결과를 못 받았어요.';
+  } catch (e) {
+    statusEl.textContent = '';
+    alert('분석 실패: ' + e.message);
+  } finally {
+    btn.disabled = false;
+  }
+});
+
 // "자동으로 찾은 사진이 마음에 안 들면" — 슬롯별로 (1) 다른 검색어로 재검색 (2) 직접 업로드, 둘 다 지원한다.
+// 카드 한 장만 골라서 "이 부분 수정해줘"를 적용한다 — 나머지 카드는 그대로 두고 그 한 장만 다시 그려서 교체한다.
+function renderCnCardEditControls() {
+  const el = document.getElementById('cnCardEditControls');
+  const sections = document.querySelectorAll('#cnPreviewWrap section');
+  if (!sections.length) { el.innerHTML = ''; return; }
+  const options = Array.from(sections).map((s, i) => {
+    const label = s.getAttribute('data-screen-label') || `${i + 1}번째 카드`;
+    return `<option value="${i}">${escapeHtml(label)}</option>`;
+  }).join('');
+  el.innerHTML = `
+    <p style="font-size:12px; color:var(--paper-mute); margin:0 0 10px;">특정 카드만 마음에 안 들면, 그 카드를 골라서 수정 지시를 적으면 그 카드만 다시 그려서 바꿔드려요 (다른 카드는 그대로 유지돼요).</p>
+    <div class="row">
+      <div class="field" style="flex:0 0 160px;">
+        <label>수정할 카드</label>
+        <select id="cnEditCardSelect">${options}</select>
+      </div>
+      <div class="field">
+        <label>수정 지시사항</label>
+        <input type="text" id="cnEditInstructionInput" placeholder="예: 하단에 여백이 많이 남으니 박스 padding을 키워서 채워줘 / '미국' 기준금리라고 명시해줘">
+      </div>
+    </div>
+    <button class="mini-btn" id="cnEditCardBtn" style="background:var(--brass-dim); color:var(--brass);">이 카드만 다시 그리기</button>
+    <p id="cnEditStatus" style="font-size:11.5px; color:var(--paper-mute); margin-top:6px;"></p>
+  `;
+  document.getElementById('cnEditCardBtn').addEventListener('click', regenerateSingleThemeCard);
+}
+
+async function regenerateSingleThemeCard() {
+  const idx = Number(document.getElementById('cnEditCardSelect').value);
+  const instruction = document.getElementById('cnEditInstructionInput').value.trim();
+  const statusEl = document.getElementById('cnEditStatus');
+  if (!instruction) { alert('수정 지시사항을 적어주세요.'); return; }
+  const sections = document.querySelectorAll('#cnPreviewWrap section');
+  const target = sections[idx];
+  if (!target) return;
+
+  const btn = document.getElementById('cnEditCardBtn');
+  btn.disabled = true;
+  statusEl.textContent = '다시 그리는 중...';
+  try {
+    const themeKey = window.__cnLastTheme || 'A';
+    const currentHtml = target.outerHTML;
+    const system = cnDesignSystemPrompt(themeKey) + `
+
+[지금은 카드뭉치 전체가 아니라 이 카드 딱 1장만 다시 그린다]
+아래는 지금 이 카드의 현재 HTML이다 (사진 자리는 이미 실제 이미지 URL로 채워져 있을 수 있다 — 사진을 새로 바꾸고 싶다는 지시가 없으면 기존 이미지 URL을 그대로 유지한다):
+${currentHtml}
+
+사용자의 수정 지시사항: ${instruction}
+
+다른 카드들과 테마·색·페이지번호 형식(예: "0N / 총장수")·워터마크는 그대로 유지하고, 지시사항만 정확히 반영해서 이 카드 1장의 <section>...</section> 코드만 출력해라. 감싸는 바깥 div 없이 <section> 하나만, 다른 설명이나 코드블록 기호 없이 출력한다.`;
+    const raw = await callClaude(system, [{ role: 'user', content: '위 지시사항대로 이 카드를 다시 그려줘.' }], 2, null, 4000);
+    let newHtml = raw.replace(/```html|```/g, '').trim();
+
+    // 새로 생긴 사진 자리가 있으면(사진을 바꿔달라는 지시였을 경우) 채운다
+    const photoSlotRe = /<div class="cn-photo" data-photo-query="([^"]*)"[^>]*><\/div>/g;
+    const qMatches = [...newHtml.matchAll(photoSlotRe)];
+    if (qMatches.length) {
+      const q = qMatches[0][1];
+      let url = '';
+      try {
+        const result = await apiGet('/api/unsplash?query=' + encodeURIComponent(q || 'finance'));
+        url = result.url || result.imageUrl || '';
+      } catch (e) { /* 무시 */ }
+      const bg = url ? `background-image:url('${url}');background-size:cover;background-position:center` : `background:linear-gradient(135deg,#333,#111)`;
+      newHtml = newHtml.replace(photoSlotRe, () => `<div class="cn-photo" id="cn-photo-${idx}" data-photo-query="${escapeHtml(q)}" style="position:absolute;inset:0;${bg}"></div>`);
+    }
+
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = newHtml;
+    const newSection = wrapper.querySelector('section') || wrapper.firstElementChild;
+    if (newSection) target.replaceWith(newSection);
+    statusEl.textContent = '완료! 이 카드만 새로 반영됐어요.';
+  } catch (e) {
+    statusEl.textContent = '';
+    alert('수정 실패: ' + e.message);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 function renderCnPhotoControls() {
   const el = document.getElementById('cnPhotoControls');
   const slots = window.__cnPhotoSlots || [];
