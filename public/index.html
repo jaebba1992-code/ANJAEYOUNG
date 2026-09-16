@@ -1390,19 +1390,13 @@
     </div>
 
     <div class="panel">
-      <p class="panel-title">인스타 카드뉴스 생성 <span style="color:var(--paper-mute); font-weight:400; font-size:12px;">— 요청 내용을 적으면 4:5 비율 카드뉴스 이미지 여러 장(zip)을 만들어요</span></p>
+      <p class="panel-title">인스타 카드뉴스 생성 <span style="color:var(--paper-mute); font-weight:400; font-size:12px;">— 내용을 적으면 4:5 카드뉴스 이미지 여러 장(zip)을 만들어요</span></p>
 
-      <div class="row">
-        <div class="field">
-          <label>생성 방식</label>
-          <select id="cardModeSelect">
-            <option value="template" selected>기존 템플릿 (자동 배치, 9종 템플릿)</option>
-            <option value="theme">테마 카드뉴스 — 어두운/밝은 카드 6가지 테마, AI가 직접 HTML로 디자인</option>
-          </select>
-        </div>
-      </div>
+      <select id="cardModeSelect" style="display:none;">
+        <option value="theme" selected>테마 카드뉴스</option>
+      </select>
 
-      <div id="cardTemplateModeFields">
+      <div id="cardTemplateModeFields" style="display:none;">
       <div class="row">
         <div class="field">
           <label>요청 내용 <span class="opt">주제, 훅 문구, 강조하고 싶은 포인트를 자유롭게 적어주세요 — 아래 "예시 카드뉴스 세트"를 올렸다면 비워둬도 괜찮아요</span></label>
@@ -1537,10 +1531,10 @@
       </div>
       </div>
 
-      <button class="generate" id="cardGenBtn">카드뉴스 생성하기</button>
-      <p id="cardGenStatus" style="font-size:12px; color:var(--paper-mute); margin-top:10px;"></p>
+      <button class="generate" id="cardGenBtn" style="display:none;">카드뉴스 생성하기</button>
+      <p id="cardGenStatus" style="display:none; font-size:12px; color:var(--paper-mute); margin-top:10px;"></p>
 
-      <div id="cardThemeModeFields" style="display:none;">
+      <div id="cardThemeModeFields" style="display:block;">
         <p style="font-size:12px; color:var(--paper-mute); line-height:1.7; margin:0 0 14px;">
           어두운 카드 / 밝은 카드 2종이 교차하는 6가지 테마 중 하나를 골라서, AI가 직접 HTML로 카드뉴스를 그려요. 표지엔 자동으로 무료 스톡사진이 들어가요.
         </p>
@@ -1585,6 +1579,32 @@
             <textarea id="cnContentInput" rows="10" placeholder="예: 상품명 - AIA생명 달러연금 / 핵심 수치 - 미국 기준금리 +1~1.5% 복리, 월 20만원부터 / 실제 예시 - 원금 3,600만원(월 20만원×15년) → 20년 후 약 5,200만원 → 차액 약 1,600만원 (예시 수치) / 비교 포인트 - 타사는 원화 공시이율 2%대, 우리는 달러 자산으로 미국 금리 연동 / CTA - 무료 시뮬레이션 받아보기, 저장 후 상담 문의&#10;&#10;※ 형식은 자유예요. 항목을 안 나눠도 되고, 수치가 없는 상품이면 그냥 특징·장점·설명 위주로 적어도 돼요."></textarea>
           </div>
         </div>
+
+        <div style="margin-top:6px; padding-top:16px; border-top:1px solid var(--line);">
+          <p style="font-size:12.5px; color:var(--brass); font-weight:600; margin:0 0 8px;">마지막 장 고정 정보 (심의 문구) <span style="color:var(--paper-mute); font-weight:400;">— 매번 자동으로 마지막(CTA) 카드에 작게 들어가요, 필요하면 수정하세요</span></p>
+          <div class="row">
+            <div class="field">
+              <label>브랜드명</label>
+              <input type="text" id="cnBrandInput" value="보험탈출구">
+            </div>
+          </div>
+          <div class="row">
+            <div class="field">
+              <label>심의필/등록정보</label>
+              <textarea id="cnRegInput" rows="2">프라임에셋 심의필 제2026-08-4461호
+보험설계사 안재영(협회 등록번호 20191192100011호)</textarea>
+            </div>
+          </div>
+          <div class="row">
+            <div class="field">
+              <label>유의사항 문구</label>
+              <textarea id="cnNoticeInput" rows="3">1.질병이력, 연령증가 등으로 가입이 거절되거나 보험료가 인상될 수 있습니다.
+2.가입 상품에 따라 새로운 면책기간 적용 및 보장제한 등 기타 불이익이 발생할 수 있습니다.
+3.보험사 및 상품별로 상이할 수 있으므로, 관련한 세부사항은 반드시 해당 약관을 참조하시기 바랍니다.</textarea>
+            </div>
+          </div>
+        </div>
+
         <button class="generate" id="cnGenBtn">테마 카드뉴스 생성하기</button>
         <p id="cnGenStatus" style="font-size:12px; color:var(--paper-mute); margin-top:10px;"></p>
       </div>
@@ -4851,6 +4871,9 @@ async function generateThemeCardNews() {
   const isAuto = cardCountSel === 'auto';
   const watermark = document.getElementById('cnWatermarkInput').value.trim() || '보험즈';
   const content = document.getElementById('cnContentInput').value.trim();
+  const brandName = document.getElementById('cnBrandInput').value.trim() || '보험탈출구';
+  const regInfo = document.getElementById('cnRegInput').value.trim();
+  const noticeText = document.getElementById('cnNoticeInput').value.trim();
 
   if (!content) { alert('카드뉴스 내용을 적어주세요.'); return; }
 
@@ -4862,6 +4885,12 @@ async function generateThemeCardNews() {
   // CTA 카드 마무리 톤에 참고하도록 넘긴다.
   const salonBlock = findSalonScript();
 
+  const legalBlock = `\n\n[마지막(CTA) 카드에 반드시 작게 들어가야 하는 고정 정보 — 심의 문구]
+브랜드명: ${brandName}
+심의필/등록정보: ${regInfo || '(없음)'}
+유의사항: ${noticeText || '(없음)'}
+이 내용을 마지막 카드 하단, 페이지번호·워터마크보다 위에 아주 작은 글씨(캡션 크기보다 작게, 18~22px/500, 회색)로 넣는다. 줄바꿈은 그대로 유지한다. 디자인을 해치지 않게 눈에 띄지 않는 크기로.`;
+
   const contentBlock = `[내용]
 - 카드 장수: ${isAuto ? '내용 분량에 맞게 6~10장 사이에서 네가 정해라 (억지로 다 채우지 말 것)' : cardCountSel + '장 고정'}
 - 워터마크: ${watermark}
@@ -4870,7 +4899,7 @@ async function generateThemeCardNews() {
 
 ---
 ${content}
----${salonBlock ? `\n\n${salonBlock}\n이 화법 톤을 CTA(마지막) 카드의 행동 버튼 문구·저장 트리거 문구에 참고해서 자연스럽게 녹여라. 통째로 베끼지 말고 짧은 카드뉴스 문구 길이에 맞게 압축한다.` : ''}`;
+---${salonBlock ? `\n\n${salonBlock}\n이 화법 톤을 CTA(마지막) 카드의 행동 버튼 문구·저장 트리거 문구에 참고해서 자연스럽게 녹여라. 통째로 베끼지 말고 짧은 카드뉴스 문구 길이에 맞게 압축한다.` : ''}${legalBlock}`;
 
   try {
     statusEl.textContent = '';
@@ -5116,21 +5145,20 @@ function renderCnPhotoControls() {
   });
 }
 
-document.getElementById('cnDownloadAllBtn').addEventListener('click', async () => {
-  const btn = document.getElementById('cnDownloadAllBtn');
+async function downloadCnZip(btn) {
   const sections = document.querySelectorAll('#cnPreviewWrap section');
   if (!sections.length) { alert('먼저 카드뉴스를 생성해주세요.'); return; }
-  btn.disabled = true;
-  const oldText = btn.textContent;
+  const oldText = btn ? btn.textContent : '';
+  if (btn) btn.disabled = true;
   const zip = new JSZip();
   try {
     for (let i = 0; i < sections.length; i++) {
-      btn.textContent = `이미지로 저장 중... (${i + 1}/${sections.length})`;
+      if (btn) btn.textContent = `이미지로 저장 중... (${i + 1}/${sections.length})`;
       const canvas = await html2canvas(sections[i], { width: 1080, height: 1350, scale: 1, useCORS: true });
       const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
       zip.file(`card_${String(i + 1).padStart(2, '0')}.png`, blob);
     }
-    btn.textContent = 'zip 압축 중...';
+    if (btn) btn.textContent = 'zip 압축 중...';
     const content = await zip.generateAsync({ type: 'blob' });
     const url = URL.createObjectURL(content);
     const a = document.createElement('a');
@@ -5141,10 +5169,11 @@ document.getElementById('cnDownloadAllBtn').addEventListener('click', async () =
   } catch (e) {
     alert('다운로드 실패: ' + e.message + ' (사진이 다른 도메인이라 캡처가 막혔을 수 있어요 — 사진 없이 다시 시도해보세요)');
   } finally {
-    btn.disabled = false;
-    btn.textContent = oldText;
+    if (btn) { btn.disabled = false; btn.textContent = oldText; }
   }
-});
+}
+
+document.getElementById('cnDownloadAllBtn').addEventListener('click', () => downloadCnZip(document.getElementById('cnDownloadAllBtn')));
 
 document.getElementById('cardGenBtn').addEventListener('click', async () => {
   const request = document.getElementById('cardRequestInput').value.trim();
@@ -5363,9 +5392,21 @@ async function renderCardHistory() {
       btn.disabled = true;
       btn.textContent = '만드는 중...';
       try {
-        const result = await apiPost('/api/generate-cardnews', { plan: parsed.plan, accent: parsed.accent, theme: parsed.theme, channelName: parsed.channelName });
-        downloadZipFromBase64(result.base64, parsed.filename || 'cardnews.zip');
-        renderCardCaption(parsed.caption || parsed.prompterScript || '');
+        if (parsed.html) {
+          // 테마 카드뉴스(신규 방식) — HTML을 다시 화면에 그려 넣고, 같은 zip 저장 로직으로 다운로드한다.
+          document.getElementById('cnPreviewWrap').innerHTML = parsed.html;
+          document.getElementById('cnResultPanel').style.display = 'block';
+          window.__cnLastTheme = parsed.theme;
+          document.getElementById('cnResultPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+          await downloadCnZip(null);
+        } else if (parsed.plan) {
+          // 예전 템플릿 방식으로 저장된 기록 — 그대로 서버 렌더링해서 zip으로 받는다.
+          const result = await apiPost('/api/generate-cardnews', { plan: parsed.plan, accent: parsed.accent, theme: parsed.theme, channelName: parsed.channelName });
+          downloadZipFromBase64(result.base64, parsed.filename || 'cardnews.zip');
+          renderCardCaption(parsed.caption || parsed.prompterScript || '');
+        } else {
+          throw new Error('알 수 없는 저장 형식이에요.');
+        }
       } catch (e) {
         alert('다운로드 실패: ' + e.message);
       } finally {
