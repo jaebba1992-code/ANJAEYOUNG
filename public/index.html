@@ -1642,6 +1642,17 @@
 
       <div class="row">
         <div class="field">
+          <label>출력 형식</label>
+          <select id="proposalOutputSelect">
+            <option value="image" selected>기존 방식 (색상 테마 이미지)</option>
+            <option value="doc">AI 문서 디자인 (인쇄용 A4 문서, PDF로 저장 — 베타)</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="proposalImageOnlyFields">
+      <div class="row">
+        <div class="field">
           <label>설계 방식</label>
           <div style="display:flex; gap:8px;">
             <button type="button" class="copy-btn proposal-mode-btn active" data-mode="combo" id="proposalModeComboBtn" style="flex:1;">조합설계 (보험사 2곳+)</button>
@@ -1664,6 +1675,26 @@
         <div class="field">
           <label>설계사/채널명 (선택)</label>
           <input type="text" id="proposalAgentInput" value="보험탈출구" placeholder="예: 보험탈출구 · 안재영">
+        </div>
+      </div>
+      </div>
+
+      <div id="proposalDocOnlyFields" style="display:none;">
+        <div class="row">
+          <div class="field">
+            <label>강조 색</label>
+            <select id="pdAccentSelect">
+              <option value="burgundy">버건디</option>
+              <option value="navy" selected>네이비</option>
+              <option value="forest">포레스트</option>
+              <option value="inkblack">잉크블랙</option>
+              <option value="bronze">브론즈</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>설계사/채널명 (선택)</label>
+            <input type="text" id="proposalAgentInputDoc" value="보험탈출구" placeholder="예: 보험탈출구 · 안재영">
+          </div>
         </div>
       </div>
 
@@ -1695,38 +1726,17 @@
         <div class="result-head-left">
           <p class="panel-title">완성된 제안서</p>
         </div>
-        <div style="display:flex; gap:8px;">
+        <div style="display:flex; gap:8px;" id="proposalResultActions">
           <button type="button" class="copy-btn" id="proposalEditToggleBtn">내용 수정</button>
-          <button type="button" class="copy-btn" id="proposalDocToggleBtn">AI 문서 디자인으로 보기 (베타)</button>
           <a class="copy-btn" id="proposalDownloadBtn" download="제안서.png">이미지 다운로드</a>
         </div>
       </div>
-      <div style="text-align:center; background:#f4f4f4; padding:16px; border-radius:8px;">
+      <div id="proposalImageResultWrap" style="text-align:center; background:#f4f4f4; padding:16px; border-radius:8px;">
         <img id="proposalResultImg" style="max-width:100%; border-radius:6px; box-shadow:0 4px 20px rgba(0,0,0,.12);">
       </div>
-      <div id="proposalDocPanel" style="display:none; margin-top:16px; padding-top:16px; border-top:1px solid var(--line);">
-        <p style="font-size:12px; color:var(--paper-mute); line-height:1.7; margin:0 0 12px;">
-          인쇄용 문서 스타일로 다시 디자인해요 (마케팅 이미지가 아니라 A4 인쇄 문서 톤). 완성되면 브라우저 인쇄 대화상자에서 "PDF로 저장"을 고르시면 돼요.
-        </p>
-        <div class="row">
-          <div class="field">
-            <label>강조 색</label>
-            <select id="pdAccentSelect">
-              <option value="A">A. 잉크 그레이</option>
-              <option value="B" selected>B. 딥 네이비</option>
-              <option value="C">C. 버건디</option>
-              <option value="D">D. 포레스트</option>
-              <option value="E">E. 브론즈</option>
-              <option value="F">F. 슬레이트 블루</option>
-            </select>
-          </div>
-        </div>
-        <button class="generate" id="pdGenBtn" style="margin-top:8px;">문서 디자인 생성</button>
-        <p id="pdStatus" style="font-size:11.5px; color:var(--paper-mute); margin-top:8px;"></p>
-        <div id="pdPreviewWrap" style="margin-top:14px; display:none;">
-          <iframe id="pdPreviewFrame" style="width:100%; height:760px; border:1px solid var(--line); border-radius:6px; background:#fff;"></iframe>
-          <button type="button" class="mini-btn" id="pdPrintBtn" style="margin-top:10px;">인쇄 / PDF로 저장</button>
-        </div>
+      <div id="pdPreviewWrap" style="display:none;">
+        <iframe id="pdPreviewFrame" style="width:100%; height:760px; border:1px solid var(--line); border-radius:6px; background:#fff;"></iframe>
+        <button type="button" class="mini-btn" id="pdPrintBtn" style="margin-top:10px;">인쇄 / PDF로 저장</button>
       </div>
       <div id="proposalEditPanel" style="display:none; margin-top:16px; padding-top:16px; border-top:1px solid var(--line);">
         <p style="font-size:12px; color:var(--paper-mute); line-height:1.7; margin:0 0 12px;">
@@ -5663,9 +5673,13 @@ ${highlightNote}
 document.getElementById('proposalGenBtn').addEventListener('click', async () => {
   const btn = document.getElementById('proposalGenBtn');
   const statusEl = document.getElementById('proposalGenStatus');
+  const outputMode = document.getElementById('proposalOutputSelect').value; // 'image' | 'doc'
   const clientName = document.getElementById('proposalClientInput').value.trim();
-  const agentName = document.getElementById('proposalAgentInput').value.trim() || '보험탈출구';
+  const agentName = (outputMode === 'doc'
+    ? document.getElementById('proposalAgentInputDoc').value.trim()
+    : document.getElementById('proposalAgentInput').value.trim()) || '보험탈출구';
   const colorKey = document.getElementById('proposalColorSelect').value;
+  const accentKey = document.getElementById('pdAccentSelect').value;
 
   const activeKeys = ['A', 'B'].filter(key => window.__proposalFiles[key].length > 0);
   if (!activeKeys.length) { alert('A안 설계안 이미지나 PDF를 먼저 첨부해주세요.'); return; }
@@ -5725,24 +5739,35 @@ document.getElementById('proposalGenBtn').addEventListener('click', async () => 
       carriers, designLabels, premiums, premiumBreakdown, rows: parsed.rows || [], highlights
     };
 
-    btn.textContent = '제안서 이미지 만드는 중...';
-    const result = await apiPost('/api/generate-proposal', data);
-    const imgSrc = 'data:image/png;base64,' + result.base64;
-
+    btn.textContent = outputMode === 'doc' ? '문서 디자인 생성 중... (30초~1분 정도 걸려요)' : '제안서 이미지 만드는 중...';
     document.getElementById('proposalResultPanel').style.display = 'block';
-    const imgEl = document.getElementById('proposalResultImg');
-    imgEl.src = imgSrc;
-    const dlBtn = document.getElementById('proposalDownloadBtn');
-    dlBtn.href = imgSrc;
-    dlBtn.download = (data.title || '제안서').replace(/[\\/:*?"<>|]/g, '') + '.png';
     window.__lastProposalData = data; // "내용 수정" 버튼이 이걸 기준으로 편집 폼을 채운다
+    window.__proposalOutputMode = outputMode;
+    window.__proposalAccentKey = accentKey;
+
+    if (outputMode === 'doc') {
+      document.getElementById('pdPreviewWrap').style.display = 'none';
+      await renderProposalDoc(data, accentKey);
+    } else {
+      document.getElementById('proposalImageResultWrap').style.display = 'block';
+      document.getElementById('pdPreviewWrap').style.display = 'none';
+      const dlBtn = document.getElementById('proposalDownloadBtn');
+      dlBtn.style.display = '';
+      const result = await apiPost('/api/generate-proposal', data);
+      const imgSrc = 'data:image/png;base64,' + result.base64;
+      const imgEl = document.getElementById('proposalResultImg');
+      imgEl.src = imgSrc;
+      dlBtn.href = imgSrc;
+      dlBtn.download = (data.title || '제안서').replace(/[\\/:*?"<>|]/g, '') + '.png';
+    }
+
     document.getElementById('proposalEditPanel').style.display = 'none';
     document.getElementById('proposalEditToggleBtn').textContent = '내용 수정';
 
     statusEl.textContent = '완료!';
     await addToHistory({
       id: Date.now(), topic: data.title, category: clientName || '', format: 'proposal',
-      script: JSON.stringify({ data })
+      script: JSON.stringify({ data, outputMode, accentKey })
     });
   } catch (err) {
     statusEl.textContent = '';
@@ -5770,79 +5795,92 @@ document.getElementById('proposalEditToggleBtn').addEventListener('click', () =>
 
 /* ===================== AI 문서 디자인 (제안서를 인쇄용 A4 문서 스타일로) ===================== */
 const PROPOSAL_DOC_ACCENTS = {
-  A: { label: '잉크 그레이', accent: '#16181C', body: '#16181C', sub: '#6E737A', hair: '#EAECEF' },
-  B: { label: '딥 네이비', accent: '#1B3A5C', body: '#16181C', sub: '#6E737A', hair: '#E6E9ED' },
-  C: { label: '버건디', accent: '#7A2231', body: '#1A1618', sub: '#6E6A6C', hair: '#EFE9EA' },
-  D: { label: '포레스트', accent: '#1F4A3A', body: '#15181A', sub: '#69706D', hair: '#E7EDEA' },
-  E: { label: '브론즈', accent: '#8A6A2E', body: '#1A1814', sub: '#706C62', hair: '#F0EBE1' },
-  F: { label: '슬레이트 블루', accent: '#3A5068', body: '#16181C', sub: '#6E737A', hair: '#E8EBEF' }
+  burgundy: { label: '버건디', hex: '#6E1B2E' },
+  navy: { label: '네이비', hex: '#1B3A5C' },
+  forest: { label: '포레스트', hex: '#1F4436' },
+  inkblack: { label: '잉크블랙', hex: '#1A1A1C' },
+  bronze: { label: '브론즈', hex: '#7A5B2E' }
 };
 
 function proposalDocSystemPrompt(accentKey) {
-  const c = PROPOSAL_DOC_ACCENTS[accentKey];
-  return `보험 맞춤 설계 제안서를 문서(document)로 디자인해라. 마케팅 배너가 아니다. 아래는 절대 규칙이다.
+  const c = PROPOSAL_DOC_ACCENTS[accentKey] || PROPOSAL_DOC_ACCENTS.navy;
+  return `너는 보험 제안서 전문 문서 디자이너다. 화려한 홍보물이 아니라 고객이 앉아서 읽는 문서를 만든다. 아래 규칙을 절대 규칙으로 지켜라.
 
-1. 색 — 강조는 "${c.label}"(${c.accent}) 하나만 쓴다. 강조색은 머리글 규칙선·상단 라벨·합계 수치에만. 그 외는 먹색(${c.body})과 회색(${c.sub}), 헤어라인(${c.hair}).
+1. 색 — 가장 중요
+배경은 흰색(#FFFFFF) 고정. 그라데이션·색면 배경·줄무늬 배경 전면 금지.
+강조색은 "${c.label}"(${c.hex}) 하나만 쓴다. 두 번째 색을 추가하지 마라.
+강조색을 쓰는 곳은 4곳뿐: 상단 얇은 규칙선, 카테고리 제목 선, 핵심 금액 1~3개, 하단 합계 밴드.
+나머지 모든 글자는 #1A1A1C(본문), #6B6E74(보조). 연회색(#AAA 이하) 금지.
+카테고리마다 다른 색을 주지 마라. 색으로 분류하지 말고 제목 + 선으로 분류한다.
+아이콘·이모지 금지.
 
-금지 사항 (AI 느낌의 원인)
-- 그라데이션 배경 일절 금지. 헤더도 단색 흰 바탕 + 하단 2px 먹색 규칙선으로.
-- 카테고리마다 색을 다르게 주지 말 것. 카테고리 구분은 볼드 소제목 + 1px 규칙선으로만.
-- 금액·숫자에 색을 넣지 말 것. 강조는 굵기(700~800)로만.
-- 행 배경 줄무늬(zebra) 금지. 행 구분은 border-bottom:1px solid 헤어라인만.
-- 둥근 카드·그림자·이모지·아이콘 장식 금지. border-radius는 0.
+2. 구분은 선으로
+문서 최상단/최하단: 강조색 2.5px 실선.
+표 헤더 아래: 1.5px #1A1A1C.
+카테고리 제목 아래: 1.5px 강조색 + 왼쪽에 3×11px 강조색 막대.
+각 행 아래: 1px #EDE9EA. 행마다 배경색 칠하지 마라(줄무늬 금지).
+카드·박스는 border-radius:0. 둥근 모서리·그림자 금지.
 
-2. 구조
-① 헤더 — 좌측: 브랜드 라벨(9.5pt/700/letter-spacing:0.16em/회색) + 고객명 제목(25pt/800) + 보험사·납기 한 줄. 우측: 세로 구분선 좌측에 두고 월 보험료(27pt/800) + 구성 내역 한 줄. 하단 border-bottom:2px solid 본문색.
-② 핵심 요약 — 3칸 그리드, gap:1px에 배경 헤어라인색을 깔아 1px 격자만 보이게. 각 칸은 라벨(8.5pt/700/회색) + 수치(15pt/800).
-③ 담보 표 — 아래 3번.
-④ 푸터 — 상단 border-top:2px solid, 좌측 고지 문구(8.5pt/회색), 우측 브랜드명.
+3. 강조는 면이 아니라 "한 행"에만
+핵심 담보 2~3줄에만 아주 옅은 톤(#FBF7F8 수준) 배경 + 금액을 강조색·800으로.
+강조 행이 4줄 이상이면 강조가 아니다. 3줄 이하로 제한.
+비고 칸에 핵심 담보 라벨을 짧게 붙인다.
 
-3. 표
-- border-collapse:collapse, 세로 칼럼 선 없음. 가로선만.
-- 칼럼: NO(26px) / 담보명(가변) / 납기·만기(92px) / 가입금액(88px, 우측 정렬) / 비고(142px).
-- 머리글은 8.5pt/700/letter-spacing:0.08em/회색 + 하단 1.5px 본문색 선.
-- 카테고리 행은 colspan 전체 폭에 10pt/800 소제목 + 하단 1px 본문색 선, 위 여백 18px.
-- 데이터 행: 담보명 10pt/600, 금액 10.5pt/700, 납기 8.5pt/600 회색, 비고 8pt/500.
-- 모든 숫자 셀에 font-variant-numeric:tabular-nums. 금액 자리수가 세로로 맞아야 한다.
-- 담보명 괄호 보충 설명은 같은 줄에서 font-weight:500; color:보조색으로 낮춰라. 줄바꿈하지 말 것.
-- 비고가 없는 행은 빈 셀로 두고 "-" 같은 기호를 넣지 마라.
+4. 헤더 (첫 화면에서 끝나야 할 것)
+좌측: 작은 라벨(INSURANCE PROPOSAL, 8.5pt/800/자간 0.2em/강조색) → 제목 24pt/800 → 계약 조건 한 줄 9.5pt(보험사·납기·만기·담당자).
+우측: 세로 구분선으로 분리한 월 납입 보험료 합계 — 라벨 8.5pt + 금액 26pt/800/강조색 + 보험사별 내역 8pt.
+금액은 모두 font-variant-numeric: tabular-nums, 우측 정렬.
 
-4. 타이포
-- Pretendard(이미 로드돼 있음), weight 500/600/700/800.
-- pt 단위 사용. 본문 10pt, 최소 8pt.
-- 제목 letter-spacing:-0.035em, 라벨은 양수 letter-spacing으로 대비를 준다.
+5. 요약 스트립 (헤더 바로 아래, 3칸)
+보장금액을 넣지 마라. 표에 이미 있고, 상단에서 큰 숫자로 내세우면 광고처럼 읽힌다.
+대신 구조적 사실만: 설계 구분 / 담보 항목 수 / 총 납입기간 납입 총액.
+각 칸 = 작은 라벨 8pt + 값 13pt/800. 칸 배경은 #FBF7F8, 칸 사이는 1px 선.
 
-5. 출력
-- 인쇄용 단일 문서. A4 기준, 여백 0.6in. <body> 또는 최상위 래퍼에 width:210mm; margin:0 auto; padding:0.6in; box-sizing:border-box; background:#fff 를 둔다.
-- 모든 스타일 인라인. CSS 클래스 금지 (다만 <thead>/<tbody> 등 표 태그 구조는 정상적으로 쓴다).
-- 표가 다음 장으로 넘어가면 머리글이 반복되도록 <thead>를 쓴다.
-- 수치는 내가 준 값만 사용. 모르면 [확인 필요]로 남겨라.
-- 다른 설명, 마크다운 코드블록 기호 없이, HTML 코드만 출력한다 (완전한 조각이면 된다 — <html>/<head>/<body> 태그는 필요 없다, 최상위 래퍼 div부터 시작).`;
+6. 표
+열 구성: NO(26px) / 담보명 / 납기·만기(96px) / 가입금액(92px, 우측정렬) / 비고(150px).
+담보명 9.5pt/600. 괄호 안 조건은 같은 줄에 500 + #6B6E74로 작게.
+납기·만기는 "20년납 / 90세만기" 형식으로 통일. 순서를 섞지 마라.
+금액 10pt/700 우측 정렬. "-"로 비어 있는 칸을 만들지 마라(해당 없으면 칸을 비운다).
+카테고리는 기본계약 / 진단비 / 치료비 / 수술비 / 간병·입원 / 중환자실 순.
+행 높이 균일(padding:8px 0). 담보가 많아도 폰트를 줄이지 말고 페이지를 넘겨라.
+
+7. 하단
+보험사별 보험료 + 월 합계 밴드(3칸). 합계 칸만 강조색 채움 + 흰 글자.
+각 칸 숫자의 합이 합계와 정확히 일치해야 한다. 한 칸이라도 빠지면 실패.
+그 아래: 좌측에 고지 문구 8pt(참고용·약관 기준·심사에 따라 변동), 우측에 담당자명 + 소속.
+
+8. 타입
+폰트 Pretendard(이미 로드돼 있음), weight 500/600/700/800만.
+크기: 제목 24pt · 합계금액 26pt · 요약값 13pt · 담보명 9.5pt · 금액 10pt · 조건 8pt · 고지 8pt.
+본문 9pt 미만으로 내려가지 마라(인쇄 시 읽기 어렵다).
+제목류 letter-spacing:-0.03em, 라벨류 +0.08~0.2em.
+
+9. 금지 사항
+그라데이션, 색면 배경, 둥근 카드, 그림자, 이모지, 아이콘
+카테고리별 색 구분, 행 줄무늬, 금액 글자에 여러 색
+강조색 2개 이상, 상단에 보장금액 큰 숫자
+과장 표현: 최고, 무조건, 확정, 보장, 100%
+
+10. 출력 전 검증
+1) 강조색이 1개인가 2) 배경이 흰색인가 3) 하단 합계 산수가 맞는가 4) 강조 행이 3줄 이하인가 5) 납기·만기 표기가 전부 동일 형식인가 6) 9pt 미만 본문이 없는가 7) 이모지·아이콘·둥근 모서리가 없는가
+하나라도 걸리면 고친 뒤 최종본만 줘라.
+
+11. 출력 형식
+인쇄용 단일 문서. A4 기준, 여백 0.6in. 최상위 래퍼에 width:210mm; margin:0 auto; padding:0.6in; box-sizing:border-box; background:#fff 를 둔다.
+모든 스타일 인라인. CSS 클래스 금지 (다만 <thead>/<tbody> 등 표 태그 구조는 정상적으로 쓴다).
+표가 다음 장으로 넘어가면 머리글이 반복되도록 <thead>를 쓴다.
+수치는 내가 준 값만 사용. 모르면 [확인 필요]로 남겨라.
+다른 설명, 마크다운 코드블록 기호 없이, HTML 코드만 출력한다 (완전한 조각이면 된다 — <html>/<head>/<body> 태그는 필요 없다, 최상위 래퍼 div부터 시작).`;
 }
 
-document.getElementById('proposalDocToggleBtn').addEventListener('click', () => {
-  const panel = document.getElementById('proposalDocPanel');
-  const show = panel.style.display === 'none';
-  if (show && !window.__lastProposalData) { alert('먼저 제안서를 만들거나 히스토리에서 불러와주세요.'); return; }
-  panel.style.display = show ? 'block' : 'none';
-});
-
-document.getElementById('pdGenBtn').addEventListener('click', async () => {
-  const btn = document.getElementById('pdGenBtn');
-  const statusEl = document.getElementById('pdStatus');
-  const data = window.__lastProposalData;
-  if (!data) { alert('먼저 제안서를 만들거나 히스토리에서 불러와주세요.'); return; }
-
-  const accentKey = document.getElementById('pdAccentSelect').value;
-  btn.disabled = true;
-  statusEl.textContent = '문서 디자인 생성 중... (30초~1분 정도 걸려요)';
-  try {
-    const system = proposalDocSystemPrompt(accentKey);
-    const userPrompt = `아래 데이터로 제안서 문서를 만들어줘.\n\n${JSON.stringify(data, null, 2)}`;
-    const raw = await callClaude(system, [{ role: 'user', content: userPrompt }], 2, null, 8000, 'claude-opus-5');
-    const bodyHtml = raw.replace(/```html|```/g, '').trim();
-
-    const fullDoc = `<!DOCTYPE html><html><head><meta charset="utf-8">
+// 제안서 데이터로 문서 디자인 HTML을 만들어서 iframe에 채워 넣는다. "제안서 만들기"(doc 모드로 바로) 와
+// "수정 내용으로 다시 그리기"(doc 모드일 때) 양쪽에서 재사용한다.
+async function renderProposalDoc(data, accentKey) {
+  const system = proposalDocSystemPrompt(accentKey);
+  const userPrompt = `아래 데이터로 제안서 문서를 만들어줘.\n\n${JSON.stringify(data, null, 2)}`;
+  const raw = await callClaude(system, [{ role: 'user', content: userPrompt }], 2, null, 8000, 'claude-opus-5');
+  const bodyHtml = raw.replace(/```html|```/g, '').trim();
+  const fullDoc = `<!DOCTYPE html><html><head><meta charset="utf-8">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-dynamic-subset.css">
 <style>
   @page { size: A4; margin: 0; }
@@ -5850,22 +5888,23 @@ document.getElementById('pdGenBtn').addEventListener('click', async () => {
 </style>
 </head><body>${bodyHtml}</body></html>`;
 
-    const frame = document.getElementById('pdPreviewFrame');
-    frame.srcdoc = fullDoc;
-    document.getElementById('pdPreviewWrap').style.display = 'block';
-    statusEl.textContent = '완료! 아래에서 확인하고 "인쇄 / PDF로 저장"을 눌러주세요.';
-  } catch (e) {
-    statusEl.textContent = '';
-    alert('생성 실패: ' + e.message);
-  } finally {
-    btn.disabled = false;
-  }
-});
+  document.getElementById('proposalImageResultWrap').style.display = 'none';
+  document.getElementById('proposalDownloadBtn').style.display = 'none';
+  const frame = document.getElementById('pdPreviewFrame');
+  frame.srcdoc = fullDoc;
+  document.getElementById('pdPreviewWrap').style.display = 'block';
+}
 
 document.getElementById('pdPrintBtn').addEventListener('click', () => {
   const frame = document.getElementById('pdPreviewFrame');
   frame.contentWindow.focus();
   frame.contentWindow.print();
+});
+
+document.getElementById('proposalOutputSelect').addEventListener('change', () => {
+  const isDoc = document.getElementById('proposalOutputSelect').value === 'doc';
+  document.getElementById('proposalImageOnlyFields').style.display = isDoc ? 'none' : '';
+  document.getElementById('proposalDocOnlyFields').style.display = isDoc ? 'block' : 'none';
 });
 
 function populateProposalEditor(data) {
@@ -5954,18 +5993,22 @@ document.getElementById('peRerenderBtn').addEventListener('click', async () => {
   btn.textContent = '다시 그리는 중...';
   try {
     // 이미지를 다시 분석하지 않고, 방금 고친 데이터 그대로 렌더링만 다시 한다 — AI가 같은 실수를
-    // 반복할 여지 자체가 없다.
-    const result = await apiPost('/api/generate-proposal', data);
-    const imgSrc = 'data:image/png;base64,' + result.base64;
-    document.getElementById('proposalResultImg').src = imgSrc;
-    const dlBtn = document.getElementById('proposalDownloadBtn');
-    dlBtn.href = imgSrc;
-    dlBtn.download = (data.title || '제안서').replace(/[\\/:*?"<>|]/g, '') + '.png';
+    // 반복할 여지 자체가 없다. 처음 만들 때 고른 출력 형식(이미지 vs AI 문서)을 그대로 따른다.
+    if (window.__proposalOutputMode === 'doc') {
+      await renderProposalDoc(data, window.__proposalAccentKey || 'navy');
+    } else {
+      const result = await apiPost('/api/generate-proposal', data);
+      const imgSrc = 'data:image/png;base64,' + result.base64;
+      document.getElementById('proposalResultImg').src = imgSrc;
+      const dlBtn = document.getElementById('proposalDownloadBtn');
+      dlBtn.href = imgSrc;
+      dlBtn.download = (data.title || '제안서').replace(/[\\/:*?"<>|]/g, '') + '.png';
+    }
     window.__lastProposalData = data;
     statusEl.textContent = '수정 완료!';
     await addToHistory({
       id: Date.now(), topic: data.title, category: data.clientName || '', format: 'proposal',
-      script: JSON.stringify({ data })
+      script: JSON.stringify({ data, outputMode: window.__proposalOutputMode, accentKey: window.__proposalAccentKey })
     });
   } catch (e) {
     statusEl.textContent = '';
@@ -6009,14 +6052,26 @@ async function renderProposalHistory() {
       btn.disabled = true;
       btn.textContent = '만드는 중...';
       try {
-        const result = await apiPost('/api/generate-proposal', parsed.data);
-        const imgSrc = 'data:image/png;base64,' + result.base64;
-        document.getElementById('proposalResultPanel').style.display = 'block';
-        document.getElementById('proposalResultImg').src = imgSrc;
-        const dlBtn = document.getElementById('proposalDownloadBtn');
-        dlBtn.href = imgSrc;
-        dlBtn.download = (parsed.data.title || '제안서').replace(/[\\/:*?"<>|]/g, '') + '.png';
         window.__lastProposalData = parsed.data;
+        window.__proposalOutputMode = parsed.outputMode || 'image';
+        window.__proposalAccentKey = parsed.accentKey || 'navy';
+        document.getElementById('proposalResultPanel').style.display = 'block';
+        if (window.__proposalOutputMode === 'doc') {
+          document.getElementById('proposalImageResultWrap').style.display = 'none';
+          document.getElementById('proposalDownloadBtn').style.display = 'none';
+          document.getElementById('pdPreviewWrap').style.display = 'none';
+          await renderProposalDoc(parsed.data, window.__proposalAccentKey);
+        } else {
+          document.getElementById('proposalImageResultWrap').style.display = 'block';
+          document.getElementById('pdPreviewWrap').style.display = 'none';
+          const dlBtn = document.getElementById('proposalDownloadBtn');
+          dlBtn.style.display = '';
+          const result = await apiPost('/api/generate-proposal', parsed.data);
+          const imgSrc = 'data:image/png;base64,' + result.base64;
+          document.getElementById('proposalResultImg').src = imgSrc;
+          dlBtn.href = imgSrc;
+          dlBtn.download = (parsed.data.title || '제안서').replace(/[\\/:*?"<>|]/g, '') + '.png';
+        }
         document.getElementById('proposalEditPanel').style.display = 'none';
         document.getElementById('proposalEditToggleBtn').textContent = '내용 수정';
         document.getElementById('proposalResultPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
