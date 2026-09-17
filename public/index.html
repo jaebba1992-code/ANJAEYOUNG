@@ -4683,12 +4683,13 @@ justify-content:flex-start로 위에서부터 쌓고, 푸터만 margin-top:auto�
 좌측 "0N / 총장수", 우측 워터마크. padding-top:32px. 한 장이라도 빠지면 실패.
 색: 다크 배경 위 #8A949C, 라이트 배경 위 #8A8F94 이상 밝기 (배경에 묻히는 저대비 회색 금지).
 
-5. 커버 (1장)
+5. 커버 (1장) — 커버도 테마를 따른다, 매우 중요
+**커버도 위 0번에서 고른 테마의 정렬 방식을 그대로 따른다.** 테마가 "중앙 정렬"(B, G)이면 배지·헤드라인·후킹 전부 중앙 정렬로, "좌측 정렬"(A, C, D, E, F)이면 전부 좌측 정렬로 배치한다 — 커버만 예외적으로 항상 똑같은 좌측 배지 레이아웃을 쓰는 건 실패다(실제로 이 실수가 반복됐다). 박스가 없는 테마(B)는 커버에도 박스형 배지 대신 헤어라인이나 텍스트만으로 배지를 표현한다.
 커버 카드의 배경 사진 자리에는 정확히 이 태그를 그대로 넣는다: <div class="cn-photo" data-photo-query="영어 검색어 2~3단어" style="position:absolute;inset:0;background:#333"></div> (실제 사진은 나중에 자동으로 채워진다)
-**data-photo-query에 사람이 나올 가능성이 있는 단어(doctor, patient, person, people, man, woman, hand, face 등)를 절대 쓰지 마라.** 사물·질감·풍경·데이터 시각화 키워드만 쓴다 (예: "hospital corridor empty", "banknote texture close up", "city skyline window", "financial graph chart", "document paper texture").
+**data-photo-query에 사람이 나올 가능성이 있는 단어(doctor, patient, person, people, man, woman, hand, face, senior 등)를 절대 쓰지 마라 — 예시를 지어내지 말고 아래 예시 중 주제에 맞는 걸 그대로 골라 써도 된다:** "hospital corridor empty", "medical chart paper texture", "x-ray film close up", "banknote texture close up", "city skyline window", "financial graph chart", "document paper texture", "calendar deadline paper", "stethoscope on desk", "pills medicine bottle texture". 이 목록에 없어도 사람이 등장하지 않는 사물·공간·질감 키워드면 된다.
 그 사진 div 바로 다음에 오버레이를 추가한다: <div style="position:absolute;inset:0;background:linear-gradient(180deg, rgba(0,0,0,.55), rgba(0,0,0,.30) 30%, rgba(0,0,0,.82) 62%, #000);pointer-events:none"></div>
 사진 위 텍스트는 100% 불투명 흰색만.
-구성: 상단 우측 배지 → 하단에 작은 배지 + "Feat. ~" + 헤어라인 → 헤드라인 3줄(핵심 단어 1개만 포인트 강조) → 후킹 2줄 → 푸터.
+구성(정렬만 테마를 따르고, 순서는 공통): 상단(또는 중앙) 배지 → 하단에 작은 배지 + "Feat. ~" + 헤어라인 → 헤드라인 3줄(핵심 단어 1개만 포인트 강조) → 후킹 2줄 → 푸터.
 후킹은 다음 중 하나: 숫자충격("10년 뒤 148%") / 손실회피("모르면 내가 손해보는") / 내부자("○○들이 조용하게 준비하는") / 반전("이게 안전하다는 착각") / 질문("왜 아직 이렇게 모으세요?").
 
 6. 타입 스케일
@@ -4837,12 +4838,23 @@ ${content}
 출력은 이번 묶음 카드 개수(${chunk.length}개)와 정확히 같은 수의 <section>만 만든다. 카피 목록·"===HTML===" 구분선 없이, <section>...</section> 를 ${chunk.length}개 이어서만 출력해라(감싸는 바깥 div 없이). 다른 설명이나 코드블록 기호 없이.`;
         const designPrompt = `${contentBlock}\n\n[이번 묶음에서 만들 카드들의 확정된 카피 — 이 헤드라인·독자 속마음·연결 문장·레이아웃 유형을 그대로 써서 디자인만 만들어라]\n${chunk.join('\n\n')}`;
         try {
-          const rawChunk = await callClaude(system, [{ role: 'user', content: designPrompt }], 2, null, 6000, 'claude-opus-5');
-          const chunkHtml = rawChunk.replace(/```html|```/g, '').trim();
-          const tmpChunk = document.createElement('div');
-          tmpChunk.innerHTML = chunkHtml;
-          const chunkSections = Array.from(tmpChunk.querySelectorAll('section'));
-          sectionsAssembled.push(...(chunkSections.length ? chunkSections : [tmpChunk]));
+          // 실제로 요청한 개수(chunk.length)만큼 <section>이 나왔는지 반드시 확인한다.
+          // 확인 없이 그냥 넘어가면, AI가 몰래 한 장을 빼먹어도 모르고 지나가서 카드 번호에
+          // 구멍이 뚫리는 사고가 난다(실제로 "01,02,04,05..."처럼 03이 통째로 사라진 적이 있었다).
+          let chunkSections = [];
+          for (let attempt = 0; attempt < 2 && chunkSections.length !== chunk.length; attempt++) {
+            const retryNote = attempt > 0 ? `\n\n[방금 응답이 ${chunkSections.length}개였는데 정확히 ${chunk.length}개가 필요하다. 카드를 빠뜨리지 말고 ${chunk.length}개를 전부 만들어라.]` : '';
+            const rawChunk = await callClaude(system, [{ role: 'user', content: designPrompt + retryNote }], 2, null, 6000, 'claude-opus-5');
+            const chunkHtml = rawChunk.replace(/```html|```/g, '').trim();
+            const tmpChunk = document.createElement('div');
+            tmpChunk.innerHTML = chunkHtml;
+            chunkSections = Array.from(tmpChunk.querySelectorAll('section'));
+          }
+          if (chunkSections.length) {
+            sectionsAssembled.push(...chunkSections);
+          } else {
+            throw new Error('빈 응답');
+          }
         } catch (chunkErr) {
           const errSection = document.createElement('section');
           errSection.setAttribute('data-screen-label', '오류');
@@ -4855,6 +4867,10 @@ ${content}
       assembledWrap.style.cssText = 'display:flex;flex-wrap:wrap;gap:40px;';
       sectionsAssembled.forEach(s => assembledWrap.appendChild(s));
       html = assembledWrap.outerHTML;
+      if (sectionsAssembled.length !== totalCards) {
+        // 재시도까지 했는데도 개수가 안 맞으면, 조용히 넘어가지 말고 사용자에게 정직하게 알린다.
+        statusEl.textContent = `⚠ 예정된 ${totalCards}장 중 ${sectionsAssembled.length}장만 만들어졌어요. 빠진 구간은 오류 카드로 표시돼요 — "카드별 수정"으로 다시 채우거나 새로 생성해주세요.`;
+      }
     } else {
       // 카피 목록을 못 나눴으면(형식이 예상과 달랐으면) 예전처럼 한 번에 통째로 시도한다
       btn.textContent = '2/3 확정된 카피로 디자인 그리는 중... (최대 1~2분)';
