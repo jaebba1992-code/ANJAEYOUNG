@@ -4796,7 +4796,17 @@ ${content}
     btn.textContent = '1/3 카피(헤드라인) 짜는 중...';
     const cardCountHint = isAuto ? '6~10' : cardCountSel;
     const copySystem = cnCopyOnlyPrompt(cardCountHint);
-    const copyListText = (await callClaude(copySystem, [{ role: 'user', content: contentBlock }], 2, null, 2500, 'claude-opus-5')).trim();
+    // 예전엔 2,500 토큰으로 잡아놨는데, 카드가 8~10장이면 카피 목록 자체가 다 안 끝나고 중간에
+    // 잘리는 사고가 있었다(예: "카드 7 ... 독자 속마음: 원화 적금이랑"에서 뚝 끊김). 여유 있게 올린다.
+    let copyListText = (await callClaude(copySystem, [{ role: 'user', content: contentBlock }], 2, null, 6000, 'claude-opus-5')).trim();
+
+    // 혹시 그래도 응답이 중간에 잘렸으면, 마지막 카드 블록에 "헤드라인:"이 없을 수 있다 —
+    // 그런 깨진 블록은 디자인 단계로 넘기지 않고 미리 걸러낸다(완성된 카드만 확실하게 만든다).
+    const rawCardBlocks = copyListText.split(/(?=^카드\s*\d+)/m).map(s => s.trim()).filter(Boolean);
+    const validCardBlocks = rawCardBlocks.filter(b => /헤드라인\s*:/.test(b));
+    if (validCardBlocks.length < rawCardBlocks.length) {
+      copyListText = validCardBlocks.join('\n\n');
+    }
 
     const copyPreviewEl = document.getElementById('cnCopyPreview');
     if (copyListText) {
