@@ -1580,31 +1580,6 @@
           </div>
         </div>
 
-        <div style="margin-top:6px; padding-top:16px; border-top:1px solid var(--line);">
-          <p style="font-size:12.5px; color:var(--brass); font-weight:600; margin:0 0 8px;">마지막 장 고정 정보 (심의 문구) <span style="color:var(--paper-mute); font-weight:400;">— 매번 자동으로 마지막(CTA) 카드에 작게 들어가요, 필요하면 수정하세요</span></p>
-          <div class="row">
-            <div class="field">
-              <label>브랜드명</label>
-              <input type="text" id="cnBrandInput" value="보험탈출구">
-            </div>
-          </div>
-          <div class="row">
-            <div class="field">
-              <label>심의필/등록정보</label>
-              <textarea id="cnRegInput" rows="2">프라임에셋 심의필 제2026-08-4461호
-보험설계사 안재영(협회 등록번호 20191192100011호)</textarea>
-            </div>
-          </div>
-          <div class="row">
-            <div class="field">
-              <label>유의사항 문구</label>
-              <textarea id="cnNoticeInput" rows="3">1.질병이력, 연령증가 등으로 가입이 거절되거나 보험료가 인상될 수 있습니다.
-2.가입 상품에 따라 새로운 면책기간 적용 및 보장제한 등 기타 불이익이 발생할 수 있습니다.
-3.보험사 및 상품별로 상이할 수 있으므로, 관련한 세부사항은 반드시 해당 약관을 참조하시기 바랍니다.</textarea>
-            </div>
-          </div>
-        </div>
-
         <button class="generate" id="cnGenBtn">테마 카드뉴스 생성하기</button>
         <p id="cnGenStatus" style="font-size:12px; color:var(--paper-mute); margin-top:10px;"></p>
       </div>
@@ -4683,6 +4658,10 @@ function cnDesignSystemPrompt(themeKey, cardCountHint, htmlOnly) {
 
 ${spec}
 
+0-1. 완주 규칙 (지금 맡은 카드는 전부 만든다)
+지금 요청받은 카드는 몇 장이든 전부 완성해야 한다. 중간에 포기하거나 일부만 만들고 끝내지 마라.
+내용 없는 빈 박스·빈 카드를 만들지 마라. 채울 내용이 없으면 그 요소를 생략하고 있는 내용만으로 완성해라.
+
 1. 캔버스 공통
 1장 = 1080 × 1350px, box-sizing:border-box, overflow:visible(잘림을 숨기지 않는다), flex:none
 안전여백 92px (테마가 E면 112px, G면 프레임 기준 120px — 위 테마 설명에 안전여백이 따로 없으면 92px)
@@ -4729,7 +4708,7 @@ Pretendard(이미 로드돼 있음), weight 600/700/800 (단 B·G 테마는 700 
 CTA 카드는 행동 버튼 블록 1개만 — 정보 박스·요약 리스트를 같이 넣지 마라.
 카드마다 "읽는 사람의 속마음"에 답하는 헤드라인을 쓴다(사람 등장/손실 감각/반전/질문 중 하나로). 상품 용어를 헤드라인에 그대로 쓰지 말고 박스 라벨로 내린다.
 카드 끝 연결 문구(다음 장을 궁금하게 만드는 한 줄)는 최소 3장에 넣되, 고지·확인성 문장과 같은 카드에 절대 같이 넣지 않는다(둘 중 하나만).
-마지막 카드의 심의필·유의사항(브랜드명+등록정보+유의사항 전부 합쳐서)은 4줄 이내로 압축한다. 원문 줄바꿈을 그대로 옮기지 말고 "·"로 이어붙이거나 핵심만 남긴다. 폰트 16~18px, line-height 1.4 이상.
+심의필·등록정보·유의사항 같은 법적 고지 문구는 사용자가 [내용]에 직접 적지 않는 한 만들어 넣지 마라 — 지어내지 않는다.
 
 9. 출력 전 검증 — 하나라도 걸리면 고친 뒤 최종본만 줘라
 - 고른 테마의 정렬·박스형태·헤드라인 사양을 실제로 따랐는가 (다른 테마와 레이아웃이 눈에 띄게 달라 보이는가)
@@ -4791,9 +4770,6 @@ async function generateThemeCardNews() {
   const isAuto = cardCountSel === 'auto';
   const watermark = document.getElementById('cnWatermarkInput').value.trim() || '보험즈';
   const content = document.getElementById('cnContentInput').value.trim();
-  const brandName = document.getElementById('cnBrandInput').value.trim() || '보험탈출구';
-  const regInfo = document.getElementById('cnRegInput').value.trim();
-  const noticeText = document.getElementById('cnNoticeInput').value.trim();
 
   if (!content) { alert('카드뉴스 내용을 적어주세요.'); return; }
 
@@ -4805,12 +4781,6 @@ async function generateThemeCardNews() {
   // CTA 카드 마무리 톤에 참고하도록 넘긴다.
   const salonBlock = findSalonScript();
 
-  const legalBlock = `\n\n[마지막(CTA) 카드에 반드시 작게 들어가야 하는 고정 정보 — 심의 문구]
-브랜드명: ${brandName}
-심의필/등록정보: ${regInfo || '(없음)'}
-유의사항: ${noticeText || '(없음)'}
-이 내용을 마지막 카드 하단, 페이지번호·워터마크보다 위에 아주 작은 글씨(16~18px/500, 회색, line-height:1.4 이상)로 넣는다. **위 원문이 여러 줄이어도 그 줄바꿈을 그대로 옮기지 말고, 전체를 반드시 4줄 이내로 압축해서 넣는다** — 예: 브랜드명은 한 줄, 심의필/등록정보는 한 줄로 합쳐서, 유의사항은 번호 매긴 문장들을 "·"로 이어붙이거나 핵심만 남겨서 남은 줄에 맞춘다. 4줄을 넘기면 실패다.`;
-
   const contentBlock = `[내용]
 - 카드 장수: ${isAuto ? '내용 분량에 맞게 6~10장 사이에서 네가 정해라 (억지로 다 채우지 말 것)' : cardCountSel + '장 고정'}
 - 워터마크: ${watermark}
@@ -4819,7 +4789,7 @@ async function generateThemeCardNews() {
 
 ---
 ${content}
----${salonBlock ? `\n\n${salonBlock}\n이 화법 톤을 CTA(마지막) 카드의 행동 버튼 문구·저장 트리거 문구에 참고해서 자연스럽게 녹여라. 통째로 베끼지 말고 짧은 카드뉴스 문구 길이에 맞게 압축한다.` : ''}${legalBlock}`;
+---${salonBlock ? `\n\n${salonBlock}\n이 화법 톤을 CTA(마지막) 카드의 행동 버튼 문구·저장 트리거 문구에 참고해서 자연스럽게 녹여라. 통째로 베끼지 말고 짧은 카드뉴스 문구 길이에 맞게 압축한다.` : ''}`;
 
   try {
     statusEl.textContent = '';
@@ -4837,11 +4807,52 @@ ${content}
       copyPreviewEl.innerHTML = '';
     }
 
-    btn.textContent = '2/3 확정된 카피로 디자인 그리는 중... (최대 1~2분)';
-    const system = cnDesignSystemPrompt(themeKey, cardCountHint, true);
-    const designPrompt = `${contentBlock}\n\n[확정된 카피 — 이 헤드라인·독자 속마음·연결 문장·레이아웃 유형을 그대로 써서 디자인만 만들어라. 카피를 다시 짓지 마라]\n${copyListText}`;
-    const raw = await callClaude(system, [{ role: 'user', content: designPrompt }], 2, null, 10000, 'claude-opus-5');
-    let html = raw.replace(/```html|```/g, '').trim();
+    // 카드 수가 많으면 한 번에 전체 HTML을 다 만들려다 응답이 너무 길어져서(시간이 오래 걸리거나
+    // 글자수 한도에 걸려서) 중간에 잘리는 문제가 있었다("9장 계획하고 2장만 만들어짐" 사고).
+    // 그래서 카드를 3장씩 나눠서 순서대로 만든다 — 이러면 한 번에 만들 양이 적어서 절대 안 잘리고,
+    // 카드 개수도 카피 단계에서 확정한 것과 정확히 일치하게 된다.
+    const cardBlocks = copyListText.split(/(?=^카드\s*\d+)/m).map(s => s.trim()).filter(Boolean);
+    const totalCards = cardBlocks.length || 1;
+    const DESIGN_CHUNK = 3;
+    let html;
+    let sectionsAssembled = [];
+    if (cardBlocks.length) {
+      for (let i = 0; i < cardBlocks.length; i += DESIGN_CHUNK) {
+        const chunk = cardBlocks.slice(i, i + DESIGN_CHUNK);
+        btn.textContent = `2/3 디자인 그리는 중... (${Math.min(i + chunk.length, totalCards)}/${totalCards}장)`;
+        const system = cnDesignSystemPrompt(themeKey, String(totalCards), true) + `
+
+[지금은 전체 카드가 아니라 아래 ${chunk.length}장만 만든다]
+전체 카드뉴스는 총 ${totalCards}장이다. 페이지번호는 "0N / ${totalCards}" 형식으로, 전체 장수(${totalCards}) 기준으로 정확히 써라(예: 이 묶음이 4~6번째 카드면 "04 / ${totalCards}", "05 / ${totalCards}", "06 / ${totalCards}").
+출력은 이번 묶음 카드 개수(${chunk.length}개)와 정확히 같은 수의 <section>만 만든다. 카피 목록·"===HTML===" 구분선 없이, <section>...</section> 를 ${chunk.length}개 이어서만 출력해라(감싸는 바깥 div 없이). 다른 설명이나 코드블록 기호 없이.`;
+        const designPrompt = `${contentBlock}\n\n[이번 묶음에서 만들 카드들의 확정된 카피 — 이 헤드라인·독자 속마음·연결 문장·레이아웃 유형을 그대로 써서 디자인만 만들어라]\n${chunk.join('\n\n')}`;
+        try {
+          const rawChunk = await callClaude(system, [{ role: 'user', content: designPrompt }], 2, null, 6000, 'claude-opus-5');
+          const chunkHtml = rawChunk.replace(/```html|```/g, '').trim();
+          const tmpChunk = document.createElement('div');
+          tmpChunk.innerHTML = chunkHtml;
+          const chunkSections = Array.from(tmpChunk.querySelectorAll('section'));
+          sectionsAssembled.push(...(chunkSections.length ? chunkSections : [tmpChunk]));
+        } catch (chunkErr) {
+          const errSection = document.createElement('section');
+          errSection.setAttribute('data-screen-label', '오류');
+          errSection.style.cssText = 'width:1080px;height:1350px;display:flex;align-items:center;justify-content:center;background:#222;color:#fff;font-size:28px;';
+          errSection.textContent = `이 구간(카드 ${i + 1}~${Math.min(i + chunk.length, totalCards)}) 생성 실패 — 다시 시도해주세요`;
+          sectionsAssembled.push(errSection);
+        }
+      }
+      const assembledWrap = document.createElement('div');
+      assembledWrap.style.cssText = 'display:flex;flex-wrap:wrap;gap:40px;';
+      sectionsAssembled.forEach(s => assembledWrap.appendChild(s));
+      html = assembledWrap.outerHTML;
+    } else {
+      // 카피 목록을 못 나눴으면(형식이 예상과 달랐으면) 예전처럼 한 번에 통째로 시도한다
+      btn.textContent = '2/3 확정된 카피로 디자인 그리는 중... (최대 1~2분)';
+      const system = cnDesignSystemPrompt(themeKey, cardCountHint, true);
+      const designPrompt = `${contentBlock}\n\n[확정된 카피 — 이 헤드라인·독자 속마음·연결 문장·레이아웃 유형을 그대로 써서 디자인만 만들어라. 카피를 다시 짓지 마라]\n${copyListText}`;
+      const raw = await callClaude(system, [{ role: 'user', content: designPrompt }], 2, null, 10000, 'claude-opus-5');
+      html = raw.replace(/```html|```/g, '').trim();
+    }
 
     // 사진 자리(cn-photo)를 실제 Unsplash 사진으로 채운다. 나중에 "이 사진 마음에 안 들면 바꾸기"가
     // 가능하도록, 슬롯마다 고유 id(cn-photo-0, cn-photo-1...)를 붙여서 나중에 그 자리만 골라 교체한다.
@@ -4883,8 +4894,7 @@ ${content}
 4) 헤드라인이 2줄인데 한 줄이 9자를 넘거나, 3줄인데 한 줄이 7자를 넘는가
 5) 페이지번호·워터마크(푸터)가 아예 없는가
 6) 박스 안 텍스트 요소들 사이에 gap이 없거나(0이거나 생략됨), position:absolute/음수 margin이 텍스트에 쓰였거나, line-height가 지정 안 된 텍스트가 있는가 — 이러면 텍스트끼리 겹쳐 보일 위험이 크다
-7) 마지막 카드의 심의필·유의사항(브랜드명+등록정보+유의사항 합계)이 4줄을 넘거나 원문 줄바꿈을 그대로 옮겨서 너무 길어졌는가
-8) 박스들을 감싸는 본문부와 그 아래 연결 문구/고지/푸터 사이에 명시적인 여백(margin-bottom 24px 이상)이 없는가 — 없으면 박스 마지막 줄과 아래 문구가 겹쳐 보일 위험이 크다
+7) 박스들을 감싸는 본문부와 그 아래 연결 문구/고지/푸터 사이에 명시적인 여백(margin-bottom 24px 이상)이 없는가 — 없으면 박스 마지막 줄과 아래 문구가 겹쳐 보일 위험이 크다
 9) 한 카드 안에 연결 문구(다음 장을 궁금하게 하는 문장)와 고지·확인성 문장이 둘 다 있는가 — 있으면 하나를 지워야 한다
 10) 커버 카드의 data-photo-query에 사람이 나올 만한 단어(doctor, patient, person, people, man, woman, hand, face 등)가 쓰였는가 — 있으면 사물/질감/공간 위주 키워드로 바꿔야 한다
 11) "[확인 필요]", "TBD", "?" 같은 미완성 자리표시자 문구가 남아 있는가 — 있으면 그 문장을 삭제하고 자연스러운 다른 문장으로 바꿔야 한다
@@ -5777,9 +5787,10 @@ document.getElementById('proposalGenBtn').addEventListener('click', async () => 
     window.__proposalOutputMode = outputMode;
     window.__proposalAccentKey = accentKey;
 
+    let savedDocHtml = null;
     if (outputMode === 'doc') {
       document.getElementById('pdPreviewWrap').style.display = 'none';
-      await renderProposalDoc(data, accentKey);
+      savedDocHtml = await renderProposalDoc(data, accentKey);
     } else {
       document.getElementById('proposalImageResultWrap').style.display = 'block';
       document.getElementById('pdPreviewWrap').style.display = 'none';
@@ -5799,7 +5810,9 @@ document.getElementById('proposalGenBtn').addEventListener('click', async () => 
     statusEl.textContent = '완료!';
     await addToHistory({
       id: Date.now(), topic: data.title, category: clientName || '', format: 'proposal',
-      script: JSON.stringify({ data, outputMode, accentKey })
+      // AI 문서 디자인은 완성된 HTML(docHtml)까지 같이 저장해서, 나중에 "다시 보기"할 때
+      // AI를 또 호출하지 않고 저장된 결과를 그대로 보여줄 수 있게 한다(비용 절감).
+      script: JSON.stringify({ data, outputMode, accentKey, docHtml: savedDocHtml })
     });
   } catch (err) {
     statusEl.textContent = '';
@@ -6028,6 +6041,16 @@ async function renderProposalDoc(data, accentKey) {
   frame.srcdoc = fullDoc;
   document.getElementById('pdPreviewWrap').style.display = 'block';
   setProposalDocProgress('완료!');
+  return fullDoc; // 완성된 문서를 그대로 히스토리에 저장해두면, 나중엔 AI를 다시 안 부르고 바로 보여줄 수 있다
+}
+
+// 히스토리에 저장해둔 완성된 문서 HTML을 그대로 다시 보여준다 — AI를 다시 호출하지 않아서 비용이 안 든다.
+function showSavedProposalDoc(fullDocHtml) {
+  document.getElementById('proposalImageResultWrap').style.display = 'none';
+  document.getElementById('proposalDownloadBtn').style.display = 'none';
+  const frame = document.getElementById('pdPreviewFrame');
+  frame.srcdoc = fullDocHtml;
+  document.getElementById('pdPreviewWrap').style.display = 'block';
 }
 
 document.getElementById('pdPrintBtn').addEventListener('click', () => {
@@ -6159,8 +6182,11 @@ document.getElementById('peRerenderBtn').addEventListener('click', async () => {
   try {
     // 이미지를 다시 분석하지 않고, 방금 고친 데이터 그대로 렌더링만 다시 한다 — AI가 같은 실수를
     // 반복할 여지 자체가 없다. 처음 만들 때 고른 출력 형식(이미지 vs AI 문서)을 그대로 따른다.
+    // (여기서는 내용을 실제로 고쳐서 다시 그리는 거라 AI를 다시 부르는 게 맞다 — 완성본은 저장해서
+    // 다음에 그냥 "다시 보기"할 땐 또 안 부르게 한다.)
+    let savedDocHtml = null;
     if (window.__proposalOutputMode === 'doc') {
-      await renderProposalDoc(data, window.__proposalAccentKey || 'B');
+      savedDocHtml = await renderProposalDoc(data, window.__proposalAccentKey || 'B');
     } else {
       const result = await apiPost('/api/generate-proposal', data);
       const imgSrc = 'data:image/png;base64,' + result.base64;
@@ -6173,7 +6199,7 @@ document.getElementById('peRerenderBtn').addEventListener('click', async () => {
     statusEl.textContent = '수정 완료!';
     await addToHistory({
       id: Date.now(), topic: data.title, category: data.clientName || '', format: 'proposal',
-      script: JSON.stringify({ data, outputMode: window.__proposalOutputMode, accentKey: window.__proposalAccentKey })
+      script: JSON.stringify({ data, outputMode: window.__proposalOutputMode, accentKey: window.__proposalAccentKey, docHtml: savedDocHtml })
     });
   } catch (e) {
     statusEl.textContent = '';
@@ -6193,7 +6219,10 @@ async function renderProposalHistory() {
   panel.style.display = list.length ? 'block' : 'none';
   document.getElementById('proposalHistoryCount').textContent = `(${list.length}개)`;
   const el = document.getElementById('proposalHistoryList');
-  el.innerHTML = list.map(h => `
+  el.innerHTML = list.map(h => {
+    let hasSavedDoc = false;
+    try { hasSavedDoc = !!JSON.parse(h.script).docHtml; } catch (e) { /* 무시 */ }
+    return `
     <div class="hist-item">
       <div class="hist-item-head">
         <div>
@@ -6201,12 +6230,13 @@ async function renderProposalHistory() {
           <div class="hist-item-meta">${escapeHtml(h.category || '')} · ${new Date(h.created_at || h.id).toLocaleString('ko-KR')}</div>
         </div>
         <div class="hist-item-actions">
-          <button class="mini-btn" data-action="redownload" data-id="${h.id}">다시 만들기</button>
+          <button class="mini-btn" data-action="redownload" data-id="${h.id}">${hasSavedDoc ? '다시 보기' : '다시 만들기'}</button>
           <button class="mini-btn danger" data-action="del" data-id="${h.id}">삭제</button>
         </div>
       </div>
     </div>
-  `).join('');
+  `;
+  }).join('');
   el.querySelectorAll('[data-action="redownload"]').forEach(btn => {
     btn.addEventListener('click', async () => {
       const h = list.find(x => String(x.id) === btn.dataset.id);
@@ -6225,7 +6255,13 @@ async function renderProposalHistory() {
           document.getElementById('proposalImageResultWrap').style.display = 'none';
           document.getElementById('proposalDownloadBtn').style.display = 'none';
           document.getElementById('pdPreviewWrap').style.display = 'none';
-          await renderProposalDoc(parsed.data, window.__proposalAccentKey);
+          if (parsed.docHtml) {
+            // 이미 완성된 문서가 저장돼 있으면 AI를 다시 부르지 않고 그대로 보여준다 (비용 없음)
+            showSavedProposalDoc(parsed.docHtml);
+          } else {
+            // 예전에 만들어서 완성본이 저장 안 된 기록만 예외적으로 다시 생성한다
+            await renderProposalDoc(parsed.data, window.__proposalAccentKey);
+          }
         } else {
           document.getElementById('proposalImageResultWrap').style.display = 'block';
           document.getElementById('pdPreviewWrap').style.display = 'none';
