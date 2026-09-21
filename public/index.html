@@ -4878,16 +4878,34 @@ ${content}
     const DESIGN_CHUNK = 2;
     let html;
     let sectionsAssembled = [];
+
+    // "B초대형숫자형"으로 지정된 카드가 있으면, 거기 쓰일 핵심 숫자를 미리 찾아서 다른 모든 묶음에게
+    // "이 숫자는 그 카드에서만 크게 써라"라고 알려준다. 카드를 나눠서 만들다 보니, 커버 같은 다른
+    // 카드가 [내용] 원문에 있는 이 숫자를 자기 후킹 문구에 미리 써버리는 사고가 실제로 있었다.
+    let heroNumberIdx = -1, heroNumberValue = '';
+    cardBlocks.forEach((b, idx) => {
+      if (heroNumberIdx === -1 && /B초대형숫자형/.test(b)) {
+        heroNumberIdx = idx;
+        const m = b.match(/핵심\s*숫자[^\n]*?([\d.,]+\s*(?:%|년|개|만원|달러|원)?)/);
+        if (m) heroNumberValue = m[1].trim();
+      }
+    });
+    const heroNumberNote = heroNumberValue
+      ? `\n\n[핵심 숫자 단독 사용 — 매우 중요] "${heroNumberValue}"는 ${heroNumberIdx + 1}번 카드(핵심 숫자 카드)에서만 크게 쓰는 전용 숫자다. 이번 묶음에 그 카드가 없다면(특히 커버·후킹 문구에서), 이 숫자를 절대 언급하거나 미리 보여주지 마라 — 그 카드의 임팩트를 위해 아껴둔다.`
+      : '';
+
     if (cardBlocks.length) {
       for (let i = 0; i < cardBlocks.length; i += DESIGN_CHUNK) {
         const chunk = cardBlocks.slice(i, i + DESIGN_CHUNK);
         btn.textContent = `2/3 디자인 그리는 중... (${Math.min(i + chunk.length, totalCards)}/${totalCards}장)`;
+        const chunkHasHeroCard = heroNumberIdx >= i && heroNumberIdx < i + chunk.length;
         const system = cnDesignSystemPrompt(themeKey, String(totalCards), true) + `
 
 [지금은 전체 카드가 아니라 아래 ${chunk.length}장만 만든다]
 전체 카드뉴스는 총 ${totalCards}장이다. 페이지번호는 "0N / ${totalCards}" 형식으로, 전체 장수(${totalCards}) 기준으로 정확히 써라(예: 이 묶음이 4~6번째 카드면 "04 / ${totalCards}", "05 / ${totalCards}", "06 / ${totalCards}").
 **각 카드 앞에 적힌 "배경: 다크/라이트"는 전체 카드를 한 번에 보고 이미 확정한 배경 리듬이다 — 이번 묶음만 보고 임의로 바꾸지 말고 그 지정을 정확히 따른다.**
-출력은 이번 묶음 카드 개수(${chunk.length}개)와 정확히 같은 수의 <section>만 만든다. 카피 목록·"===HTML===" 구분선 없이, <section>...</section> 를 ${chunk.length}개 이어서만 출력해라(감싸는 바깥 div 없이). 다른 설명이나 코드블록 기호 없이.`;
+출력은 이번 묶음 카드 개수(${chunk.length}개)와 정확히 같은 수의 <section>만 만든다. 카피 목록·"===HTML===" 구분선 없이, <section>...</section> 를 ${chunk.length}개 이어서만 출력해라(감싸는 바깥 div 없이). 다른 설명이나 코드블록 기호 없이.${!chunkHasHeroCard ? heroNumberNote : ''}
+**커버(1번) 카드의 후킹 2줄은 반드시 카피에 적힌 "연결 문장"을 그대로 쓰거나 그와 같은 의미로 쓴다 — 카피에 없는 다른 통계·숫자를 새로 지어내서 후킹으로 쓰지 마라.**`;
         const designPrompt = `${contentBlock}\n\n[이번 묶음에서 만들 카드들의 확정된 카피 — 이 헤드라인·독자 속마음·연결 문장·레이아웃 유형을 그대로 써서 디자인만 만들어라]\n${chunk.join('\n\n')}`;
         try {
           // 실제로 요청한 개수(chunk.length)만큼 <section>이 나왔는지 반드시 확인한다.
@@ -4980,6 +4998,7 @@ ${content}
 11) "[확인 필요]", "TBD", "?" 같은 미완성 자리표시자 문구가 남아 있는가 — 있으면 그 문장을 삭제하고 자연스러운 다른 문장으로 바꿔야 한다
 12) 이 카드가 고른 테마의 정렬·박스 형태·헤드라인 사양과 다르게(예: 다른 테마의 레이아웃을 섞어 쓰거나 색만 바꿔서) 만들어졌는가
 13) 본문(박스들)을 감싸는 영역에 flex:1이 없어서, 콘텐츠 아래로 200px 넘는 빈 공간이 남았는가
+14) 박스 안에 라벨+수치+보조설명 3줄을 넘어 4번째 줄(예: "차액 ○○") 이 추가됐는데, 그만큼 다른 요소를 줄이거나 padding을 조정하지 않아서 카드 하단이 넘쳐 푸터가 잘릴 위험이 있는가
 
 아래 형식의 JSON만 출력해라. 문제 없으면 issues를 빈 배열로:
 {"issues": [{"cardIndex": 0, "problem": "무엇이 문제인지 한 문장으로, 구체적으로"}]}
