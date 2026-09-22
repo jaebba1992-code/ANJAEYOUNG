@@ -5078,23 +5078,51 @@ ${currentSectionHtml}
 }
 document.getElementById('cnGenBtn').addEventListener('click', generateThemeCardNews);
 
+// 이미지를 API로 보내기 전에 적당한 크기로 줄이고 JPEG로 다시 압축한다. 원본 화면 캡처 PNG를
+// 그대로 여러 장 보내면 용량이 너무 커져서(특히 6장을 한꺼번에) 서버 요청 자체가 거부되는
+// 문제(413 용량초과)가 있었다 — 스타일 분석엔 고화질이 필요 없으니 줄여서 보낸다.
+function resizeImageFile(file, maxDim = 1100, quality = 0.82) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const reader = new FileReader();
+    reader.onload = () => { img.src = reader.result; };
+    reader.onerror = reject;
+    img.onload = () => {
+      let { width, height } = img;
+      if (width > maxDim || height > maxDim) {
+        const scale = maxDim / Math.max(width, height);
+        width = Math.round(width * scale);
+        height = Math.round(height * scale);
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#fff'; // 투명 PNG가 JPEG로 바뀔 때 검게 뭉개지지 않게 흰 배경을 깔아준다
+      ctx.fillRect(0, 0, width, height);
+      ctx.drawImage(img, 0, 0, width, height);
+      const dataUrl = canvas.toDataURL('image/jpeg', quality);
+      resolve({ data: dataUrl.split(',')[1], mediaType: 'image/jpeg' });
+    };
+    img.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 document.getElementById('cnStyleRefAnalyzeBtn').addEventListener('click', async () => {
   const btn = document.getElementById('cnStyleRefAnalyzeBtn');
   const statusEl = document.getElementById('cnStyleRefStatus');
   const files = Array.from(document.getElementById('cnStyleRefInput').files || []);
   if (!files.length) { alert('참고할 이미지를 먼저 선택해주세요.'); return; }
   btn.disabled = true;
-  statusEl.textContent = '분석 중...';
+  statusEl.textContent = '이미지 준비 중...';
   try {
-    const images = await Promise.all(files.slice(0, 6).map(f => new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result.split(',')[1]);
-      reader.onerror = reject;
-      reader.readAsDataURL(f);
-    })));
+    const usedFiles = files.slice(0, 6);
+    const images = await Promise.all(usedFiles.map(f => resizeImageFile(f)));
+    statusEl.textContent = '분석 중...';
     const system = `당신은 인스타그램 카드뉴스 디자인을 분석하는 전문가입니다. 첨부된 이미지(들)은 사용자가 "이런 스타일로 만들어줘"라고 참고용으로 보여준 기존 카드뉴스 예시입니다.
 이 이미지들의 디자인 스타일만 3~6줄로 요약해서 설명하세요 — 색 조합 경향, 박스/카드 모양(모서리 둥글기, 그림자 등), 타이포그래피 위계(어떤 글자가 크고 어떤 게 작은지), 레이아웃 구성 방식(여백, 정렬, 그리드 쓰는 방식) 위주로. 이미지 속 문구·숫자·상품명 같은 실제 내용은 절대 옮겨적지 마세요 — 스타일 특징만 말로 설명합니다. 다른 설명 없이 스타일 노트만 출력하세요.`;
-    const content = images.map(b64 => ({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: b64 } }));
+    const content = images.map(img => ({ type: 'image', source: { type: 'base64', media_type: img.mediaType, data: img.data } }));
     content.push({ type: 'text', text: '이 이미지들의 디자인 스타일을 분석해서 스타일 노트로 정리해줘.' });
     const note = await callClaude(system, [{ role: 'user', content }], 2, null, 800);
     window.__cnStyleNote = (note || '').trim();
