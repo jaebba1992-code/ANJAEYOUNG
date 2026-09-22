@@ -4981,6 +4981,7 @@ ${content}
     });
     window.__cnLastTheme = themeKey;
     window.__cnLastCardCount = cardCountSel;
+    window.__cnLastWatermark = watermark; // 나중에 "워터마크 한번에 바꾸기"에서 기존 값을 찾을 때 씀
     window.__cnPhotoSlots = queries; // 슬롯별 원래 검색어 기억 (컨트롤 패널 만들 때 씀)
 
     // 3단계: 자체 검토 — 방금 만든 결과물을 규칙(박스 3개 이상/overflow:hidden/헤드라인 글자수)에
@@ -5154,6 +5155,10 @@ function renderCnCardEditControls() {
     const label = s.getAttribute('data-screen-label') || `${i + 1}번째 카드`;
     return `<option value="${i}">${escapeHtml(label)}</option>`;
   }).join('');
+  const checkboxes = Array.from(sections).map((s, i) => {
+    const label = s.getAttribute('data-screen-label') || `${i + 1}번째 카드`;
+    return `<label style="display:flex; align-items:center; gap:6px; font-size:12px; padding:6px 10px; border:1px solid var(--line); border-radius:6px; cursor:pointer;"><input type="checkbox" class="cnBulkEditCheck" value="${i}"> ${escapeHtml(label)}</label>`;
+  }).join('');
   el.innerHTML = `
     <p style="font-size:12px; color:var(--paper-mute); margin:0 0 10px;">특정 카드만 마음에 안 들면, 그 카드를 골라서 수정 지시를 적으면 그 카드만 다시 그려서 바꿔드려요 (다른 카드는 그대로 유지돼요).</p>
     <div class="row">
@@ -5168,26 +5173,91 @@ function renderCnCardEditControls() {
     </div>
     <button class="mini-btn" id="cnEditCardBtn" style="background:var(--brass-dim); color:var(--brass);">이 카드만 다시 그리기</button>
     <p id="cnEditStatus" style="font-size:11.5px; color:var(--paper-mute); margin-top:6px;"></p>
+
+    <div style="margin-top:20px; padding-top:16px; border-top:1px solid var(--line);">
+      <p style="font-size:12.5px; color:var(--brass); font-weight:600; margin:0 0 8px;">여러 장 한번에 수정 <span style="color:var(--paper-mute); font-weight:400;">— 고칠 카드를 여러 장 고르면, 순서대로 기다리지 않고 한꺼번에(동시에) 요청을 보내서 훨씬 빨라요</span></p>
+      <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px;">${checkboxes}</div>
+      <div class="row">
+        <div class="field">
+          <label>선택한 카드들에 공통으로 적용할 수정 지시사항</label>
+          <input type="text" id="cnBulkEditInstructionInput" placeholder="예: 하단 여백이 남는 카드들, 박스를 키워서 꽉 채워줘">
+        </div>
+      </div>
+      <button class="mini-btn" id="cnBulkEditBtn" style="background:var(--brass-dim); color:var(--brass);">선택한 카드들 한번에 수정</button>
+      <p id="cnBulkEditStatus" style="font-size:11.5px; color:var(--paper-mute); margin-top:6px;"></p>
+    </div>
+
+    <div style="margin-top:20px; padding-top:16px; border-top:1px solid var(--line);">
+      <p style="font-size:12.5px; color:var(--brass); font-weight:600; margin:0 0 8px;">워터마크 한번에 바꾸기 <span style="color:var(--paper-mute); font-weight:400;">— AI를 다시 부르지 않고 텍스트만 바로 바꿔서 즉시 반영돼요(비용 없음)</span></p>
+      <div class="row">
+        <div class="field" style="flex:0 0 240px;">
+          <label>새 워터마크</label>
+          <input type="text" id="cnBulkWatermarkInput" value="${escapeHtml(window.__cnLastWatermark || document.getElementById('cnWatermarkInput').value || '보험즈')}">
+        </div>
+      </div>
+      <button class="mini-btn" id="cnBulkWatermarkBtn">전체 카드 워터마크 바꾸기</button>
+      <p id="cnBulkWatermarkStatus" style="font-size:11.5px; color:var(--paper-mute); margin-top:6px;"></p>
+    </div>
   `;
   document.getElementById('cnEditCardBtn').addEventListener('click', regenerateSingleThemeCard);
+  document.getElementById('cnBulkEditBtn').addEventListener('click', regenerateMultipleThemeCards);
+  document.getElementById('cnBulkWatermarkBtn').addEventListener('click', replaceAllWatermarks);
 }
 
-async function regenerateSingleThemeCard() {
-  const idx = Number(document.getElementById('cnEditCardSelect').value);
-  const instruction = document.getElementById('cnEditInstructionInput').value.trim();
-  const statusEl = document.getElementById('cnEditStatus');
+// 여러 카드를 동시에(병렬로) 다시 그린다 — 순서대로 하나씩 하면 카드마다 기다려야 해서 느리다.
+// Promise.all로 한꺼번에 요청을 보내면 전체 대기 시간이 "가장 느린 카드 1장 분량"으로 줄어든다.
+async function regenerateMultipleThemeCards() {
+  const checks = Array.from(document.querySelectorAll('.cnBulkEditCheck:checked'));
+  const indices = checks.map(c => Number(c.value));
+  const instruction = document.getElementById('cnBulkEditInstructionInput').value.trim();
+  const statusEl = document.getElementById('cnBulkEditStatus');
+  if (!indices.length) { alert('수정할 카드를 하나 이상 선택해주세요.'); return; }
   if (!instruction) { alert('수정 지시사항을 적어주세요.'); return; }
+
+  const btn = document.getElementById('cnBulkEditBtn');
+  btn.disabled = true;
+  statusEl.textContent = `${indices.length}장 동시에 다시 그리는 중...`;
+  const results = await Promise.allSettled(indices.map(idx => regenerateThemeCardByIndex(idx, instruction)));
+  const failCount = results.filter(r => r.status === 'rejected').length;
+  statusEl.textContent = failCount
+    ? `완료 — ${indices.length - failCount}장 성공, ${failCount}장 실패(해당 카드는 그대로 남아있어요, 개별로 다시 시도해주세요).`
+    : `완료! ${indices.length}장 전부 반영됐어요.`;
+  btn.disabled = false;
+  renderCnCardEditControls(); // 체크박스 목록을 새로 그려서(체크 해제 상태로) 다음 작업에 헷갈리지 않게 한다
+}
+
+// 워터마크 텍스트만 찾아서 바꾼다 — 디자인을 다시 그리는 게 아니라 DOM 텍스트만 바꾸는 거라
+// AI 호출이 전혀 없고, 그래서 즉시 반영되고 비용도 안 든다.
+function replaceAllWatermarks() {
+  const oldWatermark = window.__cnLastWatermark || '';
+  const newWatermark = document.getElementById('cnBulkWatermarkInput').value.trim();
+  const statusEl = document.getElementById('cnBulkWatermarkStatus');
+  if (!newWatermark) { alert('새 워터마크를 입력해주세요.'); return; }
+  const sections = document.querySelectorAll('#cnPreviewWrap section');
+  let changedCount = 0;
+  sections.forEach(section => {
+    const walker = document.createTreeWalker(section, NodeFilter.SHOW_TEXT);
+    let n;
+    while ((n = walker.nextNode())) {
+      const t = n.textContent.trim();
+      // 기존 워터마크 값과 정확히 일치하는 짧은 텍스트 노드만 바꾼다(다른 문장 속 우연한 일치 방지)
+      if (t && oldWatermark && t === oldWatermark) {
+        n.textContent = n.textContent.replace(oldWatermark, newWatermark);
+        changedCount++;
+      }
+    }
+  });
+  window.__cnLastWatermark = newWatermark;
+  statusEl.textContent = changedCount ? `${changedCount}장에 반영했어요.` : '기존 워터마크와 일치하는 텍스트를 못 찾았어요 — 카드 안 표기가 다를 수 있어요.';
+}
+
+async function regenerateThemeCardByIndex(idx, instruction) {
   const sections = document.querySelectorAll('#cnPreviewWrap section');
   const target = sections[idx];
-  if (!target) return;
-
-  const btn = document.getElementById('cnEditCardBtn');
-  btn.disabled = true;
-  statusEl.textContent = '다시 그리는 중...';
-  try {
-    const themeKey = window.__cnLastTheme || 'A';
-    const currentHtml = target.outerHTML;
-    const system = cnDesignSystemPrompt(themeKey) + `
+  if (!target) throw new Error('카드를 찾을 수 없어요.');
+  const themeKey = window.__cnLastTheme || 'A';
+  const currentHtml = target.outerHTML;
+  const system = cnDesignSystemPrompt(themeKey) + `
 
 [지금은 카드뭉치 전체가 아니라 이 카드 딱 1장만 다시 그린다 — 위의 "최종 출력 순서"(카피 목록 + ===HTML=== 구분선)는 이번엔 적용하지 않는다]
 아래는 지금 이 카드의 현재 HTML이다 (사진 자리는 이미 실제 이미지 URL로 채워져 있을 수 있다 — 사진을 새로 바꾸고 싶다는 지시가 없으면 기존 이미지 URL을 그대로 유지한다):
@@ -5196,30 +5266,44 @@ ${currentHtml}
 사용자의 수정 지시사항: ${instruction}
 
 다른 카드들과 테마·색·페이지번호 형식(예: "0N / 총장수")·워터마크는 그대로 유지하고, 지시사항만 정확히 반영해서 이 카드 1장의 <section>...</section> 코드만 출력해라. 카피 목록이나 "===HTML===" 구분선 없이, 감싸는 바깥 div도 없이 <section> 하나만, 다른 설명이나 코드블록 기호 없이 출력한다.`;
-    const raw = await callClaude(system, [{ role: 'user', content: '위 지시사항대로 이 카드를 다시 그려줘.' }], 2, null, 4000, 'claude-opus-5');
-    // 혹시 모델이 그래도 "===HTML===" 구분선을 붙여 보내면 방어적으로 그 뒤만 취한다
-    const splitIdx = raw.indexOf('===HTML===');
-    const rawHtmlPart = splitIdx >= 0 ? raw.slice(splitIdx + '===HTML==='.length) : raw;
-    let newHtml = rawHtmlPart.replace(/```html|```/g, '').trim();
+  const raw = await callClaude(system, [{ role: 'user', content: '위 지시사항대로 이 카드를 다시 그려줘.' }], 2, null, 4000, 'claude-opus-5');
+  const splitIdx = raw.indexOf('===HTML===');
+  const rawHtmlPart = splitIdx >= 0 ? raw.slice(splitIdx + '===HTML==='.length) : raw;
+  let newHtml = rawHtmlPart.replace(/```html|```/g, '').trim();
 
-    // 새로 생긴 사진 자리가 있으면(사진을 바꿔달라는 지시였을 경우) 채운다
-    const photoSlotRe = /<div class="cn-photo" data-photo-query="([^"]*)"[^>]*><\/div>/g;
-    const qMatches = [...newHtml.matchAll(photoSlotRe)];
-    if (qMatches.length) {
-      const q = qMatches[0][1];
-      let url = '';
-      try {
-        const result = await apiGet('/api/unsplash?query=' + encodeURIComponent(q || 'finance'));
-        url = result.url || result.imageUrl || '';
-      } catch (e) { /* 무시 */ }
-      const bg = url ? `background-image:url('${url}');background-size:cover;background-position:center` : `background:linear-gradient(135deg,#333,#111)`;
-      newHtml = newHtml.replace(photoSlotRe, () => `<div class="cn-photo" id="cn-photo-${idx}" data-photo-query="${escapeHtml(q)}" style="position:absolute;inset:0;${bg}"></div>`);
-    }
+  const photoSlotRe = /<div class="cn-photo" data-photo-query="([^"]*)"[^>]*><\/div>/g;
+  const qMatches = [...newHtml.matchAll(photoSlotRe)];
+  if (qMatches.length) {
+    const q = qMatches[0][1];
+    let url = '';
+    try {
+      const result = await apiGet('/api/unsplash?query=' + encodeURIComponent(q || 'finance'));
+      url = result.url || result.imageUrl || '';
+    } catch (e) { /* 무시 */ }
+    const bg = url ? `background-image:url('${url}');background-size:cover;background-position:center` : `background:linear-gradient(135deg,#333,#111)`;
+    newHtml = newHtml.replace(photoSlotRe, () => `<div class="cn-photo" id="cn-photo-${idx}" data-photo-query="${escapeHtml(q)}" style="position:absolute;inset:0;${bg}"></div>`);
+  }
 
-    const wrapper = document.createElement('div');
-    wrapper.innerHTML = newHtml;
-    const newSection = wrapper.querySelector('section') || wrapper.firstElementChild;
-    if (newSection) target.replaceWith(newSection);
+  const wrapper = document.createElement('div');
+  wrapper.innerHTML = newHtml;
+  const newSection = wrapper.querySelector('section') || wrapper.firstElementChild;
+  if (!newSection) throw new Error('결과를 읽지 못했어요.');
+  target.replaceWith(newSection);
+  return true;
+}
+
+// "이 카드만 다시 그리기" 버튼용 — 위 공용 함수(regenerateThemeCardByIndex)를 카드 1장에 대해서만 쓴다.
+async function regenerateSingleThemeCard() {
+  const idx = Number(document.getElementById('cnEditCardSelect').value);
+  const instruction = document.getElementById('cnEditInstructionInput').value.trim();
+  const statusEl = document.getElementById('cnEditStatus');
+  if (!instruction) { alert('수정 지시사항을 적어주세요.'); return; }
+
+  const btn = document.getElementById('cnEditCardBtn');
+  btn.disabled = true;
+  statusEl.textContent = '다시 그리는 중...';
+  try {
+    await regenerateThemeCardByIndex(idx, instruction);
     statusEl.textContent = '완료! 이 카드만 새로 반영됐어요.';
   } catch (e) {
     statusEl.textContent = '';
