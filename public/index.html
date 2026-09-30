@@ -1544,7 +1544,7 @@
           <div class="field">
             <label>테마 <span class="opt">색뿐 아니라 레이아웃 구조 자체가 테마마다 달라요</span></label>
             <select id="cnThemeSelect">
-              <option value="A" selected>A. 미니멀 그린 — 좌측정렬·라운드박스</option>
+              <option value="A" selected>A. 레퍼런스 그린 — 큰 제목·강조 박스</option>
               <option value="B">B. 에디토리얼 세리프 — 중앙정렬·박스없음</option>
               <option value="C">C. 뉴스페이퍼 블랙 — 표 형태</option>
               <option value="D">D. 브루탈 옐로 — 강한 대비·굵은테두리</option>
@@ -4653,9 +4653,15 @@ async function generateThemeCardNews() {
   status.textContent = '내용과 카드 장수를 확인하며 구성하고 있어요. 기존 결과는 완성될 때까지 유지됩니다.';
   btn.textContent = '1/2 카드 내용 구성 중...';
   try {
-    const deck = await requestCnDeck(content, count);
+    let deck = await requestCnDeck(content, count);
     btn.textContent = '2/2 디자인과 글자 잘림 검사 중...';
-    const html = await prepareCnDeck(deck, theme, watermark);
+    let html;
+    try { html = await prepareCnDeck(deck, theme, watermark); }
+    catch (layoutError) {
+      btn.textContent = '큰 글자에 맞춰 내용 배분 조정 중...';
+      deck = await requestCnDeck(content + '\n\n[배치 검사 결과] ' + layoutError.message + '\n큰 글씨 크기를 유지해야 합니다. 제목은 짧게, 박스당 핵심 문구는 하나로 정리하고 긴 내용은 다른 카드에 배분하세요. 원문의 수치와 조건은 삭제하거나 바꾸지 마세요. 직전 구성: ' + JSON.stringify(deck), count);
+      html = await prepareCnDeck(deck, theme, watermark);
+    }
     document.getElementById('cnPreviewWrap').innerHTML = html;
     Object.assign(window, {__cnDeck:deck, __cnLastTheme:theme, __cnLastCardCount:count, __cnLastWatermark:watermark, __cnPhotoSlots:[], __cnLastHistoryId:Date.now(), __cnLastHistoryTopic:content.slice(0,30), __cnLastHistoryCategory:'카드뉴스'});
     document.getElementById('cnCopyPreview').style.display = 'none';
@@ -4808,7 +4814,7 @@ async function saveCnHistorySnapshot() {
       id: window.__cnLastHistoryId,
       topic: window.__cnLastHistoryTopic || '테마 카드뉴스',
       category: window.__cnLastHistoryCategory || '카드뉴스', format:'card',
-      script: JSON.stringify({version:window.__cnDeck ? 2 : 1, deck:window.__cnDeck || undefined, theme:window.__cnLastTheme, watermark:window.__cnLastWatermark, html:wrap.innerHTML})
+      script: JSON.stringify({version:window.__cnDeck ? window.__cnDeck.version : 1, deck:window.__cnDeck || undefined, theme:window.__cnLastTheme, watermark:window.__cnLastWatermark, html:wrap.innerHTML})
     }, false);
   } catch (error) { console.error('카드뉴스 기록 저장 실패:', error); }
   const notice = document.getElementById('cnSaveStatus');
@@ -4822,7 +4828,7 @@ async function editCnCards(indices, instruction, status) {
   if (!window.__cnDeck) { status.textContent = '이전 방식으로 만든 기록이에요. 다운로드는 가능하며, 새 편집 기능은 새로 생성한 카드부터 사용할 수 있어요.'; return; }
   setCnBusy(true);
   const original = window.__cnDeck;
-  const next = {version:2, cards:original.cards.map(c => JSON.parse(JSON.stringify(c)))};
+  const next = {version:original.version || 3, cards:original.cards.map(c => JSON.parse(JSON.stringify(c)))};
   try {
     // Sequential requests prevent rate-limit bursts; commit the entire selection atomically.
     for (const [n, index] of indices.entries()) {
