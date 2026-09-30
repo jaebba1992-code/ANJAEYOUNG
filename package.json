@@ -2,6 +2,9 @@
   "name": "insurance-script-generator",
   "version": "1.0.0",
   "private": true,
+  "scripts": {
+    "test": "node --test tests/*.test.js"
+  },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.8",
     "archiver": "^7.0.1",
