@@ -36,7 +36,7 @@ test('all themes render escaped content and independent page/watermark markers',
     const h=engine.renderDeck(d,key,'<보험즈>');
     assert.equal((h.match(/<section /g)||[]).length,6);
     assert.equal((h.match(/data-cn-watermark/g)||[]).length,6);
-    assert.ok(h.includes('06 / 6'));
+    assert.ok(h.includes('06 / 06'));
     assert.ok(!h.includes('<img'));
     assert.ok(h.includes('&lt;보험즈&gt;'));
   }
@@ -87,4 +87,37 @@ test('double generation submits a single model request',async()=>{
   let release,calls=0;
   const {context:c}=app({callClaude:async()=>{calls++;await new Promise(r=>release=r);return JSON.stringify({cards:cards()});}});
   const first=c.generateThemeCardNews();await c.generateThemeCardNews();assert.equal(calls,1);release();await first;
+});
+
+test('saved version 2 decks retain their original renderer',()=>{
+  const deck=engine.validateDeck({version:2,cards:cards()});
+  assert.equal(deck.version,2);
+  const html=engine.renderDeck(deck,'A','보험즈');
+  assert.equal((html.match(/data-cn-card="2"/g)||[]).length,6);
+  assert.ok(html.includes('font-size:86px'));
+  assert.ok(!html.includes('data-cn-card="3"'));
+});
+test('new decks use reference title sizes, numeric emphasis and separate value fields',()=>{
+  const d=cards();d[2].items=[{label:'조건',value:'두 가지 확인',text:'제출 자료 확인',detail:'사본 보관'},{label:'다음 단계',value:'기록 정리'}];
+  d[4].value='148.1%';
+  const deck=engine.validateDeck({cards:d});
+  assert.equal(deck.version,3);
+  const html=engine.renderDeck(deck,'A','보험즈');
+  for(const content of ['두 가지 확인','제출 자료 확인','사본 보관','기록 정리']) assert.ok(html.includes(content));
+  assert.ok(html.includes('font-size:112px'));assert.ok(html.includes('font-size:96px'));assert.ok(html.includes('font-size:228px'));
+  assert.ok(html.includes('white-space:nowrap'));
+});
+test('highlight text is escaped and misplaced list content is rejected',()=>{
+  const c={type:'text',title:'<strong> 예시',highlight:'<strong>',body:'본문'};
+  const html=engine.renderCard(c,1,6);
+  assert.ok(html.includes('&lt;strong&gt;'));assert.ok(!html.includes('<strong>'));
+  assert.throws(()=>engine.validateCard({...c,highlight:'없는 문구'}));
+  assert.throws(()=>engine.validateCard({...c,items:[{label:'누락 금지',text:'내용'}]}));
+});
+test('a layout correction can recover without shrinking the title below reference scale',async()=>{
+  const {context:c,node}=app();let checks=0;
+  c.prepareCnDeck=async()=>{if(++checks===1)throw Error('2번 카드 내용이 너무 길어요');return '<section>corrected</section>';};
+  await c.generateThemeCardNews();
+  assert.equal(checks,2);assert.equal(node('cnPreviewWrap').innerHTML,'<section>corrected</section>');
+  assert.match(node('cnGenStatus').textContent,/완성/);
 });
