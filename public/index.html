@@ -7,11 +7,13 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;600;700&family=Pretendard:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="/cardnews-engine.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-dynamic-subset.css">
 <style>
+  #cnPreviewWrap > [data-cn-deck] { zoom: var(--cn-preview-scale, .32); }
   @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css');
   :root {
     /* 브랜드 그린 */
@@ -1536,7 +1538,7 @@
 
       <div id="cardThemeModeFields" style="display:block;">
         <p style="font-size:12px; color:var(--paper-mute); line-height:1.7; margin:0 0 14px;">
-          어두운 카드 / 밝은 카드 2종이 교차하는 6가지 테마 중 하나를 골라서, AI가 직접 HTML로 카드뉴스를 그려요. 표지엔 자동으로 무료 스톡사진이 들어가요.
+          7가지 테마로 카드뉴스를 만들어요. AI가 내용을 구성하고, 정해진 디자인에 배치한 뒤 글자 잘림을 검사해요. 사진 없이도 읽기 좋은 글자 중심 디자인입니다.
         </p>
         <div class="row">
           <div class="field">
@@ -1545,7 +1547,7 @@
               <option value="A" selected>A. 미니멀 그린 — 좌측정렬·라운드박스</option>
               <option value="B">B. 에디토리얼 세리프 — 중앙정렬·박스없음</option>
               <option value="C">C. 뉴스페이퍼 블랙 — 표 형태</option>
-              <option value="D">D. 브루탈 옐로 — 대각배치·굵은테두리</option>
+              <option value="D">D. 브루탈 옐로 — 강한 대비·굵은테두리</option>
               <option value="E">E. 소프트 파스텔 — 2열카드·여백 큼</option>
               <option value="F">F. 테크 모노 — 코드 느낌</option>
               <option value="G">G. 골드 클래식 — 상하프레임·대칭</option>
@@ -1561,10 +1563,10 @@
             </select>
           </div>
         </div>
-        <p style="font-size:11.5px; color:var(--paper-mute); margin:-4px 0 0;">※ AI가 카드마다 렌더 높이·하단 여백·박스 정렬을 자체 점검한 뒤 최종본을 만들어요. 그래도 어색한 카드가 있으면 아래 "카드별 수정"으로 그 카드만 다시 그릴 수 있어요.</p>
+        <p style="font-size:11.5px; color:var(--paper-mute); margin:-4px 0 0;">※ 요청한 장수와 필수 내용을 확인하고, 이미지 크기에서 글자가 넘치는지 검사해요. 문구는 아래에서 카드별로 수정할 수 있어요.</p>
         <div class="row">
           <div class="field">
-            <label>참고할 예시 카드뉴스 이미지 (선택) <span class="opt">디자인 스타일만 참고해요 — 내용은 절대 베끼지 않아요</span></label>
+            <label>참고할 예시 카드뉴스 이미지 (선택) <span class="opt">문구의 분위기를 참고해요 — 배치는 선택한 테마를 사용해요</span></label>
             <input type="file" id="cnStyleRefInput" accept="image/*" multiple style="font-size:12px; color:var(--paper-dim);">
             <button type="button" class="mini-btn" id="cnStyleRefAnalyzeBtn" style="margin-left:8px;">스타일 분석하기</button>
             <p id="cnStyleRefStatus" style="font-size:11.5px; color:var(--paper-mute); margin-top:6px;"></p>
@@ -1575,7 +1577,7 @@
         </div>
         <div class="row">
           <div class="field">
-            <label>카드뉴스 내용 <span class="opt">상품명, 핵심 수치, 예시 계산, 비교 포인트, CTA 문구 등 자유롭게 적어주세요 — 어떤 보험 상품이든 상관없어요. AI가 이 내용을 8장 구성에 맞게 알아서 나눠 담아요</span></label>
+            <label>카드뉴스 내용 <span class="opt">상품명, 핵심 수치, 예시 계산, 비교 포인트, CTA 문구 등 자유롭게 적어주세요 — 어떤 보험 상품이든 상관없어요. AI가 선택한 장수에 맞게 내용을 나눠 담아요</span></label>
             <textarea id="cnContentInput" rows="10" placeholder="예: 상품명 - AIA생명 달러연금 / 핵심 수치 - 미국 기준금리 +1~1.5% 복리, 월 20만원부터 / 실제 예시 - 원금 3,600만원(월 20만원×15년) → 20년 후 약 5,200만원 → 차액 약 1,600만원 (예시 수치) / 비교 포인트 - 타사는 원화 공시이율 2%대, 우리는 달러 자산으로 미국 금리 연동 / CTA - 무료 시뮬레이션 받아보기, 저장 후 상담 문의&#10;&#10;※ 형식은 자유예요. 항목을 안 나눠도 되고, 수치가 없는 상품이면 그냥 특징·장점·설명 위주로 적어도 돼요."></textarea>
           </div>
         </div>
@@ -1594,6 +1596,8 @@
           <button class="copy-btn" id="cnDownloadAllBtn">전체 PNG 다운로드 (zip)</button>
         </div>
       </div>
+      <p id="cnSaveStatus" role="status" style="font-size:12px;color:var(--paper-mute);"></p>
+      <button class="mini-btn" id="cnRetrySaveBtn" hidden>기록 저장 다시 시도</button>
       <div id="cnCopyPreview" style="display:none; background:var(--panel-2); border-radius:8px; padding:14px 16px; margin-bottom:16px;"></div>
       <div id="cnPhotoControls" style="margin-bottom:16px;"></div>
       <div id="cnCardEditControls" style="margin-bottom:16px;"></div>
@@ -4597,514 +4601,79 @@ document.getElementById('cardModeSelect').addEventListener('change', () => {
   document.getElementById('cardThemeModeFields').style.display = isTheme ? 'block' : 'none';
 });
 
-const CN_THEMES = {
-  A: { label: 'A. 미니멀 그린 (좌측정렬·라운드박스)' },
-  B: { label: 'B. 에디토리얼 세리프 (중앙정렬·박스없음)' },
-  C: { label: 'C. 뉴스페이퍼 블랙 (표 형태)' },
-  D: { label: 'D. 브루탈 옐로 (대각배치·굵은테두리)' },
-  E: { label: 'E. 소프트 파스텔 (2열카드)' },
-  F: { label: 'F. 테크 모노 (코드 느낌)' },
-  G: { label: 'G. 골드 클래식 (상하프레임·대칭)' }
-};
 
-const CN_THEME_SPECS = {
-  A: `A. 미니멀 그린 — 좌측 정렬 · 라운드 박스
-배경: 다크 #0E1116 / 라이트 #F4F1EA 교차, 포인트 #2FE0A0
-정렬: 전체 좌측 정렬
-박스: border-radius:28px, 채움형, 세로 스택
-헤드라인: 96px/800, 2줄, 좌측
-상단 라벨: 포인트색 작은 텍스트
-특징: 박스 안 라벨 → 큰 수치 → 보조설명 3단`,
-  B: `B. 에디토리얼 세리프 — 중앙 정렬 · 박스 없음
-배경: 크림 #FBF8F1 / 잉크 #1B1A18, 포인트 #B4472E
-정렬: 전부 중앙 정렬
-박스: 쓰지 않는다. 구분은 가로 헤어라인(1px)으로만
-헤드라인: 92px/700, 3줄, 중앙, line-height:1.2
-상단 라벨: 대문자 영문 + 자간 0.24em
-특징: 숫자를 200px로 크게 두고 위아래 헤어라인으로 감싼다. 잡지 지면 느낌`,
-  C: `C. 뉴스페이퍼 블랙 — 상단 헤더바 · 표 형태
-배경: 흰색 #FFFFFF 고정, 먹색 #111111, 포인트 #C8102E
-정렬: 좌측, 강한 그리드
-박스: 직각(radius 0), 테두리 1px 먹색. 채움 금지
-헤드라인: 88px/800, 2줄 + 아래 2px 먹색 실선
-상단: 카드 최상단에 먹색 띠(높이 56px)에 흰 글자 라벨
-특징: 수치는 2열 표로 배치(좌 항목 / 우 수치, 행마다 1px 선)`,
-  D: `D. 브루탈 옐로 — 대각 배치 · 굵은 테두리
-배경: 옐로 #FFD400 / 블랙 #111111 교차, 포인트 반대색
-정렬: 좌측, 요소마다 살짝 다른 들여쓰기(0 / 24px / 48px)
-박스: border:4px solid, radius 0, 배경 없음
-헤드라인: 104px/800, 2줄, 핵심 단어에 굵은 밑줄(8px)
-상단 라벨: 검은 사각 배지 안 흰 글자
-특징: 숫자를 240px로 두고 박스 밖으로 살짝 넘치게 배치`,
-  E: `E. 소프트 파스텔 — 2열 카드 · 여백 큼
-배경: #FBF1F3 단일(다크 카드 쓰지 않음), 텍스트 #2A1E23, 포인트 #E8859B
-정렬: 좌측, 여백을 크게(안전여백 112px)
-박스: border-radius:40px, 흰 배경 + 아주 옅은 테두리
-헤드라인: 84px/700, 3줄
-상단 라벨: 알약형 배지(포인트색 옅은 배경)
-특징: 정보를 2×2 그리드 카드로 배치. 한 카드에 4블록`,
-  F: `F. 테크 모노 — 상단 좌측 정렬 · 코드 느낌
-배경: #0C0C0C 고정, 텍스트 #E8E9E4, 포인트 #B6FF3B
-정렬: 좌측, 모든 라벨 앞에 // 기호
-박스: 배경 #161616, radius 8px, 얇은 테두리 #2A2A2A
-헤드라인: 92px/800, 2줄
-상단 라벨: 등폭 느낌(자간 0.1em, 대문자)
-특징: 수치에 font-variant-numeric:tabular-nums, 숫자 앞에 포인트색 세로 막대`,
-  G: `G. 골드 클래식 — 상하 프레임 · 대칭
-배경: #FAF8F3 / #1A1A1C 교차, 포인트 #A8843C
-정렬: 중앙 대칭
-박스: 상하 2px 포인트색 선만(좌우 선 없음)
-헤드라인: 88px/700, 3줄, 중앙
-상단 라벨: 중앙 정렬 + 양옆에 짧은 선
-특징: 카드 전체를 포인트색 1px 내부 프레임(inset:44px)으로 감싼다`
-};
-
-function cnDesignSystemPrompt(themeKey, cardCountHint, htmlOnly) {
-  const spec = CN_THEME_SPECS[themeKey] || CN_THEME_SPECS.A;
-  const styleNoteBlock = window.__cnStyleNote
-    ? `\n\n[참고 스타일 노트 — 사용자가 업로드한 예시 카드뉴스에서 뽑은 디자인 취향. 내용(문구·수치)은 이 노트와 무관하게 사용자가 준 [내용]만 쓰고, 아래는 어디까지나 톤·레이아웃 취향 참고용이다]\n${window.__cnStyleNote}`
-    : '';
-  return `너는 인스타그램 카드뉴스 전문 디자이너 겸 카피라이터다. 아래 규칙을 절대 규칙으로 지켜 HTML 카드뉴스를 만들어라. 위반 시 결과물 폐기 사유다.
-
-0. 테마는 색이 아니라 "레이아웃 시스템"이다 — 가장 중요
-이번에 고른 테마는 아래 하나뿐이다. 이 테마의 구성·정렬·타이포·박스 형태 전체를 따른다. **색만 바꾸고 다른 테마와 똑같은 레이아웃을 재사용하면 실패다.**
-
-${spec}
-
-0-1. 완주 규칙 (지금 맡은 카드는 전부 만든다)
-지금 요청받은 카드는 몇 장이든 전부 완성해야 한다. 중간에 포기하거나 일부만 만들고 끝내지 마라.
-내용 없는 빈 박스·빈 카드를 만들지 마라. 채울 내용이 없으면 그 요소를 생략하고 있는 내용만으로 완성해라.
-
-1. 캔버스 공통
-1장 = 1080 × 1350px, box-sizing:border-box, overflow:visible(잘림을 숨기지 않는다), flex:none
-안전여백 92px (테마가 E면 112px, G면 프레임 기준 120px — 위 테마 설명에 안전여백이 따로 없으면 92px)
-justify-content:flex-start로 위에서부터 쌓고, 푸터만 margin-top:auto로 바닥에 붙인다.
-인접 블록(라벨/헤드라인/박스/문구 등) 사이 간격은 40~72px. 어떤 두 요소 사이도 120px을 넘기면 실패.
-
-2. 겹침 방지 (이번에 실제로 발생한 사고 — 매우 중요)
-모든 블록은 정상 문서 흐름(flex/grid의 자식으로 순서대로 쌓이는 방식)으로만 배치한다. **position:absolute로 텍스트를 얹지 마라** (배경 이미지·오버레이만 예외).
-박스 아래에 오는 결론 문장은 박스의 형제 요소로 두고 margin-top:20px 이상을 준다. 박스 안에 욱여넣거나 박스와 겹쳐 놓지 마라.
-박스 내부 텍스트 요소들 사이에는 gap:12~16px를 명시하고, 모든 텍스트에 line-height:1.25 이상을 지정한다 (지정을 빠뜨리면 다음 줄이나 아래 요소와 겹칠 수 있다).
-카드당 텍스트 블록(라벨·헤드라인·박스·문구 등 하나하나)은 최대 5개. 넘치면 문장을 줄이거나 항목을 줄여라.
-본문(박스들)과 하단부(연결문구·고지·푸터) 사이에는 명시적으로 margin-bottom:24px 이상을 둔다.
-
-3. 미완성 표기 금지 (이번에 노출된 사고 — 매우 중요)
-"[확인 필요]", "TBD", "?" 같은 자리표시자를 최종 결과물에 절대 남기지 마라.
-값을 모르면 그 문장 자체를 삭제하고, 자연스럽게 이어지는 다른 문장으로 대체하라 (빈 자리를 표시하지 않는다).
-
-4. 푸터 (예외 없음)
-좌측 "0N / 총장수", 우측 워터마크. padding-top:32px. 한 장이라도 빠지면 실패.
-색: 다크 배경 위 #8A949C, 라이트 배경 위 #8A8F94 이상 밝기 (배경에 묻히는 저대비 회색 금지).
-
-5. 커버 (1장) — 커버도 테마를 따른다, 매우 중요
-**커버도 위 0번에서 고른 테마의 정렬 방식을 그대로 따른다.** 테마가 "중앙 정렬"(B, G)이면 배지·헤드라인·후킹 전부 중앙 정렬로, "좌측 정렬"(A, C, D, E, F)이면 전부 좌측 정렬로 배치한다 — 커버만 예외적으로 항상 똑같은 좌측 배지 레이아웃을 쓰는 건 실패다(실제로 이 실수가 반복됐다). 박스가 없는 테마(B)는 커버에도 박스형 배지 대신 헤어라인이나 텍스트만으로 배지를 표현한다.
-커버 카드의 배경 사진 자리에는 정확히 이 태그를 그대로 넣는다: <div class="cn-photo" data-photo-query="영어 검색어 2~3단어" style="position:absolute;inset:0;background:#333"></div> (실제 사진은 나중에 자동으로 채워진다)
-**data-photo-query에 사람이 나올 가능성이 있는 단어(doctor, patient, person, people, man, woman, hand, face, senior 등)를 절대 쓰지 마라 — 예시를 지어내지 말고 아래 예시 중 주제에 맞는 걸 그대로 골라 써도 된다:** "hospital corridor empty", "medical chart paper texture", "x-ray film close up", "banknote texture close up", "city skyline window", "financial graph chart", "document paper texture", "calendar deadline paper", "stethoscope on desk", "pills medicine bottle texture". 이 목록에 없어도 사람이 등장하지 않는 사물·공간·질감 키워드면 된다.
-그 사진 div 바로 다음에 오버레이를 추가한다: <div style="position:absolute;inset:0;background:linear-gradient(180deg, rgba(0,0,0,.55), rgba(0,0,0,.30) 30%, rgba(0,0,0,.82) 62%, #000);pointer-events:none"></div>
-사진 위 텍스트는 100% 불투명 흰색만.
-구성(정렬만 테마를 따르고, 순서는 공통): 상단(또는 중앙) 배지 → 하단에 작은 배지 + "Feat. ~" + 헤어라인 → 헤드라인 3줄(핵심 단어 1개만 포인트 강조) → 후킹 2줄 → 푸터.
-후킹은 다음 중 하나: 숫자충격("10년 뒤 148%") / 손실회피("모르면 내가 손해보는") / 내부자("○○들이 조용하게 준비하는") / 반전("이게 안전하다는 착각") / 질문("왜 아직 이렇게 모으세요?").
-
-6. 타입 스케일
-초대형 숫자 200~240px(테마별 지정 따름) · 헤드라인 84~104px · 서브 52~72px · 본문 34~40px · 라벨 30~34px · 푸터 28~30px
-카드당 "가장 큰 요소"는 하나만 정하고 나머지는 확실히 작게.
-Pretendard(이미 로드돼 있음), weight 600/700/800 (단 B·G 테마는 700 중심).
-
-7. 박스 — 3개 세로 스택은 매우 위험하다 (실제 사고 반복 지점)
-나란한 박스는 높이를 동일하게: 세로 배치는 display:grid; grid-auto-rows:1fr, 가로 배치는 align-items:stretch.
-박스 내부는 justify-content:center로 세로 중앙 정렬. 상단에만 글이 몰리는 것 금지.
-2열 박스 내부 항목은 30~34px, 한 줄 14자 이내. 괄호 보충 금지(단어가 쪼개진다) — 보충 설명은 별도 줄로 내린다.
-**"라벨+큰 수치+보조설명" 3단 구조를 가진 완전한 박스를 세로로 3개 이상 쌓지 마라 — 헤드라인·상단라벨·연결문구·푸터까지 합치면 반드시 1350px를 넘어서 푸터가 잘린다(실제로 "투입/결과/차액" 3박스 카드에서 반복적으로 발생한 사고다).** 데이터가 3개면 다음 중 하나를 선택한다: ① 2개는 나란히(가로) 박스로, 3번째(대개 "차액"처럼 계산 결과)는 그 아래 박스 없이 한 줄 텍스트(예: "차액 4,329달러 · 약 580만원")로 표현한다 ② 세 번째 항목을 다음 카드로 옮긴다 ③ 2열 박스 하나 안에 3번째 값을 보조설명 줄로 흡수한다. 완전한 3단 박스를 세로로 3개 쌓는 구성은 카드당 박스 4개 이하 규칙과 별개로 항상 금지다.
-
-8. 카피
-한 문장 20자 이내. 형용사보다 숫자. 금지어: 무조건, 확정, 최고, 보장, 100%, 저절로, 자동으로.
-저장 트리거("저장해두면 나중에 바로 찾을 수 있어요.")는 마지막 카드에만 한 번.
-CTA 카드는 행동 버튼 블록 1개만 — 정보 박스·요약 리스트를 같이 넣지 마라.
-카드마다 "읽는 사람의 속마음"에 답하는 헤드라인을 쓴다(사람 등장/손실 감각/반전/질문 중 하나로). 상품 용어를 헤드라인에 그대로 쓰지 말고 박스 라벨로 내린다.
-카드 끝 연결 문구(다음 장을 궁금하게 만드는 한 줄)는 최소 3장에 넣되, 고지·확인성 문장과 같은 카드에 절대 같이 넣지 않는다(둘 중 하나만).
-심의필·등록정보·유의사항 같은 법적 고지 문구는 사용자가 [내용]에 직접 적지 않는 한 만들어 넣지 마라 — 지어내지 않는다.
-
-9. 출력 전 검증 — 하나라도 걸리면 고친 뒤 최종본만 줘라
-- 고른 테마의 정렬·박스형태·헤드라인 사양을 실제로 따랐는가 (다른 테마와 레이아웃이 눈에 띄게 달라 보이는가)
-- 텍스트가 다른 요소와 겹치지 않는가 (position:absolute 텍스트, gap 없는 박스 등)
-- "[확인 필요]" 같은 자리표시자가 남아 있지 않은가
-- 모든 카드에 푸터가 있고 1350px를 넘지 않는가(overflow:hidden으로 숨기지 않았는가)
-- 인접 블록 공백이 120px 이하인가
-- 마지막 카드에 CTA 버튼 블록 1개만 있는가(정보 박스 없이)
-- 저장 문구가 한 번만 나왔는가
-- 커버 사진 검색어에 사람이 나올 단어가 없는가
-
-====================
-넘침·공백·단조로움 방지 3 — 이 섹션이 다른 모든 규칙보다 최우선이다. 충돌하면 아래가 이긴다.
-====================
-
-12. 초대형 숫자 카드 규칙 전면 교체
-숫자를 카드 중앙에 단독으로 띄우지 마라. 숫자 위아래 200px 넘는 공백은 실패다.
-숫자는 캡션과 한 덩어리로 묶는다: 숫자(220px) → 바로 아래 8px 간격 캡션(40px/700) → 그 아래 항목 요약.
-이 카드는 반드시 다른 카드와 반대되는 배경(다른 카드가 라이트면 다크)으로 만들어 넘길 때 리듬을 준다.
-숫자 아래에 그 숫자의 내역을 짧게 나열하라. 예: "5" 아래에 "실손 · 질병수술비 · 질병종수술비 · 유사암진단비 · 유사암수술비" 한 줄(32px). 숫자만 있고 내역이 없으면 그 카드는 정보량 0이고 실패다.
-블록 전체를 flex:1; justify-content:center로 세로 중앙 정렬하되, 블록 내부 간격은 8~24px로 촘촘히 묶는다.
-
-13. 같은 숫자를 두 번 크게 쓰지 마라
-핵심 숫자(예: "5")를 큰 글자(64px 이상)로 쓰는 카드는 전체에서 한 장뿐이다. 다른 카드에서는 문장 안에 본문 크기로만 등장시킨다.
-헤드라인에 이미 숫자가 있으면(예: "3년이면 안 늦었다") 그 카드에 같은 숫자를 큰 블록으로 반복하지 마라. 대신 다른 정보(마감일 계산 예시, 필요 서류 등)를 넣는다.
-
-14. 하단 공백 강제 해소 — 매우 중요, 계속 위반되는 규칙이다
-본문이 끝난 뒤 남는 높이가 200px을 넘으면 그 카드는 미완성이다. **이 규칙을 지키는 가장 확실한 방법은 본문(박스들)을 감싸는 요소에 반드시 flex:1을 주는 것이다** — 상단(라벨+헤드라인)과 하단(연결문구+푸터)은 flex:none으로 자기 크기만 차지하고, 그 사이 본문 영역이 flex:1로 남는 공간을 전부 흡수하게 만든다. 본문 영역 자체가 flex:1이면, 그 안의 박스에 grid-auto-rows:1fr을 줬을 때 박스들이 자동으로 늘어나서 빈 공간이 생기지 않는다.
-그래도 남으면: ① 박스를 하나 더 채운다(실제 정보로, 빈 장식 금지) ② 박스 padding을 44→64→80px로 키운다 ③ 헤드라인을 한 단계 키운다(96→108px) ④ 카드를 삭제하고 앞 카드와 합친다.
-빈 공간을 그대로 두거나 장식 도형으로 채우는 것은 금지.
-
-15. 폰트 고정
-Pretendard 하나만 쓴다. 웹폰트 로드 실패에 대비해 **모든 텍스트 요소 각각에** font-family:Pretendard,'Apple SD Gothic Neo','Malgun Gothic',sans-serif 를 인라인 style에 명시한다 (상위 요소 한 곳에만 주지 말고, 헤드라인·라벨·본문·숫자 등 텍스트가 있는 요소마다 반복해서 넣는다).
-세리프·명조·둥근 서체를 섞지 마라. 카드 전부 같은 서체여야 한다(B·G 테마도 Pretendard weight 700으로만 "세리프 느낌"을 낸다 — 실제 다른 폰트 패밀리를 쓰지 않는다).
-
-16. 배경 리듬 (필수)
-전체 카드 중 다크 배경 카드가 최소 1/3 이상이어야 한다. 위치 예시: 1(커버) / 초대형 숫자 카드 / 마지막(CTA) 근처.
-같은 배경(다크 또는 라이트)이 4장 연속되면 실패. 넘길 때 화면이 바뀌는 느낌이 있어야 한다.
-
-17. 텍스트만 있는 카드 연속 금지
-3장 이상 연속으로 "헤드라인 + 헤어라인/박스 + 본문 텍스트"만 나오는 동일한 구조가 반복되면 실패.
-최소 전체의 1/4 이상 카드에는 구조가 다른 표현을 써라: 번호 리스트, 좌우 2열 대립, 체크리스트, 다크 강조 블록 등.
-
-18. 출력 전 추가 검증 (9번에 추가로 반드시 수행)
-- 하단 공백 200px 넘는 카드가 없는가
-- 같은 숫자를 두 장 이상에서 크게(64px 이상) 쓰지 않았는가
-- 초대형 숫자 카드에 내역 나열이 있는가(숫자만 덩그러니 있지 않은가)
-- 모든 텍스트 요소에 font-family가 인라인으로 명시됐는가
-- 다크 카드가 전체의 1/3 이상인가, 같은 배경이 4장 연속되지 않는가
-- 텍스트 전용 레이아웃이 3장 연속되지 않는가
-걸리는 카드는 고쳐서 최종본만 줘라.
-
-10. 최종 출력 순서
-${htmlOnly ? `사용자 메시지에 카드별 카피(독자 속마음·헤드라인·연결 문장)가 이미 확정되어 주어진다. 그 문장을 그대로 써서 디자인 HTML만 출력해라 — 카피 목록을 다시 쓰지 않는다. 다른 설명, 마크다운 코드블록 기호 없이, <div style="display:flex...">로 시작해서 </div>로 끝나는 HTML 코드만 출력한다.` : `(반드시 이 순서로, 둘 다 출력한다)
-1) 먼저 아래 형식으로 카드별 카피 목록을 일반 텍스트로 출력한다 (마크다운 헤더나 코드블록 기호 없이, 각 카드마다 4줄):
-카드 N
-독자 속마음: ...
-헤드라인: ...
-연결 문장: ... (없으면 "없음")
-
-2) 그 목록 바로 다음 줄에 정확히 "===HTML===" 이라고만 쓴 구분선을 넣는다.
-3) 그 다음에 위 규칙대로 만든 카드뉴스 HTML을 출력한다 (<div style="display:flex...">로 시작해서 </div>로 끝나는 코드만, 다른 설명이나 코드블록 기호 없이).`}
-한 파일에 카드 수만큼 <section>, 각각 style="width:1080px;height:1350px;flex:none;box-sizing:border-box;padding:92px 84px;display:flex;flex-direction:column;position:relative;overflow:visible" 과 data-screen-label="01 커버" 형식 속성. 모든 스타일 인라인, CSS 클래스 금지(cn-photo 클래스명만 예외). 카드들을 display:flex; flex-wrap:wrap; gap:40px 인 하나의 <div>로 감싸서 출력한다.`+styleNoteBlock;
+let cnBusy = false;
+if (typeof ResizeObserver !== 'undefined') {
+  new ResizeObserver(entries => {
+    const width = entries[0].contentRect.width;
+    if (width > 0) entries[0].target.style.setProperty('--cn-preview-scale', Math.min(.38, (width - 4) / 1080));
+  }).observe(document.getElementById('cnPreviewWrap'));
+}
+function setCnBusy(value) {
+  cnBusy = value;
+  ['cnGenBtn','cnDownloadAllBtn','cnEditCardBtn','cnBulkEditBtn','cnBulkWatermarkBtn'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.disabled = value;
+  });
 }
 
-// 카피(헤드라인)만 먼저 짧게 뽑는 1단계용 프롬프트. 디자인 규칙 없이 카피 규칙만 넘겨서, 응답을
-// 짧고 빠르게 받는다 — 이렇게 "카피 확정 → 디자인" 두 번의 요청으로 나누면 한 번의 요청이 너무
-// 오래 걸려서 서버 시간제한에 걸려 취소되는 걸 막을 수 있다.
-function cnCopyOnlyPrompt(cardCountHint) {
-  return `너는 인스타그램 카드뉴스 카피라이터다. 아래 규칙대로 카드별 카피(헤드라인)만 먼저 짜라. 디자인은 이번 단계에서 하지 않는다.
+async function prepareCnDeck(deck, theme, watermark) {
+  // Measure at export size off screen; never replace the user's current deck until validation succeeds.
+  const staging = document.createElement('div');
+  staging.style.cssText = 'position:fixed;left:-15000px;top:0;width:1120px;visibility:hidden;pointer-events:none;';
+  staging.innerHTML = CardNews.renderDeck(deck, theme, watermark);
+  document.body.appendChild(staging);
+  try {
+    await CardNews.fit(staging);
+    return staging.innerHTML;
+  } finally { staging.remove(); }
+}
 
-카드 장수: ${cardCountHint}장 내외.
-
-[내용]에서 가장 강한 숫자 1개를 고른다 → 커버 후킹과 핵심 숫자 카드의 주인공. 이 숫자는 전체 카드 중 "핵심 숫자" 카드 딱 1장에서만 크게 쓰인다 — 다른 카드에서 같은 숫자가 이미 등장했다면(예: 리스트의 "5가지"와 핵심 숫자 "5"가 같은 숫자), 핵심 숫자로 다른 수치를 고르거나 그 카드를 다른 정보로 바꿔서 숫자가 중복되지 않게 조정해라.
-카드 구성: 커버 → 문제 제기(수치 2개) → 전환 질문(선택) → 핵심 구조 → 추가 혜택(조건+결과) → 핵심 숫자 1장(다른 정보 금지, 숫자 아래 그 숫자의 세부 내역을 반드시 짧게 나열) → 실제 예시(투입→결과→차액 3블록) → 2열 비교 → 반론 처리(선택) → CTA. 고정 장수를 억지로 채우지 말고 필요한 것만 쓴다.
-
-**배경 리듬(전체 카드를 한 번에 보고 지금 배정한다 — 이후 디자인 단계는 카드를 3장씩 나눠서 만들기 때문에 전체를 못 보므로, 배경은 반드시 지금 여기서 확정한다):**
-각 카드에 "다크" 또는 "라이트" 배경을 배정해라. 같은 배경이 4장 연속되면 안 된다. 전체 카드의 최소 1/3은 다크로 배정한다. 커버(1번)는 항상 다크(사진+오버레이), 핵심 숫자 카드는 다른 카드와 반대 톤(주변이 라이트면 다크)으로, CTA(마지막)는 다크를 권장한다.
-
-**레이아웃 다양성(3장 이상 같은 구조 연속 금지):**
-"헤드라인+텍스트만" 나오는 카드가 3장 이상 연속되지 않게, 전체의 1/4 이상은 리스트형(①②③)·2열 대립형·체크리스트·강조 블록 중 하나로 레이아웃유형을 다르게 배정해라.
-
-카피 규칙:
-1) 헤드라인에 쓰면 안 되는 것: 상품 용어 그대로("공시이율", "해약환급률" 등 — 이건 디자인 단계에서 박스 라벨로만 쓴다), 설명형 어미("~입니다"), 기능 나열.
-2) 헤드라인은 이 4가지 중 하나로 변환한다: 사람 등장("설계사들이 조용하게 준비하는") / 손실 감각("10년 뒤 이 차이가 뼈아프다") / 반전("적금이 안전하다는 착각") / 질문("왜 아직 원화로만 모으세요?").
-3) 정보는 헤드라인이 아니라 박스 라벨·수치로 내린다. 헤드라인은 감정, 박스는 용어와 사실.
-4) 카드마다 "읽는 사람의 속마음"을 먼저 정하고, 그 질문에 답하는 헤드라인을 써라.
-5) 카드 끝에 다음 장을 궁금하게 만드는 연결 문장을 최소 3장에 넣는다("그런데 여기서 하나가 더 붙습니다"). CTA 카드는 제외.
-6) 한 문장 20자 이내, 헤드라인 한 줄 12자 이내(2줄 기본, 3줄까지만). 형용사보다 숫자. 금지어: 무조건, 확정, 최고, 보장, 100%, 저절로.
-7) 커버 카드에는 사진에 어울리는 영어 검색어(photo_query)도 같이 정한다 — 사람이 나올 단어(doctor, patient, person, people, man, woman, hand, face 등) 금지, 사물·질감·공간 키워드만.
-
-출력 형식 — 아래만 출력한다, 다른 설명 없이:
-카드 N (레이아웃유형: A스택형/B초대형숫자형/C대립형/D액션형/E리스트형/F체크리스트형 중 하나, 배경: 다크 또는 라이트)
-독자 속마음: ...
-헤드라인: ...
-박스 라벨/수치 메모: ... (이 카드에 들어갈 용어·수치를 간단히, 디자인 단계에서 참고용 — 핵심 숫자 카드면 그 숫자의 세부 내역도 여기 나열)
-연결 문장: ... (없으면 "없음")
-photo_query: ... (커버 카드에만, 영어 2~3단어)`;
+async function requestCnDeck(content, count) {
+  let failure = '';
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const raw = await callClaude(CardNews.prompt(count, window.__cnStyleNote || ''), [{role:'user', content: content + (failure ? '\n\n직전 응답 오류: ' + failure + '\n누락 없이 전체 JSON을 다시 작성하세요.' : '')}], 1, null, 6500, 'claude-opus-5');
+    try { return CardNews.validateDeck(parseJsonWithRepair(raw), count); }
+    catch (error) { failure = error.message; }
+  }
+  throw new Error('카드 구성을 완성하지 못했어요. ' + failure);
 }
 
 async function generateThemeCardNews() {
+  if (cnBusy) return;
   const btn = document.getElementById('cnGenBtn');
-  const statusEl = document.getElementById('cnGenStatus');
-  const themeKey = document.getElementById('cnThemeSelect').value;
-  const cardCountSel = document.getElementById('cnCardCountSelect').value;
-  const isAuto = cardCountSel === 'auto';
-  const watermark = document.getElementById('cnWatermarkInput').value.trim() || '보험즈';
+  const status = document.getElementById('cnGenStatus');
   const content = document.getElementById('cnContentInput').value.trim();
-
+  const theme = document.getElementById('cnThemeSelect').value;
+  const count = document.getElementById('cnCardCountSelect').value;
+  const watermark = document.getElementById('cnWatermarkInput').value.trim() || '보험즈';
   if (!content) { alert('카드뉴스 내용을 적어주세요.'); return; }
-
-  btn.disabled = true;
-  btn.textContent = '카드뉴스 디자인 중... (최대 1~2분 정도 걸려요)';
-  statusEl.textContent = '';
-
-  // 대본 생성기와 똑같이, 라이브러리에서 "세일즈살롱" 제목이 붙은 클로징 화법 자료를 찾아서
-  // CTA 카드 마무리 톤에 참고하도록 넘긴다.
-  const salonBlock = findSalonScript();
-
-  const contentBlock = `[내용]
-- 카드 장수: ${isAuto ? '내용 분량에 맞게 6~10장 사이에서 네가 정해라 (억지로 다 채우지 말 것)' : cardCountSel + '장 고정'}
-- 워터마크: ${watermark}
-
-아래는 사용자가 자유 형식으로 적은 내용이야. 형식이 정해져 있지 않으니, 그 안에서 상품명·핵심 수치·예시·비교 포인트·CTA에 해당할 만한 내용을 네가 직접 파악해서 카드 구성에 맞게 나눠 담아라. 수치나 예시 계산이 아예 없는 내용이면 해당 카드(핵심 숫자, 실제 예시)는 억지로 숫자를 만들지 말고 그 상품의 특징·장점을 강조하는 카드로 대체해라. 아래 내용에 없는 사실·수치는 지어내지 않는다. 확실하지 않은 값은 "[확인 필요]"로 남겨라.
-
----
-${content}
----${salonBlock ? `\n\n${salonBlock}\n이 화법 톤을 CTA(마지막) 카드의 행동 버튼 문구·저장 트리거 문구에 참고해서 자연스럽게 녹여라. 통째로 베끼지 말고 짧은 카드뉴스 문구 길이에 맞게 압축한다.` : ''}`;
-
+  if ([...watermark].length > 40) { alert('워터마크는 40자 이내로 입력해주세요.'); return; }
+  setCnBusy(true);
+  status.textContent = '내용과 카드 장수를 확인하며 구성하고 있어요. 기존 결과는 완성될 때까지 유지됩니다.';
+  btn.textContent = '1/2 카드 내용 구성 중...';
   try {
-    statusEl.textContent = '';
-    btn.textContent = '1/3 카피(헤드라인) 짜는 중...';
-    const cardCountHint = isAuto ? '6~10' : cardCountSel;
-    const copySystem = cnCopyOnlyPrompt(cardCountHint);
-    // 예전엔 2,500 토큰으로 잡아놨는데, 카드가 8~10장이면 카피 목록 자체가 다 안 끝나고 중간에
-    // 잘리는 사고가 있었다(예: "카드 7 ... 독자 속마음: 원화 적금이랑"에서 뚝 끊김). 여유 있게 올린다.
-    let copyListText = (await callClaude(copySystem, [{ role: 'user', content: contentBlock }], 2, null, 6000, 'claude-opus-5')).trim();
-
-    // "[확인 필요]"·TBD 같은 자리표시자는 금지했는데도 가끔 섞여 나온다 — 카드를 통째로 버리기엔
-    // 아까우니, 그 표시만 지운다(남은 내용만으로도 대부분 충분하다).
-    copyListText = copyListText.replace(/\[확인\s*필요\]/g, '').replace(/\bTBD\b/gi, '');
-
-    // 혹시 그래도 응답이 중간에 잘렸으면, 마지막 카드 블록에 "헤드라인:"이 없을 수 있다 —
-    // 그런 깨진 블록은 디자인 단계로 넘기지 않고 미리 걸러낸다(완성된 카드만 확실하게 만든다).
-    const rawCardBlocks = copyListText.split(/(?=^카드\s*\d+)/m).map(s => s.trim()).filter(Boolean);
-    const validCardBlocks = rawCardBlocks.filter(b => /헤드라인\s*:/.test(b));
-    if (validCardBlocks.length < rawCardBlocks.length) {
-      copyListText = validCardBlocks.join('\n\n');
-    }
-
-    const copyPreviewEl = document.getElementById('cnCopyPreview');
-    if (copyListText) {
-      copyPreviewEl.style.display = 'block';
-      copyPreviewEl.innerHTML = `<p style="font-size:12px; font-weight:700; color:var(--brass); margin:0 0 8px;">카드별 카피 초안 (독자 속마음 → 헤드라인 흐름)</p><pre style="white-space:pre-wrap; font-family:inherit; font-size:12.5px; line-height:1.7; color:var(--paper-dim); margin:0;">${escapeHtml(copyListText)}</pre>`;
-    } else {
-      copyPreviewEl.style.display = 'none';
-      copyPreviewEl.innerHTML = '';
-    }
-
-    // 카드 수가 많으면 한 번에 전체 HTML을 다 만들려다 응답이 너무 길어져서(시간이 오래 걸리거나
-    // 글자수 한도에 걸려서) 중간에 잘리는 문제가 있었다("9장 계획하고 2장만 만들어짐" 사고).
-    // 그래서 카드를 3장씩 나눠서 순서대로 만든다 — 이러면 한 번에 만들 양이 적어서 절대 안 잘리고,
-    // 카드 개수도 카피 단계에서 확정한 것과 정확히 일치하게 된다.
-    const cardBlocks = copyListText.split(/(?=^카드\s*\d+)/m).map(s => s.trim()).filter(Boolean);
-    const totalCards = cardBlocks.length || 1;
-    const DESIGN_CHUNK = 2;
-    let html;
-    let sectionsAssembled = [];
-
-    // "B초대형숫자형"으로 지정된 카드가 있으면, 거기 쓰일 핵심 숫자를 미리 찾아서 다른 모든 묶음에게
-    // "이 숫자는 그 카드에서만 크게 써라"라고 알려준다. 카드를 나눠서 만들다 보니, 커버 같은 다른
-    // 카드가 [내용] 원문에 있는 이 숫자를 자기 후킹 문구에 미리 써버리는 사고가 실제로 있었다.
-    let heroNumberIdx = -1, heroNumberValue = '';
-    cardBlocks.forEach((b, idx) => {
-      if (heroNumberIdx === -1 && /B초대형숫자형/.test(b)) {
-        heroNumberIdx = idx;
-        const m = b.match(/핵심\s*숫자[^\n]*?([\d.,]+\s*(?:%|년|개|만원|달러|원)?)/);
-        if (m) heroNumberValue = m[1].trim();
-      }
-    });
-    const heroNumberNote = heroNumberValue
-      ? `\n\n[핵심 숫자 단독 사용 — 매우 중요] "${heroNumberValue}"는 ${heroNumberIdx + 1}번 카드(핵심 숫자 카드)에서만 크게 쓰는 전용 숫자다. 이번 묶음에 그 카드가 없다면(특히 커버·후킹 문구에서), 이 숫자를 절대 언급하거나 미리 보여주지 마라 — 그 카드의 임팩트를 위해 아껴둔다.`
-      : '';
-
-    if (cardBlocks.length) {
-      for (let i = 0; i < cardBlocks.length; i += DESIGN_CHUNK) {
-        const chunk = cardBlocks.slice(i, i + DESIGN_CHUNK);
-        btn.textContent = `2/3 디자인 그리는 중... (${Math.min(i + chunk.length, totalCards)}/${totalCards}장)`;
-        const chunkHasHeroCard = heroNumberIdx >= i && heroNumberIdx < i + chunk.length;
-        const system = cnDesignSystemPrompt(themeKey, String(totalCards), true) + `
-
-[지금은 전체 카드가 아니라 아래 ${chunk.length}장만 만든다]
-전체 카드뉴스는 총 ${totalCards}장이다. 페이지번호는 "0N / ${totalCards}" 형식으로, 전체 장수(${totalCards}) 기준으로 정확히 써라(예: 이 묶음이 4~6번째 카드면 "04 / ${totalCards}", "05 / ${totalCards}", "06 / ${totalCards}").
-**각 카드 앞에 적힌 "배경: 다크/라이트"는 전체 카드를 한 번에 보고 이미 확정한 배경 리듬이다 — 이번 묶음만 보고 임의로 바꾸지 말고 그 지정을 정확히 따른다.**
-출력은 이번 묶음 카드 개수(${chunk.length}개)와 정확히 같은 수의 <section>만 만든다. 카피 목록·"===HTML===" 구분선 없이, <section>...</section> 를 ${chunk.length}개 이어서만 출력해라(감싸는 바깥 div 없이). 다른 설명이나 코드블록 기호 없이.${!chunkHasHeroCard ? heroNumberNote : ''}
-**커버(1번) 카드의 후킹 2줄은 반드시 카피에 적힌 "연결 문장"을 그대로 쓰거나 그와 같은 의미로 쓴다 — 카피에 없는 다른 통계·숫자를 새로 지어내서 후킹으로 쓰지 마라.**`;
-        const designPrompt = `${contentBlock}\n\n[이번 묶음에서 만들 카드들의 확정된 카피 — 이 헤드라인·독자 속마음·연결 문장·레이아웃 유형을 그대로 써서 디자인만 만들어라]\n${chunk.join('\n\n')}`;
-        try {
-          // 실제로 요청한 개수(chunk.length)만큼 <section>이 나왔는지, 그리고 각 section 안에
-          // 내용이 실제로 채워졌는지(텅 빈 박스만 있는 카드가 아닌지) 둘 다 확인한다 — 개수만
-          // 맞고 내용이 거의 없는 카드가 그대로 통과된 사고가 있었다("6가지"라고 해놓고 항목 1개,
-          // 핵심 숫자 카드인데 숫자 자체가 없는 카드 등).
-          let chunkSections = [];
-          const isChunkValid = () => chunkSections.length === chunk.length
-            && chunkSections.every(s => (s.textContent || '').replace(/\s+/g, '').length >= 60);
-          for (let attempt = 0; attempt < 2 && !isChunkValid(); attempt++) {
-            const retryNote = attempt > 0
-              ? `\n\n[방금 응답에 문제가 있었다 — 카드 개수가 ${chunk.length}개가 아니었거나, 일부 카드 안에 내용이 거의 없이 비어 있었다(예: 라벨만 있고 정작 핵심 숫자·항목이 빠짐). 카드 ${chunk.length}개를 각각 카피에 적힌 내용으로 빠짐없이 꽉 채워서 다시 만들어라. 특히 초대형 숫자 카드는 숫자 자체가 반드시 보여야 하고, 체크리스트는 카피에 적힌 항목 전부가 들어가야 한다.]`
-              : '';
-            const rawChunk = await callClaude(system, [{ role: 'user', content: designPrompt + retryNote }], 2, null, 6000, 'claude-opus-5');
-            const chunkHtml = rawChunk.replace(/```html|```/g, '').trim();
-            const tmpChunk = document.createElement('div');
-            tmpChunk.innerHTML = chunkHtml;
-            chunkSections = Array.from(tmpChunk.querySelectorAll('section'));
-          }
-          // 검증을 다 통과 못 했어도(내용이 부실해도), 완전히 빈 응답이 아니면 일단 살려서 쓴다 —
-          // QA 자체검토 단계에서 한 번 더 걸러질 기회가 있다. 완전히 실패한 묶음만 통째로 뺀다.
-          if (chunkSections.length) sectionsAssembled.push(...chunkSections);
-        } catch (chunkErr) { /* 이 묶음은 통째로 빼고 나머지로 계속 진행한다 */ }
-      }
-      // 실제로 몇 장이 만들어졌는지에 맞춰, 페이지번호("0N / 총장수")를 처음부터 다시 순서대로
-      // 매긴다 — 중간에 빠진 묶음이 있어도 번호가 어긋나거나 깨진 카드가 보이는 일이 없게 한다.
-      const actualTotal = sectionsAssembled.length;
-      sectionsAssembled.forEach((section, idx) => {
-        const newLabel = `${String(idx + 1).padStart(2, '0')} / ${actualTotal}`;
-        section.setAttribute('data-screen-label', newLabel);
-        const walker = document.createTreeWalker(section, NodeFilter.SHOW_TEXT);
-        const nodes = [];
-        let n;
-        while ((n = walker.nextNode())) nodes.push(n);
-        const pageNode = nodes.find(t => /^\s*\d{1,2}\s*\/\s*\d{1,3}\s*$/.test(t.textContent));
-        if (pageNode) pageNode.textContent = newLabel;
-      });
-      const assembledWrap = document.createElement('div');
-      assembledWrap.style.cssText = 'display:flex;flex-wrap:wrap;gap:40px;';
-      sectionsAssembled.forEach(s => assembledWrap.appendChild(s));
-      html = assembledWrap.outerHTML;
-      if (actualTotal < totalCards) {
-        statusEl.textContent = `⚠ 계획한 ${totalCards}장 중 ${actualTotal}장만 만들어졌어요(실패한 카드는 빼고, 번호는 다시 순서대로 매겼어요). 부족하면 다시 시도해주세요.`;
-      }
-    } else {
-      // 카피 목록을 못 나눴으면(형식이 예상과 달랐으면) 예전처럼 한 번에 통째로 시도한다
-      btn.textContent = '2/3 확정된 카피로 디자인 그리는 중... (최대 1~2분)';
-      const system = cnDesignSystemPrompt(themeKey, cardCountHint, true);
-      const designPrompt = `${contentBlock}\n\n[확정된 카피 — 이 헤드라인·독자 속마음·연결 문장·레이아웃 유형을 그대로 써서 디자인만 만들어라. 카피를 다시 짓지 마라]\n${copyListText}`;
-      const raw = await callClaude(system, [{ role: 'user', content: designPrompt }], 2, null, 10000, 'claude-opus-5');
-      html = raw.replace(/```html|```/g, '').trim();
-    }
-
-    // 사진 자리(cn-photo)를 실제 Unsplash 사진으로 채운다. 나중에 "이 사진 마음에 안 들면 바꾸기"가
-    // 가능하도록, 슬롯마다 고유 id(cn-photo-0, cn-photo-1...)를 붙여서 나중에 그 자리만 골라 교체한다.
-    const photoSlotRe = /<div class="cn-photo" data-photo-query="([^"]*)"[^>]*><\/div>/g;
-    const matches = [...html.matchAll(photoSlotRe)];
-    const queries = matches.map(m => m[1]);
-    const uniqueQueries = [...new Set(queries)];
-    const photoMap = {};
-    await Promise.all(uniqueQueries.map(async (q) => {
-      try {
-        const result = await apiGet('/api/unsplash?query=' + encodeURIComponent(q || 'finance'));
-        photoMap[q] = result.url || result.imageUrl || '';
-      } catch (e) { photoMap[q] = ''; }
-    }));
-    let slotIndex = -1;
-    html = html.replace(photoSlotRe, (m, q) => {
-      slotIndex++;
-      const url = photoMap[q];
-      const bg = url ? `background-image:url('${url}');background-size:cover;background-position:center` : `background:linear-gradient(135deg,#333,#111)`;
-      return `<div class="cn-photo" id="cn-photo-${slotIndex}" data-photo-query="${escapeHtml(q)}" style="position:absolute;inset:0;${bg}"></div>`;
-    });
-    window.__cnLastTheme = themeKey;
-    window.__cnLastCardCount = cardCountSel;
-    window.__cnLastWatermark = watermark; // 나중에 "워터마크 한번에 바꾸기"에서 기존 값을 찾을 때 씀
-    window.__cnPhotoSlots = queries; // 슬롯별 원래 검색어 기억 (컨트롤 패널 만들 때 씀)
-
-    // 3단계: 자체 검토 — 방금 만든 결과물을 규칙(박스 3개 이상/overflow:hidden/헤드라인 글자수)에
-    // 어긋나는 카드가 있는지 AI한테 직접 점검시키고, 걸리는 카드만 그 카드만 다시 그려서 교체한다.
-    // 매번 사람이 눈으로 확인해서 프롬프트를 더 추가하는 사이클을 줄이기 위한 자동 루프.
-    const reviewContainer = document.createElement('div');
-    reviewContainer.innerHTML = html;
-    const sections = Array.from(reviewContainer.querySelectorAll('section'));
-    if (sections.length) {
-      btn.textContent = '3/3 자체 검토 중...';
-      try {
-        const reviewSystem = `너는 카드뉴스 QA 검사관이다. 아래 카드뉴스 HTML을 카드(<section>)별로 검사해서, 다음 규칙을 위반한 카드만 찾아라:
-1) 한 카드 안에 박스(둥근 사각형/테두리로 구분된 콘텐츠 블록) 단위가 5개 이상 있는가 (4개까지는 허용)
-2) 박스가 여러 개 나란히 있는 카드인데 그 박스 요소들의 높이가 안 맞춰졌는가(grid-auto-rows:1fr나 align-items:stretch가 안 쓰였는가) — 박스가 1개뿐인 카드는 해당 없음
-3) style 속성에 overflow:hidden 이 카드 루트(<section>)나 본문 콘텐츠 영역에 쓰였는가
-4) 헤드라인이 2줄인데 한 줄이 9자를 넘거나, 3줄인데 한 줄이 7자를 넘는가
-5) 페이지번호·워터마크(푸터)가 아예 없는가
-6) 박스 안 텍스트 요소들 사이에 gap이 없거나(0이거나 생략됨), position:absolute/음수 margin이 텍스트에 쓰였거나, line-height가 지정 안 된 텍스트가 있는가 — 이러면 텍스트끼리 겹쳐 보일 위험이 크다
-7) 박스들을 감싸는 본문부와 그 아래 연결 문구/고지/푸터 사이에 명시적인 여백(margin-bottom 24px 이상)이 없는가 — 없으면 박스 마지막 줄과 아래 문구가 겹쳐 보일 위험이 크다
-9) 한 카드 안에 연결 문구(다음 장을 궁금하게 하는 문장)와 고지·확인성 문장이 둘 다 있는가 — 있으면 하나를 지워야 한다
-10) 커버 카드의 data-photo-query에 사람이 나올 만한 단어(doctor, patient, person, people, man, woman, hand, face 등)가 쓰였는가 — 있으면 사물/질감/공간 위주 키워드로 바꿔야 한다
-11) "[확인 필요]", "TBD", "?" 같은 미완성 자리표시자 문구가 남아 있는가 — 있으면 그 문장을 삭제하고 자연스러운 다른 문장으로 바꿔야 한다
-12) 이 카드가 고른 테마의 정렬·박스 형태·헤드라인 사양과 다르게(예: 다른 테마의 레이아웃을 섞어 쓰거나 색만 바꿔서) 만들어졌는가
-13) 본문(박스들)을 감싸는 영역에 flex:1이 없어서, 콘텐츠 아래로 200px 넘는 빈 공간이 남았는가
-14) 박스 안에 라벨+수치+보조설명 3줄을 넘어 4번째 줄(예: "차액 ○○") 이 추가됐는데, 그만큼 다른 요소를 줄이거나 padding을 조정하지 않아서 카드 하단이 넘쳐 푸터가 잘릴 위험이 있는가
-15) "라벨+수치+보조설명" 완전한 3단 박스가 세로로 3개 이상 쌓였는가 — 있으면 반드시 푸터가 잘린다, 박스 2개+한 줄 텍스트 구조로 바꿔야 한다
-16) 박스 안에 라벨만 있고 정작 핵심 내용(숫자·항목·문장)이 비어 있는가 — 예: 초대형 숫자 카드인데 숫자가 없다, "N가지"라고 헤드라인에 적어놓고 실제 항목이 1개뿐이거나 두 번째 박스가 통째로 비어있다. 이런 카드는 반드시 카피에 적힌 내용으로 다시 채워야 한다
-17) 카드에 눈에 보이는 텍스트 내용이 지나치게 적은가(라벨 한두 단어 외엔 거의 없는 수준) — 있으면 내용 부족으로 간주하고 다시 채워야 한다
-
-아래 형식의 JSON만 출력해라. 문제 없으면 issues를 빈 배열로:
-{"issues": [{"cardIndex": 0, "problem": "무엇이 문제인지 한 문장으로, 구체적으로"}]}
-cardIndex는 0부터 시작하는 카드 순서다(첫 번째 <section>이 0). 다른 설명 없이 JSON만 출력한다.`;
-        const reviewRaw = await callClaude(reviewSystem, [{ role: 'user', content: html }], 2, null, 1500, 'claude-opus-5');
-        const reviewParsed = parseJsonWithRepair(reviewRaw);
-        const issues = (reviewParsed.issues || []).filter(i => Number.isInteger(i.cardIndex) && i.cardIndex >= 0 && i.cardIndex < sections.length);
-
-        if (issues.length) {
-          btn.textContent = `문제 카드 ${issues.length}장 다시 그리는 중...`;
-          for (const issue of issues) {
-            const idx = issue.cardIndex;
-            try {
-              const currentSectionHtml = sections[idx].outerHTML;
-              const fixSystem = cnDesignSystemPrompt(themeKey, cardCountHint, true) + `
-
-[이 카드 1장만 다시 그린다. 방금 자체 검토에서 이 문제가 발견됐다: ${issue.problem}]
-현재 이 카드의 HTML:
-${currentSectionHtml}
-
-**페이지번호는 정확히 "${String(idx + 1).padStart(2, '0')} / ${sections.length}" 로, 워터마크는 정확히 "${watermark}" 로 써라 — "그대로 유지"가 아니라 이 정확한 문자열을 써라(현재 HTML에 다른 값이 있어도 이 값으로 바꿔 쓴다).**
-위 문제를 정확히 고쳐서 이 카드 1장의 <section>...</section> 코드만 출력해라. 다른 카드 내용·테마는 그대로 유지한다. 사진 자리가 이미 실제 이미지 URL로 채워져 있으면 그대로 유지하고, 문제 때문에 사진 자체를 바꿔야 한다면 cn-photo data-photo-query 태그로 새로 표시한다. 감싸는 바깥 div 없이 <section> 하나만, 다른 설명이나 코드블록 기호 없이 출력한다.`;
-              const fixRaw = await callClaude(fixSystem, [{ role: 'user', content: '위 문제를 고쳐서 이 카드를 다시 그려줘.' }], 2, null, 3000, 'claude-opus-5');
-              let fixHtml = fixRaw.replace(/```html|```/g, '').trim();
-
-              // 고친 카드에 새 사진 자리가 생겼으면(사진을 바꿔야 하는 문제였을 경우) 채운다
-              const fixPhotoRe = /<div class="cn-photo" data-photo-query="([^"]*)"[^>]*><\/div>/;
-              const fixPhotoMatch = fixHtml.match(fixPhotoRe);
-              if (fixPhotoMatch) {
-                const q = fixPhotoMatch[1];
-                let url = '';
-                try {
-                  const result = await apiGet('/api/unsplash?query=' + encodeURIComponent(q || 'finance'));
-                  url = result.url || result.imageUrl || '';
-                } catch (e) { /* 무시 */ }
-                const bg = url ? `background-image:url('${url}');background-size:cover;background-position:center` : `background:linear-gradient(135deg,#333,#111)`;
-                fixHtml = fixHtml.replace(fixPhotoRe, () => `<div class="cn-photo" id="cn-photo-${idx}" data-photo-query="${escapeHtml(q)}" style="position:absolute;inset:0;${bg}"></div>`);
-              }
-
-              const tmp = document.createElement('div');
-              tmp.innerHTML = fixHtml;
-              const newSection = tmp.querySelector('section') || tmp.firstElementChild;
-              if (newSection) sections[idx].replaceWith(newSection);
-            } catch (fixErr) { /* 이 카드 하나 실패해도 나머지 결과는 그대로 살린다 */ }
-          }
-        }
-      } catch (reviewErr) { /* 검토 자체가 실패해도 원래 결과물은 그대로 보여준다 */ }
-    }
-    html = reviewContainer.innerHTML;
-
-    const wrap = document.getElementById('cnPreviewWrap');
-    // AI가 이미 "display:flex;flex-wrap:wrap;gap:40px" 감싸는 div까지 포함해서 출력하므로 그대로 넣는다.
-    wrap.innerHTML = html;
-    if (!wrap.querySelector('section')) {
-      // 혹시 감싸는 div 없이 <section>들만 왔으면 직접 감싸준다
-      wrap.innerHTML = `<div style="display:flex;flex-wrap:wrap;gap:40px;">${html}</div>`;
-    }
-    renderCnPhotoControls();
-    renderCnCardEditControls();
-
+    const deck = await requestCnDeck(content, count);
+    btn.textContent = '2/2 디자인과 글자 잘림 검사 중...';
+    const html = await prepareCnDeck(deck, theme, watermark);
+    document.getElementById('cnPreviewWrap').innerHTML = html;
+    Object.assign(window, {__cnDeck:deck, __cnLastTheme:theme, __cnLastCardCount:count, __cnLastWatermark:watermark, __cnPhotoSlots:[], __cnLastHistoryId:Date.now(), __cnLastHistoryTopic:content.slice(0,30), __cnLastHistoryCategory:'카드뉴스'});
+    document.getElementById('cnCopyPreview').style.display = 'none';
+    document.getElementById('cnPhotoControls').innerHTML = '';
     document.getElementById('cnResultPanel').style.display = 'block';
-    document.getElementById('cnResultPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
-    statusEl.textContent = '완료! 아래에서 확인하고 PNG로 다운로드하세요.';
-
-    // 나중에 "카드별 수정"·"여러 장 한번에 수정"·"워터마크 바꾸기"를 해도 같은 히스토리 항목에
-    // 덮어써지도록(upsert) id·제목·분류를 기억해둔다. 이걸 안 하면 수정 내용이 히스토리에는
-    // 반영이 안 되고, 나중에 "다시 만들기"를 누르면 수정 전 원본으로 되돌아가는 문제가 있었다.
-    window.__cnLastHistoryId = Date.now();
-    window.__cnLastHistoryTopic = content.slice(0, 30) || '테마 카드뉴스';
-    window.__cnLastHistoryCategory = '카드뉴스';
-    await addToHistory({
-      id: window.__cnLastHistoryId, topic: window.__cnLastHistoryTopic, category: window.__cnLastHistoryCategory, format: 'card',
-      script: JSON.stringify({ theme: themeKey, html })
-    });
-  } catch (e) {
-    statusEl.textContent = '';
-    alert('생성 실패: ' + e.message);
+    renderCnCardEditControls();
+    setCnBusy(true);
+    const saved = await saveCnHistorySnapshot();
+    status.textContent = `${deck.cards.length}장 완성 · 글자 잘림 검사 통과. ` + (saved ? '기록에 저장했어요.' : '기록 저장에 실패했어요. 아래에서 저장을 다시 시도하거나 PNG를 다운로드해주세요.');
+    document.getElementById('cnResultPanel').scrollIntoView({behavior:'smooth',block:'start'});
+  } catch (error) {
+    status.textContent = '생성 실패: ' + error.message + ' 기존 결과는 그대로 유지했어요.';
   } finally {
-    btn.disabled = false;
+    setCnBusy(false);
     btn.textContent = '테마 카드뉴스 생성하기';
   }
 }
+
 document.getElementById('cnGenBtn').addEventListener('click', generateThemeCardNews);
 
 // 이미지를 API로 보내기 전에 적당한 크기로 줄이고 JPEG로 다시 압축한다. 원본 화면 캡처 PNG를
@@ -5179,7 +4748,7 @@ function renderCnCardEditControls() {
     return `<label style="display:flex; align-items:center; gap:6px; font-size:12px; padding:6px 10px; border:1px solid var(--line); border-radius:6px; cursor:pointer;"><input type="checkbox" class="cnBulkEditCheck" value="${i}"> ${escapeHtml(label)}</label>`;
   }).join('');
   el.innerHTML = `
-    <p style="font-size:12px; color:var(--paper-mute); margin:0 0 10px;">특정 카드만 마음에 안 들면, 그 카드를 골라서 수정 지시를 적으면 그 카드만 다시 그려서 바꿔드려요 (다른 카드는 그대로 유지돼요).</p>
+    <p style="font-size:12px; color:var(--paper-mute); margin:0 0 10px;">특정 카드만 마음에 안 들면, 그 카드를 골라서 수정 지시를 적으면 그 카드의 문구를 수정해요. 배치는 테마에 맞춰 유지하고, 수정 실패 시 원본을 보존해요.</p>
     <div class="row">
       <div class="field" style="flex:0 0 160px;">
         <label>수정할 카드</label>
@@ -5187,19 +4756,19 @@ function renderCnCardEditControls() {
       </div>
       <div class="field">
         <label>수정 지시사항</label>
-        <input type="text" id="cnEditInstructionInput" placeholder="예: 하단에 여백이 많이 남으니 박스 padding을 키워서 채워줘 / '미국' 기준금리라고 명시해줘">
+        <input type="text" id="cnEditInstructionInput" placeholder="예: 제목을 더 짧게 / 본문을 쉬운 말로 / 미국 기준금리라고 명시해줘">
       </div>
     </div>
     <button class="mini-btn" id="cnEditCardBtn" style="background:var(--brass-dim); color:var(--brass);">이 카드만 다시 그리기</button>
     <p id="cnEditStatus" style="font-size:11.5px; color:var(--paper-mute); margin-top:6px;"></p>
 
     <div style="margin-top:20px; padding-top:16px; border-top:1px solid var(--line);">
-      <p style="font-size:12.5px; color:var(--brass); font-weight:600; margin:0 0 8px;">여러 장 한번에 수정 <span style="color:var(--paper-mute); font-weight:400;">— 고칠 카드를 여러 장 고르면, 순서대로 기다리지 않고 한꺼번에(동시에) 요청을 보내서 훨씬 빨라요</span></p>
+      <p style="font-size:12.5px; color:var(--brass); font-weight:600; margin:0 0 8px;">여러 장 한번에 수정 <span style="color:var(--paper-mute); font-weight:400;">— 고칠 카드를 여러 장 고르면, 선택한 카드를 차례로 수정하고, 모두 검사한 뒤 함께 반영해요</span></p>
       <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px;">${checkboxes}</div>
       <div class="row">
         <div class="field">
           <label>선택한 카드들에 공통으로 적용할 수정 지시사항</label>
-          <input type="text" id="cnBulkEditInstructionInput" placeholder="예: 하단 여백이 남는 카드들, 박스를 키워서 꽉 채워줘">
+          <input type="text" id="cnBulkEditInstructionInput" placeholder="예: 설명을 더 짧고 쉽게 바꿔줘. 수치와 조건은 유지해줘.">
         </div>
       </div>
       <button class="mini-btn" id="cnBulkEditBtn" style="background:var(--brass-dim); color:var(--brass);">선택한 카드들 한번에 수정</button>
@@ -5230,126 +4799,77 @@ function renderCnCardEditControls() {
 // 수정 전 원본으로 되돌아가는 문제가 있었다. 히스토리에 처음부터 저장된 게 없으면(예전 작업 등)
 // 조용히 넘어간다.
 async function saveCnHistorySnapshot() {
-  if (!window.__cnLastHistoryId) return;
+  if (!window.__cnLastHistoryId) return false;
   const wrap = document.getElementById('cnPreviewWrap');
-  if (!wrap || !wrap.innerHTML.trim()) return;
-  await addToHistory({
-    id: window.__cnLastHistoryId,
-    topic: window.__cnLastHistoryTopic || '테마 카드뉴스',
-    category: window.__cnLastHistoryCategory || '카드뉴스',
-    format: 'card',
-    script: JSON.stringify({ theme: window.__cnLastTheme, html: wrap.innerHTML })
-  });
+  if (!wrap || !wrap.innerHTML.trim()) return false;
+  let saved = false;
+  try {
+    saved = await addToHistory({
+      id: window.__cnLastHistoryId,
+      topic: window.__cnLastHistoryTopic || '테마 카드뉴스',
+      category: window.__cnLastHistoryCategory || '카드뉴스', format:'card',
+      script: JSON.stringify({version:window.__cnDeck ? 2 : 1, deck:window.__cnDeck || undefined, theme:window.__cnLastTheme, watermark:window.__cnLastWatermark, html:wrap.innerHTML})
+    }, false);
+  } catch (error) { console.error('카드뉴스 기록 저장 실패:', error); }
+  const notice = document.getElementById('cnSaveStatus');
+  notice.textContent = saved ? '기록 저장 완료' : '기록 저장 실패 — 화면의 결과는 유지됩니다. 저장을 다시 시도해주세요.';
+  document.getElementById('cnRetrySaveBtn').hidden = !!saved;
+  return !!saved;
+}
+
+async function editCnCards(indices, instruction, status) {
+  if (cnBusy) return;
+  if (!window.__cnDeck) { status.textContent = '이전 방식으로 만든 기록이에요. 다운로드는 가능하며, 새 편집 기능은 새로 생성한 카드부터 사용할 수 있어요.'; return; }
+  setCnBusy(true);
+  const original = window.__cnDeck;
+  const next = {version:2, cards:original.cards.map(c => JSON.parse(JSON.stringify(c)))};
+  try {
+    // Sequential requests prevent rate-limit bursts; commit the entire selection atomically.
+    for (const [n, index] of indices.entries()) {
+      if (!Number.isInteger(index) || !next.cards[index]) throw new Error('수정할 카드를 찾을 수 없어요.');
+      status.textContent = `문구 수정 중 (${n + 1}/${indices.length})...`;
+      const raw = await callClaude(CardNews.prompt('auto') + '\n이번에는 cards 배열 대신 카드 객체 하나만 출력한다. 현재 카드 type은 유지한다. 사용자 수정 지시 이외의 수치·조건은 보존한다.', [{role:'user',content:JSON.stringify({card:original.cards[index],instruction})}], 1, null, 1800, 'claude-opus-5');
+      const updated = CardNews.validateCard(parseJsonWithRepair(raw));
+      if (updated.type !== original.cards[index].type) throw new Error('카드 유형이 변경되어 적용하지 않았어요. 문구 수정으로 다시 요청해주세요.');
+      next.cards[index] = updated;
+    }
+    const html = await prepareCnDeck(next, window.__cnLastTheme, window.__cnLastWatermark);
+    document.getElementById('cnPreviewWrap').innerHTML = html;
+    window.__cnDeck = next;
+    const saved = await saveCnHistorySnapshot();
+    status.textContent = `${indices.length}장 수정 완료. ` + (saved ? '기록에 저장했어요.' : '기록 저장은 실패했어요. 저장 재시도 버튼을 눌러주세요.');
+  } catch (error) {
+    status.textContent = '수정 실패: ' + error.message + ' 선택한 카드의 원본을 모두 유지했어요.';
+  } finally { setCnBusy(false); }
 }
 
 async function regenerateMultipleThemeCards() {
-  const checks = Array.from(document.querySelectorAll('.cnBulkEditCheck:checked'));
-  const indices = checks.map(c => Number(c.value));
+  const indices = Array.from(document.querySelectorAll('.cnBulkEditCheck:checked')).map(el => Number(el.value));
   const instruction = document.getElementById('cnBulkEditInstructionInput').value.trim();
-  const statusEl = document.getElementById('cnBulkEditStatus');
-  if (!indices.length) { alert('수정할 카드를 하나 이상 선택해주세요.'); return; }
-  if (!instruction) { alert('수정 지시사항을 적어주세요.'); return; }
-
-  const btn = document.getElementById('cnBulkEditBtn');
-  btn.disabled = true;
-  statusEl.textContent = `${indices.length}장 동시에 다시 그리는 중...`;
-  const results = await Promise.allSettled(indices.map(idx => regenerateThemeCardByIndex(idx, instruction)));
-  const failCount = results.filter(r => r.status === 'rejected').length;
-  statusEl.textContent = failCount
-    ? `완료 — ${indices.length - failCount}장 성공, ${failCount}장 실패(해당 카드는 그대로 남아있어요, 개별로 다시 시도해주세요).`
-    : `완료! ${indices.length}장 전부 반영됐어요.`;
-  await saveCnHistorySnapshot();
-  btn.disabled = false;
-  renderCnCardEditControls(); // 체크박스 목록을 새로 그려서(체크 해제 상태로) 다음 작업에 헷갈리지 않게 한다
+  if (!indices.length || !instruction) { alert('수정할 카드와 수정 내용을 입력해주세요.'); return; }
+  await editCnCards(indices, instruction, document.getElementById('cnBulkEditStatus'));
 }
-
-// 워터마크 텍스트만 찾아서 바꾼다 — 디자인을 다시 그리는 게 아니라 DOM 텍스트만 바꾸는 거라
-// AI 호출이 전혀 없고, 그래서 즉시 반영되고 비용도 안 든다.
-async function replaceAllWatermarks() {
-  const oldWatermark = window.__cnLastWatermark || '';
-  const newWatermark = document.getElementById('cnBulkWatermarkInput').value.trim();
-  const statusEl = document.getElementById('cnBulkWatermarkStatus');
-  if (!newWatermark) { alert('새 워터마크를 입력해주세요.'); return; }
-  const sections = document.querySelectorAll('#cnPreviewWrap section');
-  let changedCount = 0;
-  sections.forEach(section => {
-    const walker = document.createTreeWalker(section, NodeFilter.SHOW_TEXT);
-    let n;
-    while ((n = walker.nextNode())) {
-      const t = n.textContent.trim();
-      // 기존 워터마크 값과 정확히 일치하는 짧은 텍스트 노드만 바꾼다(다른 문장 속 우연한 일치 방지)
-      if (t && oldWatermark && t === oldWatermark) {
-        n.textContent = n.textContent.replace(oldWatermark, newWatermark);
-        changedCount++;
-      }
-    }
-  });
-  window.__cnLastWatermark = newWatermark;
-  statusEl.textContent = changedCount ? `${changedCount}장에 반영했어요.` : '기존 워터마크와 일치하는 텍스트를 못 찾았어요 — 카드 안 표기가 다를 수 있어요.';
-  if (changedCount) await saveCnHistorySnapshot();
-}
-
-async function regenerateThemeCardByIndex(idx, instruction) {
-  const sections = document.querySelectorAll('#cnPreviewWrap section');
-  const target = sections[idx];
-  if (!target) throw new Error('카드를 찾을 수 없어요.');
-  const themeKey = window.__cnLastTheme || 'A';
-  const currentHtml = target.outerHTML;
-  const system = cnDesignSystemPrompt(themeKey) + `
-
-[지금은 카드뭉치 전체가 아니라 이 카드 딱 1장만 다시 그린다 — 위의 "최종 출력 순서"(카피 목록 + ===HTML=== 구분선)는 이번엔 적용하지 않는다]
-아래는 지금 이 카드의 현재 HTML이다 (사진 자리는 이미 실제 이미지 URL로 채워져 있을 수 있다 — 사진을 새로 바꾸고 싶다는 지시가 없으면 기존 이미지 URL을 그대로 유지한다):
-${currentHtml}
-
-사용자의 수정 지시사항: ${instruction}
-
-다른 카드들과 테마·색·페이지번호 형식(예: "0N / 총장수")·워터마크는 그대로 유지하고, 지시사항만 정확히 반영해서 이 카드 1장의 <section>...</section> 코드만 출력해라. 카피 목록이나 "===HTML===" 구분선 없이, 감싸는 바깥 div도 없이 <section> 하나만, 다른 설명이나 코드블록 기호 없이 출력한다.`;
-  const raw = await callClaude(system, [{ role: 'user', content: '위 지시사항대로 이 카드를 다시 그려줘.' }], 2, null, 4000, 'claude-opus-5');
-  const splitIdx = raw.indexOf('===HTML===');
-  const rawHtmlPart = splitIdx >= 0 ? raw.slice(splitIdx + '===HTML==='.length) : raw;
-  let newHtml = rawHtmlPart.replace(/```html|```/g, '').trim();
-
-  const photoSlotRe = /<div class="cn-photo" data-photo-query="([^"]*)"[^>]*><\/div>/g;
-  const qMatches = [...newHtml.matchAll(photoSlotRe)];
-  if (qMatches.length) {
-    const q = qMatches[0][1];
-    let url = '';
-    try {
-      const result = await apiGet('/api/unsplash?query=' + encodeURIComponent(q || 'finance'));
-      url = result.url || result.imageUrl || '';
-    } catch (e) { /* 무시 */ }
-    const bg = url ? `background-image:url('${url}');background-size:cover;background-position:center` : `background:linear-gradient(135deg,#333,#111)`;
-    newHtml = newHtml.replace(photoSlotRe, () => `<div class="cn-photo" id="cn-photo-${idx}" data-photo-query="${escapeHtml(q)}" style="position:absolute;inset:0;${bg}"></div>`);
-  }
-
-  const wrapper = document.createElement('div');
-  wrapper.innerHTML = newHtml;
-  const newSection = wrapper.querySelector('section') || wrapper.firstElementChild;
-  if (!newSection) throw new Error('결과를 읽지 못했어요.');
-  target.replaceWith(newSection);
-  return true;
-}
-
-// "이 카드만 다시 그리기" 버튼용 — 위 공용 함수(regenerateThemeCardByIndex)를 카드 1장에 대해서만 쓴다.
 async function regenerateSingleThemeCard() {
-  const idx = Number(document.getElementById('cnEditCardSelect').value);
+  const index = Number(document.getElementById('cnEditCardSelect').value);
   const instruction = document.getElementById('cnEditInstructionInput').value.trim();
-  const statusEl = document.getElementById('cnEditStatus');
-  if (!instruction) { alert('수정 지시사항을 적어주세요.'); return; }
-
-  const btn = document.getElementById('cnEditCardBtn');
-  btn.disabled = true;
-  statusEl.textContent = '다시 그리는 중...';
+  if (!instruction) { alert('수정 내용을 입력해주세요.'); return; }
+  await editCnCards([index], instruction, document.getElementById('cnEditStatus'));
+}
+async function replaceAllWatermarks() {
+  if (cnBusy) return;
+  const status = document.getElementById('cnBulkWatermarkStatus');
+  const watermark = document.getElementById('cnBulkWatermarkInput').value.trim();
+  if (!watermark || [...watermark].length > 40) { status.textContent = '워터마크는 1~40자로 입력해주세요.'; return; }
+  if (!window.__cnDeck) { status.textContent = '이전 기록의 워터마크 수정은 새로 생성한 카드에서 이용해주세요.'; return; }
+  setCnBusy(true);
   try {
-    await regenerateThemeCardByIndex(idx, instruction);
-    await saveCnHistorySnapshot();
-    statusEl.textContent = '완료! 이 카드만 새로 반영됐어요.';
-  } catch (e) {
-    statusEl.textContent = '';
-    alert('수정 실패: ' + e.message);
-  } finally {
-    btn.disabled = false;
-  }
+    const html = await prepareCnDeck(window.__cnDeck, window.__cnLastTheme, watermark);
+    document.getElementById('cnPreviewWrap').innerHTML = html;
+    window.__cnLastWatermark = watermark;
+    const saved = await saveCnHistorySnapshot();
+    status.textContent = saved ? '전체 워터마크 변경 및 저장 완료' : '변경 완료 · 기록 저장은 다시 시도해주세요.';
+  } catch (error) { status.textContent = error.message; }
+  finally { setCnBusy(false); }
 }
 
 function renderCnPhotoControls() {
@@ -5411,32 +4931,46 @@ function renderCnPhotoControls() {
 }
 
 async function downloadCnZip(btn) {
-  const sections = document.querySelectorAll('#cnPreviewWrap section');
+  if (cnBusy) return;
+  const wrap = document.getElementById('cnPreviewWrap');
+  const sections = Array.from(wrap.querySelectorAll('section'));
   if (!sections.length) { alert('먼저 카드뉴스를 생성해주세요.'); return; }
   const oldText = btn ? btn.textContent : '';
-  if (btn) btn.disabled = true;
-  const zip = new JSZip();
+  let staging;
+  setCnBusy(true);
   try {
-    for (let i = 0; i < sections.length; i++) {
-      if (btn) btn.textContent = `이미지로 저장 중... (${i + 1}/${sections.length})`;
-      const canvas = await html2canvas(sections[i], { width: 1080, height: 1350, scale: 1, useCORS: true });
-      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
-      zip.file(`card_${String(i + 1).padStart(2, '0')}.png`, blob);
+    if (typeof JSZip === 'undefined' || typeof html2canvas === 'undefined') throw new Error('이미지 저장 도구를 불러오지 못했어요. 인터넷 연결을 확인하고 새로고침해주세요.');
+    staging = document.createElement('div');
+    staging.style.cssText = 'position:absolute;left:-15000px;top:0;width:1080px;';
+    sections.forEach(section => staging.appendChild(section.cloneNode(true)));
+    document.body.appendChild(staging);
+    await CardNews.fit(staging);
+    const zip = new JSZip();
+    const cards = Array.from(staging.querySelectorAll('section'));
+    for (let i = 0; i < cards.length; i++) {
+      if (btn) btn.textContent = `이미지 저장 중 (${i+1}/${cards.length})`;
+      const card = cards[i];
+      if (card.scrollHeight > 1352 || card.scrollWidth > 1082) throw new Error(`${i+1}번 카드가 화면을 벗어나요. 문구를 줄인 뒤 다시 저장해주세요.`);
+      const canvas = await html2canvas(card, {width:1080,height:1350,scale:1,useCORS:true,backgroundColor:null,windowWidth:1200,windowHeight:1500,scrollX:0,scrollY:0});
+      const blob = await new Promise((resolve,reject) => canvas.toBlob(value => value ? resolve(value) : reject(new Error('PNG 이미지 변환에 실패했어요.')), 'image/png'));
+      zip.file(`card_${String(i+1).padStart(2,'0')}.png`, blob);
+      canvas.width = 0; canvas.height = 0;
     }
-    if (btn) btn.textContent = 'zip 압축 중...';
-    const content = await zip.generateAsync({ type: 'blob' });
-    const url = URL.createObjectURL(content);
+    const blob = await zip.generateAsync({type:'blob'});
+    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url;
-    a.download = '테마카드뉴스.zip';
-    a.click();
-    URL.revokeObjectURL(url);
-  } catch (e) {
-    alert('다운로드 실패: ' + e.message + ' (사진이 다른 도메인이라 캡처가 막혔을 수 있어요 — 사진 없이 다시 시도해보세요)');
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = oldText; }
-  }
+    a.href = url; a.download = '테마카드뉴스.zip';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  } catch (error) { alert('다운로드 실패: ' + error.message); }
+  finally { if (staging) staging.remove(); setCnBusy(false); if (btn) btn.textContent = oldText; }
 }
+
+document.getElementById('cnRetrySaveBtn').addEventListener('click', async () => {
+  if (cnBusy) return;
+  setCnBusy(true);
+  try { await saveCnHistorySnapshot(); } finally { setCnBusy(false); }
+});
 
 document.getElementById('cnDownloadAllBtn').addEventListener('click', () => downloadCnZip(document.getElementById('cnDownloadAllBtn')));
 
@@ -5659,9 +5193,23 @@ async function renderCardHistory() {
       try {
         if (parsed.html) {
           // 테마 카드뉴스(신규 방식) — HTML을 다시 화면에 그려 넣고, 같은 zip 저장 로직으로 다운로드한다.
-          document.getElementById('cnPreviewWrap').innerHTML = parsed.html;
+          if (cnBusy) throw new Error('카드 작업이 진행 중이에요. 끝난 뒤 다시 시도해주세요.');
+          const deck = parsed.deck ? CardNews.validateDeck(parsed.deck) : null;
+          const watermark = parsed.watermark || '보험즈';
+          let restoredHtml;
+          setCnBusy(true);
+          try { restoredHtml = deck ? await prepareCnDeck(deck, parsed.theme, watermark) : parsed.html; }
+          finally { setCnBusy(false); }
+          document.getElementById('cnPreviewWrap').innerHTML = restoredHtml;
           document.getElementById('cnResultPanel').style.display = 'block';
+          window.__cnDeck = deck;
+          window.__cnLastWatermark = watermark;
           window.__cnLastTheme = parsed.theme;
+          window.__cnPhotoSlots = [];
+          document.getElementById('cnPhotoControls').innerHTML = '';
+          document.getElementById('cnCopyPreview').style.display = 'none';
+          document.getElementById('cnSaveStatus').textContent = '저장된 기록을 불러왔어요.';
+          document.getElementById('cnRetrySaveBtn').hidden = true;
           // 여기서 불러온 뒤에 "카드별 수정" 등을 해도 새 항목이 아니라 이 기존 히스토리 항목에
           // 덮어써지도록(upsert) id·제목·분류를 기억해둔다.
           window.__cnLastHistoryId = h.id;
