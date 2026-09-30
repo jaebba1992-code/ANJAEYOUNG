@@ -6,6 +6,7 @@ const { PassThrough } = require('stream');
 
 const CW = 1080, CH = 1350; // 4:5 인스타그램 카드뉴스 표준 사이즈
 const MAX_CARDS = 10; // 카드뉴스는 최대 10장까지만 만든다 (하드 캡)
+const PHOTO_TIMEOUT_MS = 5000; // 선택적 배경 사진 때문에 카드 전체 생성이 오래 멈추지 않도록 제한
 
 /* ================= 폰트: 텍스트를 벡터 경로(도형)로 직접 그린다 =================
    서버(Vercel)에는 한글 폰트가 기본으로 없고, SVG의 @font-face 임베딩은 서버리스
@@ -790,17 +791,23 @@ const PHOTO_CAPABLE_TYPES = new Set(['darkCover', 'darkText', 'ctaShare', 'light
 
 async function fetchUnsplashPhoto(query, accessKey) {
   if (!accessKey || !query) return null;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), PHOTO_TIMEOUT_MS);
   try {
     const url = `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=1&orientation=portrait`;
-    const r = await fetch(url, { headers: { Authorization: `Client-ID ${accessKey}` } });
+    const r = await fetch(url, { headers: { Authorization: `Client-ID ${accessKey}` }, signal: controller.signal });
+    if (!r.ok) return null;
     const data = await r.json();
     const photo = (data.results || [])[0];
-    if (!photo) return null;
+    if (!photo?.urls?.regular) return null;
     const imgUrl = photo.urls.regular;
-    const imgRes = await fetch(imgUrl);
+    const imgRes = await fetch(imgUrl, { signal: controller.signal });
+    if (!imgRes.ok) return null;
     return Buffer.from(await imgRes.arrayBuffer());
   } catch (e) {
     return null;
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -809,16 +816,25 @@ async function renderCard(item, accent, theme, channelName, coverPhotoBuf) {
   if (!renderer) return null;
 
   if (PHOTO_CAPABLE_TYPES.has(item.type)) {
-    let photoBuf = (item.type === 'darkCover' ? coverPhotoBuf : null) || null; // 사용자가 직접 올린 표지 사진은 표지에만 우선 적용
+    const uploadedPhotoBuf = item.type === 'darkCover' ? coverPhotoBuf : null;
+    let photoBuf = uploadedPhotoBuf || null; // 사용자가 직접 올린 표지 사진은 표지에만 우선 적용
     if (!photoBuf && item.photoQuery) {
       const accessKey = process.env.UNSPLASH_ACCESS_KEY;
       photoBuf = await fetchUnsplashPhoto(item.photoQuery, accessKey);
     }
     if (photoBuf) {
-      const overlaySvg = renderer(item, accent, theme, channelName, { transparentBg: true });
-      const bg = await sharp(photoBuf).resize(CW, CH, { fit: 'cover' }).toBuffer();
-      const overlayPng = await sharp(Buffer.from(overlaySvg)).png().toBuffer();
-      return await sharp(bg).composite([{ input: overlayPng }]).png().toBuffer();
+      let bg;
+      try {
+        bg = await sharp(photoBuf).resize(CW, CH, { fit: 'cover' }).toBuffer();
+      } catch (err) {
+        // 자동 검색 사진이 손상됐으면 기본 배경으로 진행한다. 직접 올린 사진 오류는 사용자에게 알린다.
+        if (uploadedPhotoBuf) throw err;
+      }
+      if (bg) {
+        const overlaySvg = renderer(item, accent, theme, channelName, { transparentBg: true });
+        const overlayPng = await sharp(Buffer.from(overlaySvg)).png().toBuffer();
+        return await sharp(bg).composite([{ input: overlayPng }]).png().toBuffer();
+      }
     }
   }
 
@@ -837,6 +853,11 @@ module.exports = async function handler(req, res) {
     const { plan, accent, theme: themeKey, channelName, coverPhotoBase64 } = req.body || {};
     if (!Array.isArray(plan) || !plan.length) {
       return res.status(400).json({ error: 'plan(카드 배열)이 필요합니다.' });
+    }
+    const invalidIndex = plan.findIndex(item => !item || typeof item !== 'object' || Array.isArray(item)
+      || typeof item.type !== 'string' || !Object.prototype.hasOwnProperty.call(RENDERERS, item.type));
+    if (invalidIndex !== -1) {
+      return res.status(400).json({ error: `${invalidIndex + 1}번째 카드의 형식 또는 카드 타입이 올바르지 않아요.` });
     }
     const cappedPlan = plan.slice(0, MAX_CARDS); // 카드뉴스는 최대 10장까지만 만든다
     const accentColor = (accent || DEFAULT_ACCENT).replace('#', '');

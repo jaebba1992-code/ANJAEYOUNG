@@ -48,23 +48,30 @@ async function syncOne(supabase, accessToken, source) {
         combinedText += `\n\n=== 탭: ${tabName} ===\n${text}`;
       }
     } catch (e) {
-      combinedText += `\n\n=== 탭: ${tabName} (읽기 실패: ${e.message}) ===`;
+      // 일부 탭을 못 읽었다면 기존 자료를 유지하고, 바깥 재시도 루프에서 다시 시도한다.
+      throw new Error(`탭 "${tabName}" 읽기 실패: ${e.message || e}`);
     }
     await sleep(250); // 구글 API에 너무 몰아서 요청하지 않도록 탭마다 살짝 텀을 둔다
   }
   combinedText = combinedText.trim();
   const chunks = chunkText(combinedText, source.label);
 
-  // 기존 이 시트의 내용을 지우고 새로 넣는다 (매번 최신 스냅샷으로 교체)
-  const { error: delErr } = await supabase.from('source_corpus').delete().eq('source_file', source.label);
-  if (delErr) throw delErr;
-
-  const { error: insErr } = await supabase.from('source_corpus').insert(chunks);
+  // 새 자료 저장이 실패해도 기존 자료가 사라지지 않도록 먼저 저장한다.
+  const { error: insErr } = await supabase.from('source_corpus')
+    .upsert(chunks, { onConflict: 'source_file,page_number' });
   if (insErr) throw insErr;
 
-  await supabase.from('sheet_sources')
+  // 저장에 성공한 뒤에만, 페이지 수가 줄면서 남은 이전 자료를 정리한다.
+  const { error: delErr } = await supabase.from('source_corpus')
+    .delete()
+    .eq('source_file', source.label)
+    .gt('page_number', chunks.length);
+  if (delErr) throw delErr;
+
+  const { error: metadataErr } = await supabase.from('sheet_sources')
     .update({ last_synced_at: new Date().toISOString(), last_synced_chars: combinedText.length })
     .eq('id', source.id);
+  if (metadataErr) throw metadataErr;
 
   return { label: source.label, tab: tabNames.join(', '), chars: combinedText.length, pages: chunks.length };
 }

@@ -65,13 +65,14 @@ module.exports = async function handler(req, res) {
       const price = PRICING_PER_MTOK[safeModel] || PRICING_PER_MTOK['claude-sonnet-4-6'];
       const costUsd = (inputTokens / 1e6) * price.input + (outputTokens / 1e6) * price.output;
       const supabase = getSupabase();
-      await supabase.from('api_usage_log').insert({
+      const { error: logError } = await supabase.from('api_usage_log').insert({
         visitor_name: visitor_name || null,
         model: safeModel,
         input_tokens: inputTokens,
         output_tokens: outputTokens,
         cost_usd: costUsd
-      });
+      }).abortSignal(AbortSignal.timeout(3000));
+      if (logError) throw logError;
     } catch (logErr) {
       console.error('usage log failed', logErr);
     }

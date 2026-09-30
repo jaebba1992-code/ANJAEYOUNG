@@ -2403,13 +2403,17 @@ async function attemptSessionResume() {
   if (!token) return false;
   try {
     const res = await fetch('/api/user-session', { headers: { 'x-user-token': token } });
+    if (res.status === 401) {
+      localStorage.removeItem('ins_user_token');
+      return false;
+    }
+    if (!res.ok) return false;
     const data = await res.json();
-    if (res.ok && data.ok) {
+    if (data.ok) {
       enterAppAfterLogin(data);
       return true;
     }
   } catch (e) { /* 무시 — 로그인 화면으로 진행 */ }
-  localStorage.removeItem('ins_user_token');
   return false;
 }
 
@@ -3910,21 +3914,30 @@ function complianceSystemBlock() {
 }
 
 /* ===================== 이전 작업 기록 (Supabase, 팀 공유) ===================== */
-async function addToHistory(entry) {
+async function addToHistory(entry, waitForRefresh = true) {
   try {
     entry.visitor_name = localStorage.getItem('ins_visitor_name') || null;
     await apiPost('/api/history', entry);
-    await renderHistory();
-    await renderBlogHistory();
-    await renderCafeHistory();
-    await renderRecoHistory();
-    await renderSearchHistory();
-    await renderPptHistory();
-    await renderCardHistory();
-    await renderProposalHistory();
   } catch (e) {
     console.error('history save failed', e);
+    return false;
   }
+  const refresh = (async () => {
+    try {
+      await renderHistory();
+      await renderBlogHistory();
+      await renderCafeHistory();
+      await renderRecoHistory();
+      await renderSearchHistory();
+      await renderPptHistory();
+      await renderCardHistory();
+      await renderProposalHistory();
+    } catch (e) {
+      console.error('history refresh failed', e);
+    }
+  })();
+  if (waitForRefresh) await refresh;
+  return true;
 }
 async function deleteFromHistory(id) {
   try {
@@ -8032,7 +8045,10 @@ async function callClaude(system, messages, retries = 2, tools = null, maxTokens
         throw new Error('서버 응답이 비정상이었어요 (타임아웃/서버 오류 가능성). 재시도하지 않았어요 — 같은 요청을 반복하면 비용만 더 나가요.');
       }
 
-      if (!response.ok) throw new Error(data.error || ('오류 ' + response.status));
+      if (!response.ok) {
+        if (response.status >= 400 && response.status < 500 && ![408, 429].includes(response.status)) retryable = false;
+        throw new Error(data.error || ('오류 ' + response.status));
+      }
       return data.text || '';
     } catch (err) {
       clearTimeout(timeoutId);
@@ -8426,9 +8442,14 @@ async function runLongFormChunks(state) {
     console.error('마무리 표시 중 오류(무시하고 계속):', e);
   }
 
-  // history save is fire-and-forget and already has its own internal try/catch
-  addToHistory({ id: state.historyId, topic: state.topic, category: state.category, format: 'long', script: state.fullScript });
-  try { clearDraft(); } catch (e) {}
+  // 서버 저장이 확인될 때까지 복구용 초안을 유지한다.
+  saveDraft(state);
+  const historySaved = await addToHistory({ id: state.historyId, topic: state.topic, category: state.category, format: 'long', script: state.fullScript }, false);
+  if (historySaved) {
+    try { clearDraft(); } catch (e) {}
+  } else {
+    progressText.textContent = `완료 — 대본 ${state.fullScript.length.toLocaleString()}자 · 기록 저장에 실패했어요. 대본을 복사해 보관해주세요.`;
+  }
 
   // these two MUST always appear, no matter what happened above
   addContinueButton(state, '더 길게 이어쓰기', true);
@@ -9999,6 +10020,7 @@ async function generateSearchAnswer() {
   const q = document.getElementById('searchQueryInput').value.trim();
   if (!q) return;
   const btn = document.getElementById('searchGoBtn');
+  if (btn.disabled) return;
   const resultPanel = document.getElementById('searchResultPanel');
   const resultBody = document.getElementById('searchResultBody');
   const resultMeta = document.getElementById('searchResultMeta');
@@ -10019,6 +10041,7 @@ async function generateSearchAnswer() {
   relatedDocsEl.innerHTML = '';
   skeleton.style.display = 'block';
 
+  try {
   // 검색할 때마다 라이브러리·추천상품 목록을 최신 상태로 다시 불러온다 — 안 그러면 페이지를 새로고침하기 전까지는
   // 방금 새로 추가한 자료(예: 대량 임포트 직후)가 검색에 안 잡히는 문제가 생긴다.
   const [searchKeywords] = await Promise.all([
@@ -10191,7 +10214,6 @@ async function generateSearchAnswer() {
 
   const userPrompt = `[질문]\n${q}${knowledgeBlock}\n\n${knowledgeBlock ? '위 자료를 우선 근거로 삼되, 부족하면 일반 지식으로 보완해서' : '저장된 참고자료는 못 찾았으니, 너가 알고 있는 일반적인 보험·의학·법률 지식으로'} 답해줘.`;
 
-  try {
     // 등록 자료에 없거나 애매하면 AI가 실제로 web_search를 써서 확인할 수 있게 도구를 연결한다.
     // (안 쓰면 그냥 기억으로 답해버려서, 종수술 분류처럼 정확한 숫자가 중요한 질문에서 틀린 답을
     // 낼 위험이 크다 — 이게 실제로 문제가 됐던 부분.)
