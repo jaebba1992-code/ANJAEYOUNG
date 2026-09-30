@@ -184,6 +184,9 @@ module.exports = async function handler(req, res) {
     if (!Array.isArray(plan) || !plan.length) {
       return res.status(400).json({ error: 'plan(슬라이드 배열)이 필요합니다.' });
     }
+    if (plan.some(item => !item || typeof item.type !== 'string' || !Object.prototype.hasOwnProperty.call(RENDERERS, item.type))) {
+      return res.status(400).json({ error: '지원하지 않는 슬라이드 형식이 있어요. 다시 생성해주세요.' });
+    }
     const p = PALETTES[paletteName] || PALETTES[PALETTE_NAMES[Math.floor(Math.random() * PALETTE_NAMES.length)]];
 
     const pres = new pptxgen();
@@ -191,7 +194,6 @@ module.exports = async function handler(req, res) {
 
     for (const item of plan) {
       const renderer = RENDERERS[item.type];
-      if (!renderer) continue; // 알 수 없는 타입은 건너뛴다
       const s = pres.addSlide();
       renderer(s, item, p);
     }

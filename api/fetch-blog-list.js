@@ -11,15 +11,16 @@ async function fetchHtml(url) {
 }
 
 function extractBlogId(input) {
+  if (typeof input !== 'string') return null;
   const trimmed = input.trim();
   // 순수 아이디만 입력한 경우
   if (/^[a-zA-Z0-9_-]+$/.test(trimmed)) return trimmed;
   try {
     const u = new URL(trimmed);
-    if (!/blog\.naver\.com$/.test(u.hostname)) return null;
+    if (!['blog.naver.com', 'm.blog.naver.com'].includes(u.hostname)) return null;
     const parts = u.pathname.split('/').filter(Boolean);
-    if (parts.length) return parts[0];
-    return u.searchParams.get('blogId');
+    const blogId = u.searchParams.get('blogId') || parts[0];
+    return blogId && /^[a-zA-Z0-9_-]+$/.test(blogId) ? blogId : null;
   } catch (e) {
     return null;
   }

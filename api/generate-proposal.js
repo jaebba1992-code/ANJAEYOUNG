@@ -202,16 +202,16 @@ function svgDocument(theme, totalH, body) {
 // "75,789원 + 42,220원"처럼 여러 보험사 보험료가 합산되지 않은 채로 들어오면, 실제 합계 금액 하나로 계산해서 보여준다.
 function resolvePremiumSum(str) {
   if (!str) return str;
-  const parts = String(str).split('+').map(s => s.trim()).filter(Boolean);
+  const parts = String(str).split('+').map(s => s.trim());
   if (parts.length < 2) return str;
   let total = 0;
-  let ok = true;
-  parts.forEach(p => {
-    const num = parseInt(p.replace(/[^0-9]/g, ''), 10);
-    if (isNaN(num)) { ok = false; return; }
+  for (const p of parts) {
+    // 단위나 소수점을 지워 잘못 합산하지 않는다. 확실한 원 단위 정수만 계산한다.
+    if (!/^(?:\d+|\d{1,3}(?:,\d{3})+)\s*원?$/.test(p)) return str;
+    const num = Number(p.replace(/[,\s원]/g, ''));
+    if (!Number.isSafeInteger(num) || !Number.isSafeInteger(total + num)) return str;
     total += num;
-  });
-  if (!ok) return str;
+  }
   return total.toLocaleString('ko-KR') + '원';
 }
 
