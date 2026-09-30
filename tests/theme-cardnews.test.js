@@ -31,7 +31,7 @@ test('long text and missing cover/CTA are rejected',()=>{
 });
 test('all themes render escaped content and independent page/watermark markers',()=>{
   for(const key of Object.keys(engine.themes)) {
-    const d=engine.validateDeck({cards:cards()});
+    const d=engine.validateDeck({version:3,cards:cards()});
     d.cards[1].title='<img src=x onerror=alert(1)>';
     const h=engine.renderDeck(d,key,'<보험즈>');
     assert.equal((h.match(/<section /g)||[]).length,6);
@@ -101,7 +101,7 @@ test('new decks use reference title sizes, numeric emphasis and separate value f
   const d=cards();d[2].items=[{label:'조건',value:'두 가지 확인',text:'제출 자료 확인',detail:'사본 보관'},{label:'다음 단계',value:'기록 정리'}];
   d[4].value='148.1%';
   const deck=engine.validateDeck({cards:d});
-  assert.equal(deck.version,3);
+  assert.equal(deck.version,4);
   const html=engine.renderDeck(deck,'A','보험즈');
   for(const content of ['두 가지 확인','제출 자료 확인','사본 보관','기록 정리']) assert.ok(html.includes(content));
   assert.ok(html.includes('font-size:112px'));assert.ok(html.includes('font-size:96px'));assert.ok(html.includes('font-size:228px'));
@@ -120,4 +120,41 @@ test('a layout correction can recover without shrinking the title below referenc
   await c.generateThemeCardNews();
   assert.equal(checks,2);assert.equal(node('cnPreviewWrap').innerHTML,'<section>corrected</section>');
   assert.match(node('cnGenStatus').textContent,/완성/);
+});
+
+test('only six reference themes are offered and D falls back safely',()=>{
+  assert.deepEqual(Object.keys(engine.themes),['A','B','C','E','F','G']);
+  assert.ok(!source.match(/<select id="cnThemeSelect">[\s\S]*?<\/select>/)[0].includes('<option value="D">'));
+  assert.equal(engine.renderCard(cards()[0],0,6,'D'),engine.renderCard(cards()[0],0,6,'A'));
+  for(const theme of Object.keys(engine.themes)) assert.match(engine.renderCard(cards()[0],0,6,theme),/font-weight:900/);
+});
+test('publication maps insurers consistently and translates common English without changing figures',()=>{
+  const d=cards(); d[0].title='AIA생명 달러연금';d[1].title='삼성생명 VS AIA';d[1].body='USD 150, 148.1% 확인';d[5].action='DM 문의';
+  const deck=engine.prepareDeck({cards:d},6,'AIA생명과 삼성생명 비교');
+  assert.equal(deck.cards[0].title,'A사 달러연금');
+  assert.equal(deck.cards[1].title,'B사 비교 A사');
+  assert.equal(deck.cards[1].body,'달러 150, 148.1% 확인');
+  assert.equal(deck.cards[5].action,'개인 메시지 문의');
+  for(const theme of Object.keys(engine.themes)) assert.doesNotMatch(engine.renderDeck(deck,theme,'보험즈'),/AIA|삼성생명|USD|DM/);
+});
+test('unknown English and real company watermark cannot be published',()=>{
+  const d=cards();d[1].label='SPECIAL OFFER';
+  assert.throws(()=>engine.prepareDeck({cards:d}),/한국어/);
+  assert.throws(()=>engine.assertPublication('현대해상'),/익명/);
+  assert.throws(()=>engine.assertPublication('@insurance'),/한국어/);
+  assert.equal(engine.assertPublication('A사 안내'),'A사 안내');
+});
+test('company aliases reserve existing anonymous companies during edits',()=>{
+  const d=cards();d[0].title='A사 안내';d[1].title='삼성생명 비교';
+  const deck=engine.prepareDeck({cards:d},6,'A사 안내');
+  assert.equal(deck.cards[1].title,'B사 비교');
+});
+test('English response retries and an English edit keeps the prior complete result',async()=>{
+  let calls=0;const invalid=cards();invalid[0].label='SPECIAL';
+  const {context:c,node}=app({callClaude:async()=>JSON.stringify({cards:++calls===1?invalid:cards()})});
+  await c.generateThemeCardNews();assert.equal(calls,2);assert.match(node('cnGenStatus').textContent,/완성/);
+  const original=c.window.__cnDeck;
+  c.callClaude=async()=>JSON.stringify({...cards()[1],title:'SPECIAL'});
+  await c.editCnCards([1],'수정',node('status'));
+  assert.equal(c.window.__cnDeck,original);assert.match(node('status').textContent,/한국어/);
 });

@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;600;700&family=Pretendard:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-dynamic-subset.css">
 <script src="/cardnews-engine.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -1538,19 +1539,18 @@
 
       <div id="cardThemeModeFields" style="display:block;">
         <p style="font-size:12px; color:var(--paper-mute); line-height:1.7; margin:0 0 14px;">
-          7가지 테마로 카드뉴스를 만들어요. AI가 내용을 구성하고, 정해진 디자인에 배치한 뒤 글자 잘림을 검사해요. 사진 없이도 읽기 좋은 글자 중심 디자인입니다.
+          6가지 고정 디자인으로 카드뉴스를 만들어요. AI가 내용을 구성하고, 정해진 디자인에 배치한 뒤 글자 잘림을 검사해요. 사진 없이도 읽기 좋은 글자 중심 디자인입니다.
         </p>
         <div class="row">
           <div class="field">
             <label>테마 <span class="opt">색뿐 아니라 레이아웃 구조 자체가 테마마다 달라요</span></label>
             <select id="cnThemeSelect">
               <option value="A" selected>A. 레퍼런스 그린 — 큰 제목·강조 박스</option>
-              <option value="B">B. 에디토리얼 세리프 — 중앙정렬·박스없음</option>
-              <option value="C">C. 뉴스페이퍼 블랙 — 표 형태</option>
-              <option value="D">D. 브루탈 옐로 — 강한 대비·굵은테두리</option>
-              <option value="E">E. 소프트 파스텔 — 2열카드·여백 큼</option>
-              <option value="F">F. 테크 모노 — 코드 느낌</option>
-              <option value="G">G. 골드 클래식 — 상하프레임·대칭</option>
+              <option value="B">B. 에디토리얼 — 중앙 정렬·주황 강조</option>
+              <option value="C">C. 뉴스페이퍼 — 신문형 표·빨강 강조</option>
+              <option value="E">E. 파스텔 — 분홍 배경·둥근 박스</option>
+              <option value="F">F. 테크 모노 — 검정 배경·연두 강조</option>
+              <option value="G">G. 골드 클래식 — 금색 테두리·중앙 정렬</option>
             </select>
           </div>
           <div class="field">
@@ -1563,7 +1563,7 @@
             </select>
           </div>
         </div>
-        <p style="font-size:11.5px; color:var(--paper-mute); margin:-4px 0 0;">※ 요청한 장수와 필수 내용을 확인하고, 이미지 크기에서 글자가 넘치는지 검사해요. 문구는 아래에서 카드별로 수정할 수 있어요.</p>
+        <p style="font-size:11.5px; color:var(--paper-mute); margin:-4px 0 0;">※ 모든 문구는 한국어로, 보험사는 A사·B사로 표시해요. 선택한 예시 디자인을 유지하고 글자 넘침을 검사해요. 문구는 아래에서 카드별로 수정할 수 있어요.</p>
         <div class="row">
           <div class="field">
             <label>참고할 예시 카드뉴스 이미지 (선택) <span class="opt">문구의 분위기를 참고해요 — 배치는 선택한 테마를 사용해요</span></label>
@@ -1573,12 +1573,12 @@
           </div>
         </div>
         <div class="row">
-          <div class="field"><label>워터마크</label><input type="text" id="cnWatermarkInput" value="보험즈" placeholder="예: 보험즈 또는 @bohum.z"></div>
+          <div class="field"><label>워터마크</label><input type="text" id="cnWatermarkInput" value="보험즈" placeholder="예: 보험즈 (한국어)"></div>
         </div>
         <div class="row">
           <div class="field">
-            <label>카드뉴스 내용 <span class="opt">상품명, 핵심 수치, 예시 계산, 비교 포인트, CTA 문구 등 자유롭게 적어주세요 — 어떤 보험 상품이든 상관없어요. AI가 선택한 장수에 맞게 내용을 나눠 담아요</span></label>
-            <textarea id="cnContentInput" rows="10" placeholder="예: 상품명 - AIA생명 달러연금 / 핵심 수치 - 미국 기준금리 +1~1.5% 복리, 월 20만원부터 / 실제 예시 - 원금 3,600만원(월 20만원×15년) → 20년 후 약 5,200만원 → 차액 약 1,600만원 (예시 수치) / 비교 포인트 - 타사는 원화 공시이율 2%대, 우리는 달러 자산으로 미국 금리 연동 / CTA - 무료 시뮬레이션 받아보기, 저장 후 상담 문의&#10;&#10;※ 형식은 자유예요. 항목을 안 나눠도 되고, 수치가 없는 상품이면 그냥 특징·장점·설명 위주로 적어도 돼요."></textarea>
+            <label>카드뉴스 내용 <span class="opt">상품명, 핵심 수치, 예시 계산, 비교 포인트, 마무리 문구 등 자유롭게 적어주세요 — 어떤 보험 상품이든 상관없어요. AI가 선택한 장수에 맞게 내용을 나눠 담아요</span></label>
+            <textarea id="cnContentInput" rows="10" placeholder="예: 상품명 - A사 달러연금 / 핵심 수치 - 미국 기준금리 +1~1.5% 복리, 월 20만원부터 / 실제 예시 - 원금 3,600만원(월 20만원×15년) → 20년 후 약 5,200만원 → 차액 약 1,600만원 (예시 수치) / 비교 포인트 - 타사는 원화 공시이율 2%대, 우리는 달러 자산으로 미국 금리 연동 / 마무리 - 무료 시뮬레이션 받아보기, 저장 후 상담 문의&#10;&#10;※ 형식은 자유예요. 항목을 안 나눠도 되고, 수치가 없는 상품이면 그냥 특징·장점·설명 위주로 적어도 돼요."></textarea>
           </div>
         </div>
 
@@ -4629,11 +4629,11 @@ async function prepareCnDeck(deck, theme, watermark) {
   } finally { staging.remove(); }
 }
 
-async function requestCnDeck(content, count) {
+async function requestCnDeck(content, count, theme = 'A') {
   let failure = '';
   for (let attempt = 0; attempt < 2; attempt++) {
-    const raw = await callClaude(CardNews.prompt(count, window.__cnStyleNote || ''), [{role:'user', content: content + (failure ? '\n\n직전 응답 오류: ' + failure + '\n누락 없이 전체 JSON을 다시 작성하세요.' : '')}], 1, null, 6500, 'claude-opus-5');
-    try { return CardNews.validateDeck(parseJsonWithRepair(raw), count); }
+    const raw = await callClaude(CardNews.prompt(count, window.__cnStyleNote || '', theme), [{role:'user', content: content + (failure ? '\n\n직전 응답 오류: ' + failure + '\n누락 없이 전체 JSON을 다시 작성하세요.' : '')}], 1, null, 6500, 'claude-opus-5');
+    try { return CardNews.prepareDeck(parseJsonWithRepair(raw), count, content); }
     catch (error) { failure = error.message; }
   }
   throw new Error('카드 구성을 완성하지 못했어요. ' + failure);
@@ -4649,17 +4649,18 @@ async function generateThemeCardNews() {
   const watermark = document.getElementById('cnWatermarkInput').value.trim() || '보험즈';
   if (!content) { alert('카드뉴스 내용을 적어주세요.'); return; }
   if ([...watermark].length > 40) { alert('워터마크는 40자 이내로 입력해주세요.'); return; }
+  try { CardNews.assertPublication(watermark); } catch(error) { alert(error.message); return; }
   setCnBusy(true);
   status.textContent = '내용과 카드 장수를 확인하며 구성하고 있어요. 기존 결과는 완성될 때까지 유지됩니다.';
   btn.textContent = '1/2 카드 내용 구성 중...';
   try {
-    let deck = await requestCnDeck(content, count);
+    let deck = await requestCnDeck(content, count, theme);
     btn.textContent = '2/2 디자인과 글자 잘림 검사 중...';
     let html;
     try { html = await prepareCnDeck(deck, theme, watermark); }
     catch (layoutError) {
       btn.textContent = '큰 글자에 맞춰 내용 배분 조정 중...';
-      deck = await requestCnDeck(content + '\n\n[배치 검사 결과] ' + layoutError.message + '\n큰 글씨 크기를 유지해야 합니다. 제목은 짧게, 박스당 핵심 문구는 하나로 정리하고 긴 내용은 다른 카드에 배분하세요. 원문의 수치와 조건은 삭제하거나 바꾸지 마세요. 직전 구성: ' + JSON.stringify(deck), count);
+      deck = await requestCnDeck(content + '\n\n[배치 검사 결과] ' + layoutError.message + '\n큰 글씨 크기를 유지해야 합니다. 제목은 짧게, 박스당 핵심 문구는 하나로 정리하고 긴 내용은 다른 카드에 배분하세요. 원문의 수치와 조건은 삭제하거나 바꾸지 마세요. 직전 구성: ' + JSON.stringify(deck), count, theme);
       html = await prepareCnDeck(deck, theme, watermark);
     }
     document.getElementById('cnPreviewWrap').innerHTML = html;
@@ -4828,17 +4829,18 @@ async function editCnCards(indices, instruction, status) {
   if (!window.__cnDeck) { status.textContent = '이전 방식으로 만든 기록이에요. 다운로드는 가능하며, 새 편집 기능은 새로 생성한 카드부터 사용할 수 있어요.'; return; }
   setCnBusy(true);
   const original = window.__cnDeck;
-  const next = {version:original.version || 3, cards:original.cards.map(c => JSON.parse(JSON.stringify(c)))};
+  let next = {version:4, cards:original.cards.map(c => JSON.parse(JSON.stringify(c)))};
   try {
     // Sequential requests prevent rate-limit bursts; commit the entire selection atomically.
     for (const [n, index] of indices.entries()) {
       if (!Number.isInteger(index) || !next.cards[index]) throw new Error('수정할 카드를 찾을 수 없어요.');
       status.textContent = `문구 수정 중 (${n + 1}/${indices.length})...`;
-      const raw = await callClaude(CardNews.prompt('auto') + '\n이번에는 cards 배열 대신 카드 객체 하나만 출력한다. 현재 카드 type은 유지한다. 사용자 수정 지시 이외의 수치·조건은 보존한다.', [{role:'user',content:JSON.stringify({card:original.cards[index],instruction})}], 1, null, 1800, 'claude-opus-5');
+      const raw = await callClaude(CardNews.prompt('auto', '', window.__cnLastTheme) + '\n이번에는 cards 배열 대신 카드 객체 하나만 출력한다. 현재 카드 type은 유지한다. 사용자 수정 지시 이외의 수치·조건은 보존한다.', [{role:'user',content:JSON.stringify({card:original.cards[index],instruction})}], 1, null, 1800, 'claude-opus-5');
       const updated = CardNews.validateCard(parseJsonWithRepair(raw));
       if (updated.type !== original.cards[index].type) throw new Error('카드 유형이 변경되어 적용하지 않았어요. 문구 수정으로 다시 요청해주세요.');
       next.cards[index] = updated;
     }
+    next = CardNews.prepareDeck(next, original.cards.length, JSON.stringify(original.cards));
     const html = await prepareCnDeck(next, window.__cnLastTheme, window.__cnLastWatermark);
     document.getElementById('cnPreviewWrap').innerHTML = html;
     window.__cnDeck = next;
@@ -4869,6 +4871,7 @@ async function replaceAllWatermarks() {
   if (!window.__cnDeck) { status.textContent = '이전 기록의 워터마크 수정은 새로 생성한 카드에서 이용해주세요.'; return; }
   setCnBusy(true);
   try {
+    CardNews.assertPublication(watermark);
     const html = await prepareCnDeck(window.__cnDeck, window.__cnLastTheme, watermark);
     document.getElementById('cnPreviewWrap').innerHTML = html;
     window.__cnLastWatermark = watermark;
