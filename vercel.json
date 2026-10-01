@@ -18,6 +18,9 @@
     "api/fetch-blog-content.js": {
       "maxDuration": 30
     },
+    "api/blog-references.js": {
+      "maxDuration": 30
+    },
     "api/fetch-blog-list.js": {
       "maxDuration": 30
     }
