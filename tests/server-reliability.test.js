@@ -19,7 +19,7 @@ async function invoke(handler, body = {}, method = 'POST') {
   return response;
 }
 
-function createGenerateHarness(logMode = 'success', upstreamError = false) {
+function createGenerateHarness(logMode = 'success', upstreamError = false, usage = { input_tokens: 100, output_tokens: 20 }) {
   const usageRows = [];
   const diagnostics = [];
   const timeouts = [];
@@ -41,7 +41,7 @@ function createGenerateHarness(logMode = 'success', upstreamError = false) {
       ok: !upstreamError, status: upstreamError ? 429 : 200,
       json: async () => upstreamError ? { error: { message: 'Rate limited' } } : {
         content: [{ type: 'text', text: 'First' }, { type: 'tool_use', name: 'ignored' }, { type: 'text', text: 'Second' }],
-        usage: { input_tokens: 100, output_tokens: 20 }
+        usage
       }
     }),
     require(name) {
@@ -82,7 +82,9 @@ test('generation still records successful usage and returns every text block', a
   const harness = createGenerateHarness();
   const result = await invoke(harness.handler, generationRequest);
   assert.equal(result.statusCode, 200);
-  assert.deepEqual(result.body, { text: 'First\nSecond' });
+  assert.equal(result.body.text, 'First\nSecond');
+  assert.equal(result.body.usage.model, 'claude-sonnet-4-6');
+  assert.ok(Math.abs(result.body.usage.cost_usd - 0.0006) < 1e-12);
   assert.deepEqual(harness.timeouts, [3000]);
   assert.equal(harness.usageRows.length, 1);
   assert.equal(harness.usageRows[0].visitor_name, 'Test visitor');
@@ -120,6 +122,17 @@ test('upstream generation failure is returned without attempting a usage insert'
   assert.equal(result.body.error, 'Rate limited');
   assert.equal(harness.usageRows.length, 0);
   assert.equal(harness.timeouts.length, 0);
+});
+
+test('reported cost accounts for cache read discounts and both cache write durations', async () => {
+  const usage = { input_tokens: 100, output_tokens: 20, cache_read_input_tokens: 1000, cache_creation_input_tokens: 300,
+    cache_creation: { ephemeral_5m_input_tokens: 100, ephemeral_1h_input_tokens: 200 } };
+  const app = createGenerateHarness('success', false, usage);
+  const result = await invoke(app.handler, { ...generationRequest, model: 'claude-haiku-4-5-20251001' });
+  const expected = (100 + 1000 * 0.1 + 100 * 1.25 + 200 * 2 + 20 * 5) / 1e6;
+  assert.ok(Math.abs(result.body.usage.cost_usd - expected) < 1e-12);
+  assert.equal(result.body.usage.input_tokens, 1400);
+  assert.equal(app.usageRows[0].cost_usd, result.body.usage.cost_usd);
 });
 
 const proposalModule = loadHandler('generate-proposal.js', {

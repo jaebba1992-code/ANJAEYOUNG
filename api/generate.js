@@ -56,14 +56,18 @@ module.exports = async function handler(req, res) {
       return res.status(response.status).json({ error: data?.error?.message || '알 수 없는 오류', raw: data });
     }
 
+    const usage = data.usage || {};
+    const inputTokens = (usage.input_tokens || 0) + (usage.cache_creation_input_tokens || 0) + (usage.cache_read_input_tokens || 0);
+    const outputTokens = usage.output_tokens || 0;
+    const price = PRICING_PER_MTOK[safeModel] || PRICING_PER_MTOK['claude-sonnet-4-6'];
+    const cached = usage.cache_creation || {};
+    const write1h = cached.ephemeral_1h_input_tokens || 0;
+    const write5m = cached.ephemeral_5m_input_tokens ?? Math.max(0, (usage.cache_creation_input_tokens || 0) - write1h);
+    const billedInput = (usage.input_tokens || 0) + write5m * 1.25 + write1h * 2 + (usage.cache_read_input_tokens || 0) * 0.1;
+    const costUsd = (billedInput / 1e6) * price.input + (outputTokens / 1e6) * price.output;
     // 이 호출 하나가 얼마짜리였는지 기록한다 — 실패해도 본 응답에는 영향 안 주게 별도로 처리한다.
     // (사람별로 나중에 달러 합산해서 "누가 얼마 썼는지" 볼 수 있게 하기 위함)
     try {
-      const usage = data.usage || {};
-      const inputTokens = (usage.input_tokens || 0) + (usage.cache_creation_input_tokens || 0) + (usage.cache_read_input_tokens || 0);
-      const outputTokens = usage.output_tokens || 0;
-      const price = PRICING_PER_MTOK[safeModel] || PRICING_PER_MTOK['claude-sonnet-4-6'];
-      const costUsd = (inputTokens / 1e6) * price.input + (outputTokens / 1e6) * price.output;
       const supabase = getSupabase();
       const { error: logError } = await supabase.from('api_usage_log').insert({
         visitor_name: visitor_name || null,
@@ -78,7 +82,8 @@ module.exports = async function handler(req, res) {
     }
 
     const textBlocks = (data.content || []).filter(b => b.type === 'text').map(b => b.text);
-    return res.status(200).json({ text: textBlocks.join('\n') });
+    return res.status(200).json({ text: textBlocks.join('\n'), stop_reason: data.stop_reason,
+      usage: { model: safeModel, input_tokens: inputTokens, output_tokens: outputTokens, cost_usd: costUsd } });
   } catch (err) {
     return res.status(500).json({ error: String(err) });
   }
