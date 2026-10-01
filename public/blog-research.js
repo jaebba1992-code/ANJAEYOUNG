@@ -21,9 +21,16 @@
       const rows = data.sources.filter(row => row.id === source.id);
       const row = rows.length === 1 ? rows[0] : null;
       const quote = row && typeof row.evidence === 'string' ? row.evidence.trim() : '';
-      const normalize = value => value.replace(/\s+/g, '');
+      const normalize = value => value.normalize('NFKC').replace(/[‘’“”"'「」『』]/g, '').replace(/\s+/g, '').replace(/(?<!\d)[,.!?]|[,.!?](?!\d)/g, '');
       const verified = quote.length >= 12 && normalize(source.text).includes(normalize(quote));
-      return { ...source, used: !!(row && row.use === true && verified), reason: row && typeof row.reason === 'string' ? row.reason.slice(0, 250) : '관련성 분석이 확인되지 않아 제외', evidence: verified ? quote.slice(0, 500) : '' };
+      const ids = row && Array.isArray(row.evidence_ids) ? row.evidence_ids : [];
+      const selected = (source.passages || []).filter(p => ids.includes(p.id) && p.text.length >= 12 && normalize(source.text).includes(normalize(p.text)));
+      const grounded = selected.length > 0 || verified;
+      const requested = !!(row && row.use === true);
+      const reason = row && typeof row.reason === 'string' ? row.reason.slice(0, 250) : '관련성 분석이 확인되지 않아 제외';
+      return { ...source, used: requested && grounded, verificationFailed: requested && !grounded,
+        reason: requested && !grounded ? '주제는 관련 있지만 AI가 지정한 본문 근거를 확인하지 못했습니다. ' + reason : reason,
+        evidence: selected.length ? selected.map(p => p.text).join('\n').slice(0, 500) : verified ? quote.slice(0, 500) : '' };
     });
     return { sources: validated, outline: data.outline.filter(v => typeof v === 'string').slice(0, 7) };
   }
@@ -51,7 +58,12 @@
   }
   function prepareSources(sources, query) {
     const limit = Math.min(4500, Math.floor(18000 / Math.max(1, sources.length)));
-    return sources.map(source => ({ ...source, text: excerpt(source.text, query, limit), excerpted: source.text.length > limit }));
+    return sources.map(source => {
+      const text = excerpt(source.text, query, limit);
+      const segments = text.match(/[\s\S]{1,650}/g) || [];
+      return { ...source, text, excerpted: source.text.length > limit,
+        passages: segments.map((text, index) => ({ id: '문단' + (index + 1), text })) };
+    });
   }
   function createCache(now = () => Date.now()) {
     const entries = new Map();
