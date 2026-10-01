@@ -49,6 +49,33 @@ test('duplicate source decisions are excluded rather than silently selecting one
   assert.equal(research.analysis(JSON.stringify({ sources: [row, row], outline: [] }), [source]).sources[0].used, false);
 });
 
+test('relevant source is accepted through an existing passage ID without a verbatim model quote', () => {
+  const sources = research.prepareSources([{ id: '자료1', text: '태아보험 뇌혈관질환진단담보의 필요성과 구성 방법을 설명합니다. 가입 전 약관의 보장 범위를 확인하세요.' }], '뇌혈관질환진단담보');
+  const result = research.analysis(JSON.stringify({ sources: [{ id: '자료1', use: true, reason: '필요성과 구성 방법이 가입 전 확인에 관련됨', evidence_ids: ['문단1'] }], outline: ['담보 구성'] }), sources);
+  assert.equal(result.sources[0].used, true);
+  assert.ok(result.sources[0].evidence.includes('보장 범위'));
+});
+
+test('invented passage IDs are rejected and reported as verification failures, not unrelated sources', () => {
+  const sources = research.prepareSources([{ id: '자료1', text: '태아보험 뇌혈관질환진단담보의 필요성과 구성 방법을 설명합니다.' }], '뇌혈관질환진단담보');
+  const result = research.analysis(JSON.stringify({ sources: [{ id: '자료1', use: true, reason: '관련 있음', evidence_ids: ['문단999'] }], outline: [] }), sources);
+  assert.equal(result.sources[0].used, false);
+  assert.equal(result.sources[0].verificationFailed, true);
+  assert.match(result.sources[0].reason, /주제는 관련/);
+});
+
+test('typographic punctuation differences do not reject an otherwise exact quote', () => {
+  const source = { id: '자료1', text: '가입 전 ‘보장 범위’를 확인하고, 약관의 조건을 살펴보세요.' };
+  const result = research.analysis(JSON.stringify({ sources: [{ id: '자료1', use: true, evidence: '가입 전 "보장 범위"를 확인하고 약관의 조건을 살펴보세요.' }], outline: [] }), [source]);
+  assert.equal(result.sources[0].used, true);
+});
+
+test('quote normalization preserves decimal amounts and numeric condition separators', () => {
+  const source = { id: '자료1', text: '보험료 예시는 월 1.5만원이며 조건을 반드시 확인해야 합니다.' };
+  const result = research.analysis(JSON.stringify({ sources: [{ id: '자료1', use: true, evidence: '보험료 예시는 월 15만원이며 조건을 반드시 확인해야 합니다.' }], outline: [] }), [source]);
+  assert.equal(result.sources[0].used, false);
+});
+
 function workflow(options = {}) {
   const fs = require('node:fs'), path = require('node:path'), vm = require('node:vm');
   const html = fs.readFileSync(path.join(__dirname, '../public/index.html'), 'utf8');
@@ -71,7 +98,7 @@ function workflow(options = {}) {
     callClaude: async (system, messages, retries, tools, maxTokens, model) => {
       calls.push(['model', system, { retries, maxTokens, model }]);
       if (options.modelFailure) throw Error('모델 실패');
-      if (system.includes('JSON만 출력')) return JSON.stringify({ sources: [{ id: '자료1', use: !options.unrelated, reason: '가입 조건 검토', evidence: body.slice(0, 35) }], outline: ['가입 조건', '확인 사항'] });
+      if (system.includes('JSON만 출력')) return JSON.stringify({ sources: [{ id: '자료1', use: !options.unrelated, reason: '가입 조건 검토', evidence_ids: ['문단1'] }], outline: ['가입 조건', '확인 사항'] });
       return '완성된 글';
     },
     searchLibrary: () => [], searchCorpus: async () => [], complianceSystemBlock: () => '',
