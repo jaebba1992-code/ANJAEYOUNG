@@ -110,6 +110,16 @@ test('generation still avoids retrying an invalid server response', async () => 
   assert.equal(attempts, 1);
 });
 
+test('blog rejects truncated output without retrying and still reports its usage', async () => {
+  let attempts = 0; const usages = [];
+  const app = generationContext(async () => {
+    attempts++;
+    return { ok: true, status: 200, json: async () => ({ text: 'unfinished', stop_reason: 'max_tokens', usage: { cost_usd: 0.01 } }) };
+  });
+  await assert.rejects(app.callClaude('', [], 2, null, 4500, null, { rejectTruncated: true, onUsage: usage => usages.push(usage) }), /출력 한도/);
+  assert.equal(attempts, 1); assert.equal(usages[0].cost_usd, 0.01);
+});
+
 const historySource = sourceBetween('async function addToHistory(', 'async function deleteFromHistory(id)')
   + sourceBetween('function saveDraft(state)', 'function checkForDraft()')
   + sourceBetween('async function runLongFormChunks(state)', 'function addContinueButton(state');
