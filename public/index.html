@@ -966,11 +966,16 @@
         <label>형식</label>
         <div class="segmented" id="formatSeg">
           <button type="button" class="seg-btn active" data-val="short">숏폼 (45~75초)</button>
-          <button type="button" class="seg-btn" data-val="long">롱폼 상세 (대본 1만자↑)</button>
+          <button type="button" class="seg-btn" data-val="long">롱폼 (한 번에 완성)</button>
         </div>
       </div>
     </div>
 
+    <div class="field" style="margin-bottom:18px;">
+      <label>롱폼 분량</label>
+      <select id="scriptLength"><option value="complete">빠른 완성 · 약 2,000~3,000자 (권장)</option><option value="detail">상세 · 1만자 이상 (여러 번 호출, 시간·비용 증가)</option></select>
+      <p style="font-size:12px;color:var(--paper-mute);">빠른 완성도 후킹·본론·문의할 이유·클로징을 모두 포함합니다. 자료 검색을 켜면 검색 비용이 별도로 발생할 수 있어요.</p>
+    </div>
     <div class="row">
       <div class="field">
         <label>보험 분야</label>
@@ -2142,6 +2147,7 @@
             이미지/스캔 페이지는 건너뛰기 <span style="color:var(--paper-mute);">(체크하면 무료·빠름 — 대신 디자인 위주(이미지형) 소식지는 내용이 많이 빠질 수 있어요. 텍스트 기반 PDF는 체크 여부와 상관없이 항상 무료예요)</span>
           </label>
           <div style="display:flex; align-items:center; gap:10px; margin-top:8px; flex-wrap:wrap;">
+            <span style="font-size:12px;color:var(--paper-mute);">이미지 인식·항목 정리는 저비용 모델을 사용합니다. 같은 화면에서 동일 자료를 재분석하면 결과를 재사용해요. 새로고침하면 캐시는 초기화됩니다.</span>
             <label for="recoFileInput" class="copy-btn" style="cursor:pointer; display:inline-block;">+ PPT / PDF 파일 첨부 (여러 개 선택 가능)</label>
             <input type="file" id="recoFileInput" accept=".pptx,.pdf" multiple style="display:none;">
             <button type="button" class="mini-btn danger" id="recoFileCancelBtn" style="display:none;">업로드 취소</button>
@@ -6244,7 +6250,7 @@ function saveDraft(state) {
       chunkIndex: state.chunkIndex,
       historyId: state.historyId,
       contextLine: state.contextLine, longSystem: state.longSystem,
-      TARGET_CHARS: state.TARGET_CHARS, MAX_CHUNKS: state.MAX_CHUNKS,
+      TARGET_CHARS: state.TARGET_CHARS, MAX_CHUNKS: state.MAX_CHUNKS, singlePass:state.singlePass,
       hasClosing: !!state.hasClosing, model: state.model
     }));
   } catch (e) {}
@@ -6311,7 +6317,7 @@ async function resumeFromDraft() {
     chunkIndex: draft.chunkIndex || 0,
     coveredTopics: draft.coveredTopics || [],
     contextLine: draft.contextLine || contextLine, longSystem: draft.longSystem || longSystem, model: draft.model || 'claude-sonnet-4-6', hasClosing: !!draft.hasClosing, citeOn: draft.citeOn, category: draft.category, host: draft.host, topic: draft.topic,
-    TARGET_CHARS: draft.TARGET_CHARS || 10500,
+    TARGET_CHARS: draft.TARGET_CHARS ?? 10500, singlePass:!!draft.singlePass,
     MAX_CHUNKS: Math.max(draft.MAX_CHUNKS || 10, (draft.chunkIndex || 0) + 4),
     scriptDiv,
     historyId: draft.historyId || Date.now()
@@ -7441,6 +7447,13 @@ async function resizeImageToBase64(rawBase64, mediaType, maxWidth = 1000, qualit
   });
 }
 
+const uploadOcrCache = new Map();
+const recoAnalysisCache = new Map();
+let recoExtractBusy = false;
+async function uploadContentKey(text) {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, '0')).join('');
+}
 async function extractTextFromImageBase64(base64, mediaType) {
   const messages = [{
     role: 'user',
@@ -7449,8 +7462,13 @@ async function extractTextFromImageBase64(base64, mediaType) {
       { type: 'text', text: '이 이미지에 있는 텍스트를 빠짐없이 그대로 추출해줘. 표 형태라면 줄바꿈과 항목 구분을 살려서 옮겨줘. 이미지 안에 텍스트가 전혀 없으면 "텍스트 없음" 이라고만 답하고, 다른 설명은 절대 하지 마.' }
     ]
   }];
-  const text = await callClaude(undefined, messages);
-  return (text || '').trim();
+  const key = await uploadContentKey(mediaType + ':' + base64);
+  if (uploadOcrCache.has(key)) return uploadOcrCache.get(key);
+  const text = await callClaude(undefined, messages, 0, null, 4096, 'claude-haiku-4-5-20251001', {rejectTruncated:true});
+  if (!text || !text.trim()) throw new Error('이미지 인식 결과가 비어 있어요.');
+  if (uploadOcrCache.size >= 60) uploadOcrCache.delete(uploadOcrCache.keys().next().value);
+  uploadOcrCache.set(key, text.trim());
+  return text.trim();
 }
 
 async function handleFileUpload(e) {
@@ -7708,52 +7726,15 @@ function intensityGuide(level) {
 }
 
 function salesSystemBlock(level) {
-  return `\n[세일즈 화법 — 항상 반드시 지켜야 하는 핵심 규칙, 생략 불가. 실제 세일즈 강의 자료 3편에서 뽑은 검증된 기법들이다. 아래 목록에서 최소 6~8개 이상을 대화 곳곳에 자연스럽게 녹여서 쓴다. 한 기법만 반복하지 말고 다양하게 섞는다.]
-
-[A. 라포·신뢰 형성]
-- 민감한 질문(자산, 병력 등) 전에는 반드시 "왜 이걸 여쭤보는지" 이유부터 설명한다.
-- 상품 얘기 전에 상품보다 사람(가족 구성, 상황)부터 물어봐서 "사업자"가 아닌 "사람 냄새"를 준다.
-- 지적하지 않고 인정·지지한다. 고객의 선택이나 상황을 먼저 있는 그대로 존중해준다.
-- 소개로 온 고객이면 소개해준 사람에 대한 감사를 반드시 언급한다.
-- 행동에 대한 감사("가입해주셔서")보다 존재 자체에 대한 감사("고객님이라서 감사해요")가 더 깊은 인상을 남긴다.
-
-[B. 관심·욕구를 자극하는 화법]
-- 예고편 던지기: 바로 설명하지 않고 "이거 하나만 아시면 상황이 달라져요" 처럼 궁금증부터 유발한 뒤 나중에 풀어준다.
-- 상상화법: "~라면 어떠시겠어요? 한번 상상해보세요" 로 고객이 상황을 직접 그려보게 만든다.
-- 자각시키기: 상품 자랑 전에 고객이 몰랐던 정보·사실을 먼저 던져서 "아 몰랐네" 하고 스스로 문제를 자각하게 만든다 (예: 보장 축소, 재가입 구조 등).
-- 이율배반 화법: "A는 좋지만 B는 부담스러우시잖아요" 처럼 고객이 이미 아는 두 가지를 대비시켜 간극을 만들고, 그 사이에 상품을 끼워 넣는다.
-- 저울 비교법: "이거 하실 바에야 차라리 이거 하세요" 처럼 다른 지출과 비교해 상대적 가치를 보여준다.
-- "특별한 이유 있으세요?" 화법: 고객이 계속 망설이거나 부족한 보장을 유지하고 있다면, "혹시 ~하시는 특별한 이유가 있으세요?" 라고 자연스럽게 캐물어서 없는 이유를 스스로 깨닫게 한다.
-- 죄책감·책임감 살짝 자극: 가족을 위한 준비라는 프레임으로, 지금 안 하면 가족에게 부담이 갈 수 있다는 걸 담담하게 짚어준다 (공포 조성이 아니라 사실 전달 수준으로).
-
-[C. 신뢰도와 설득력을 높이는 표현법]
-- 딱 떨어지는 숫자보다 구체적인 숫자가 더 신뢰감을 준다 (예: "10년"보다 "3.10.5" 같은 정확한 조건).
-- 숫자는 체감되게 설명한다 (예: 장기납 부담은 "10년 전 그 영화 벌써 10년 됐어요, 생각보다 금방 가요"처럼 비유로 체감시킨다).
-- 청킹: 큰 금액은 기간 단위로 쪼개서 작게 느끼게 한다 (예: 연납 보험료를 "하루 커피 한 잔 값" 수준으로).
-- 트래킹: 지금 가입했을 때 당장의 가격만이 아니라, 시간이 지났을 때 얻게 될 이득까지 함께 짚어준다.
-- 이유+결과 조합법: 특징만 나열하지 않고 "이 특약 덕분에 ~한 상황에서도 부담이 줄어요"처럼 이유 뒤에 실제로 좋아지는 결과를 붙인다.
-- "왜 하필" 5가지에 스스로 답을 준비해서 자연스럽게 대화에 녹인다: 왜 이 상품인지 / 왜 이 회사인지 / 왜 나(설계사)에게인지 / 왜 이 가격인지 / 왜 지금인지.
-- 폭탄언어 대신 풍선언어: 부정적으로 들릴 수 있는 표현을 긍정적 프레임으로 바꾼다 (예: "약정"이 아니라 "약속", "보험료 낸다"가 아니라 "미래의 나에게 보내는 준비").
-
-[D. 사회적 증거와 개인화]
-- 통계·트렌드: "요즘 ~때문에 이런 케이스가 늘고 있어요" 처럼 최근 흐름을 먼저 던지고 상품으로 연결한다.
-- 또래 사회적 증거: "OO세 남성분들이 요즘 가장 많이 준비하시는 플랜이에요" 처럼 같은 조건의 사람들이 실제로 선택하는 흐름으로 프레이밍한다.
-- "저도" 화법: 설계사 본인도 비슷한 선택을 했다는 뉘앙스를 가끔 섞어서 결정 불안을 낮춘다.
-- 콕 찍어 타겟팅: "여러분 모두"가 아니라 "고객님처럼 ~하신 분들께" 처럼 구체적으로 짚어 말할수록 더 내 얘기처럼 느껴진다.
-- "너한테만" 프레이밍: 표준 안내문 톤이 아니라, 이 고객의 구체적 상황을 보고 따로 챙겨 연락한 것 같은 개인 맞춤 어투를 쓴다.
-
-[E. 클로징과 다음 행동 유도]
-- 명령어 스리슬쩍 심기: 직접 지시("전화하세요") 대신 문장 속에 자연스럽게 행동을 심는다 (예: "이런 상황이면 지금 증권부터 한번 확인해보세요").
-- 클로징은 동사로 끝낸다: 애매한 형용사("어떠세요?") 대신 명확한 다음 행동을 짧게 알려준다.
-- 크로스는 질문형으로 부담 없이 얹는다 ("~도 같이 확인해보시겠어요?").
-- 개인화된 긴급성: "지금 가입하세요"가 아니라 이 고객의 나이·조건을 근거로 "지금이 맞는 구체적 이유"를 짚어준다.
-- 답너정 화법: 답을 정해놓고 밀어붙이지 않는다. "1점부터 10점이라면 지금 몇 점 정도세요?" 같은 질문으로 고객이 스스로 장점을 말로 꺼내게 유도한다.
-- 거절을 받아도 한 번 더 자연스럽게 이어간다: 주눅들지 않고 "아 그러시군요, 그럼 궁금한 게 하나 있는데요"로 대화의 물꼬를 다시 튼다.
-- 답변 뒤엔 "혹시 더 궁금하신 거 없으세요? 같이 고민해드리고 싶어요"처럼 옆에서 같이 고민해주는 태도로 마무리한다.
-
-[F. 기본 원칙]
-- 영업 강도: ${intensityGuide(level)}
-- 과장이나 확인되지 않은 사실은 절대 포함하지 않는다. 통계·수치는 근거자료에 있는 내용만 쓰고, 없으면 일반적으로 알려진 수준에서만 언급하며 구체적 수치를 지어내지 않는다.`;
+  return `\n[문의로 이어지는 구성]
+- 후킹: 대상 고객이 실제로 궁금해하는 질문이나 확인할 차이로 시작한다. 공포·과장·낚시성 수치는 쓰지 않는다.
+- 기: 고객 상황과 고민을 짧게 공감하고 이 글을 읽으면 해결할 질문을 제시한다.
+- 승: 관련 근거로 핵심 조건과 예외를 쉽게 설명한다. 조건을 생략해 가입·지급을 확정하지 않는다.
+- 전: 일반 설명만으로 판단하기 어려운 개인별 확인 사항을 짚고, 문의로 확인할 질문을 구체적으로 연결한다.
+- 결: 핵심 답을 정리한 뒤 누구에게 어떤 질문을 보내면 되는지 한 가지 행동을 안내한다. 단순히 '궁금하면 문의하세요'로 끝내지 않는다.
+- 우리에게 문의할 이유는 입력 자료에 실제로 명시된 서비스·강점만 사용한다. 비교 분석·청구 지원·무료 점검·전문 경력·고객 사례·상담 혜택을 지어내지 않는다. 강점이 없으면 상담에서 확인해야 할 질문을 제안하고 독점적 우월성을 주장하지 않는다.
+- 카페 답변은 질문에 먼저 답하고 공감과 문의 안내를 짧게 넣는다. 고객을 죄책감이나 허위 마감으로 압박하지 않는다.
+- 영업 강도: ${intensityGuide(level)}. 후킹과 클로징도 출처의 사실·조건을 그대로 지킨다.`;
 }
 
 function baseSystem(citeOn) {
@@ -7995,17 +7976,19 @@ async function generateScript() {
         if (!researchBlock) progressText.textContent = '검색 자료를 못 가져왔어요 (첨부자료만으로 계속 진행할게요)';
       }
 
-      const longSystem = baseSystem(citeOn) + `\n- 최종 대본 본문이 1만자 이상이어야 한다. 요약하지 말고 상세히 설명한다.
+      const singlePass = document.getElementById('scriptLength')?.value !== 'detail';
+      const longSystem = baseSystem(citeOn) + (singlePass ? '\n전체 대본을 약 2,000~3,000자로 한 번에 완성한다. 후킹, 문제 공감, 근거와 예외, 개인별 확인 질문, 문의 이유, 구체적인 다음 행동까지 포함한다. 분량보다 사실과 완결성을 우선한다.' : `\n- 최종 대본 본문이 1만자 이상이어야 한다. 요약하지 말고 상세히 설명한다.
 - 지금은 전체 대본 중 한 부분만 이어서 쓴다. 이미 다룬 소제목/항목은 절대 반복하지 않는다.
-- 이번 청크는 문장이 중간에 끊기지 않게 완결된 단락으로 마무리한다.` + crossSourceInstructions() + sourceBlock + researchBlock;
+- 이번 청크는 문장이 중간에 끊기지 않게 완결된 단락으로 마무리한다.`) + crossSourceInstructions() + sourceBlock + researchBlock;
 
       lfState = {
         fullScript: '',
         chunkIndex: 0,
         coveredTopics: [],
         contextLine, longSystem, citeOn, category, host, topic,
-        TARGET_CHARS: 10500,
-        MAX_CHUNKS: 10,
+        TARGET_CHARS: singlePass ? 0 : 10500,
+        MAX_CHUNKS: singlePass ? 1 : 10,
+        singlePass,
         scriptDiv,
         historyId: Date.now(), model, hasClosing:false, published:false
       };
@@ -8044,9 +8027,11 @@ async function runLongFormChunks(state) {
       ? `\n\n[이미 다룬 소제목 — 절대 반복 금지]\n${state.coveredTopics.map((t,i)=>`${i+1}. ${t}`).join('\n')}`
       : '';
 
-    const closingStage=state.chunkIndex > 1 && state.fullScript.length >= state.TARGET_CHARS * .85;
+    const closingStage=state.singlePass || state.chunkIndex > 1 && state.fullScript.length >= state.TARGET_CHARS * .85;
     let stagePrompt;
-    if (state.chunkIndex === 1) {
+    if (state.singlePass) {
+      stagePrompt = `${state.contextLine}\n한국어로 후킹부터 클로징까지 완결된 전체 대본을 써줘. 핵심 조건과 예외, 왜 문의가 필요한지, 문의할 구체적 질문 하나를 포함해줘. 확인되지 않은 우리 서비스나 경력을 만들지 마. 중간에 이어쓰기를 요구하지 말고 끝까지 마무리해줘.`;
+    } else if (state.chunkIndex === 1) {
       stagePrompt = `${state.contextLine}\n\n상세 롱폼 대본의 도입부(강한 훅 + 문제 제기)를 써줘. 본론은 아직 시작하지 마.`;
     } else if (!closingStage) {
       stagePrompt = `${state.contextLine}\n\n지금까지 작성된 대본의 마지막 부분:\n"""\n${state.fullScript.slice(-1200)}\n"""${topicsNote}\n\n위에 자연스럽게 이어서, 아직 다루지 않은 새로운 소제목(항목)으로 본론을 계속 써줘. 새 소제목을 시작할 땐 굵게(**소제목**) 표시해줘. 아직 마무리하지 말고. 이 구간은 반드시 문장을 끝까지 완결해서 마무리해줘 (중간에 끊기지 않게).`;
@@ -8056,7 +8041,7 @@ async function runLongFormChunks(state) {
 
     let chunk;
     try {
-      const maxTok = state.citeOn ? 4096 : 3500;
+      const maxTok = state.singlePass ? 6500 : state.citeOn ? 4096 : 3500;
       chunk = await callClaude(state.longSystem, [{ role: 'user', content: stagePrompt }], 0, null, maxTok, state.model || 'claude-sonnet-4-6', {rejectTruncated:true,onUsage:recordScriptUsage});
       if (!chunk.trim()) throw new Error('빈 응답이 와서 이어쓰기를 중단했어요.');
     } catch (chunkErr) {
@@ -8148,11 +8133,13 @@ function addContinueButton(state, label, isExtend) {
     btn.textContent = '이어서 생성 중...';
     state.hasClosing=false;
     if (isExtend) {
+      state.singlePass=false;
+      state.longSystem += '\n[사용자가 추가 설명을 요청함] 이번 호출에서는 기존 본문을 반복하지 말고 새로운 설명을 이어서 쓴다. 첫 생성의 한 번에 완성하라는 분량 제한은 적용하지 않는다.';
       // force the loop to run further even if target was already reached
       state.TARGET_CHARS = state.fullScript.length + 2500;
     } else {
       // resuming after an error — make sure we still aim for at least the original target
-      state.TARGET_CHARS = Math.max(state.TARGET_CHARS, 10500);
+      state.TARGET_CHARS = state.singlePass ? 0 : Math.max(state.TARGET_CHARS, 10500);
     }
     if (state.chunkIndex >= state.MAX_CHUNKS) state.MAX_CHUNKS += 4;
     await runLongFormChunks(state);
@@ -8663,7 +8650,7 @@ JSON만 출력: {"sources":[{"id":"자료1","use":true,"reason":"...","evidence_
 - 제목과 완결된 본문만 출력합니다. 검색 노출이나 AI 브리핑 선정을 보장하는 표현은 쓰지 않습니다.
 - 본문은 약 1,800~2,400자로 핵심 조건을 빠짐없이 설명하되 반복과 불필요한 서론을 줄입니다. 자료가 부족하면 길이를 억지로 채우지 않습니다.
 ${imageOn ? '- 사진 위치는 [이미지: 한글설명 / 영어검색키워드]로 표시합니다. 사람·상황 사진만 사용하고 수치가 담긴 상품 이미지는 요청하지 않습니다.' : '- 이미지 자리 표시는 하지 않습니다.'}
-${researchBlock}\n[내 자료 — 관련성·조건을 확인하고 사용]\n${knowledge}` + complianceSystemBlock();
+${researchBlock}\n[내 자료 — 관련성·조건을 확인하고 사용]\n${knowledge}` + complianceSystemBlock() + salesSystemBlock();
     const userPrompt = JSON.stringify({ keyword, category, host: value('blogHost'), tone: value('blogTone'), direction, exclude });
     progressText.textContent = '확인한 자료와 작성 계획으로 글을 쓰고 있어요...';
     progressBar.style.width = '70%';
@@ -8899,12 +8886,14 @@ function renderRecoList() {
 }
 
 document.getElementById('recoExtractBtn').addEventListener('click', async () => {
+  if (recoExtractBusy) return;
   const raw = document.getElementById('recoSource').value.trim();
   const btn = document.getElementById('recoExtractBtn');
   if (!raw) { alert('소식지 내용을 붙여넣거나 파일을 첨부해주세요.'); return; }
 
   btn.disabled = true;
   btn.textContent = 'AI가 항목 정리 중...';
+  recoExtractBusy = true;
   try {
     const system = `당신은 보험사 소식지·안내자료(때로는 유튜브 방송 대본처럼 잡담이 섞인 긴 텍스트)에서 "추천 상품" 정보만 구조화해서 뽑아내는 어시스턴트입니다.
 - 입력 텍스트 안에서 실제로 보험 상품·보장·요율·특약과 직접 관련된 내용만 골라서 보험사명, 상품명(있으면), 추천하는 이유·특징을 항목별로 뽑아낸다.
@@ -8915,10 +8904,18 @@ document.getElementById('recoExtractBtn').addEventListener('click', async () => 
 - 결과는 오직 JSON 배열만 출력한다. 다른 설명, 마크다운, 코드블록 기호는 절대 붙이지 않는다.
 - 형식: [{"insurer": "보험사명", "product_name": "상품명 (없으면 빈 문자열)", "category": "보험 분야 (예: 암보험, 실손보험, 종신보험 등 텍스트에서 추론)", "reason": "추천 이유·특징을 2~3문장 이내로 간결하게 정리 (잡담 제외하고 상품 관련 내용만, 장황하게 늘어놓지 않는다)"}]
 - 항목을 구분할 수 없을 만큼 관련 텍스트가 짧거나 모호하면, 그 관련 부분만으로 하나의 항목을 정리해서 반환한다.`;
-    const raw2 = await callClaude(system, [{ role: 'user', content: raw }], 2, null, 6000);
-    const cleaned = raw2.replace(/```json|```/g, '').trim();
-    const items = JSON.parse(cleaned);
-    if (!Array.isArray(items) || !items.length) throw new Error('이 텍스트 안에서 보험 상품 관련 내용을 찾지 못했어요. 관련 내용이 있는 부분인지 확인해주세요.');
+    const key = await uploadContentKey(raw);
+    let items = recoAnalysisCache.get(key);
+    if (!items) {
+      const raw2 = await callClaude(system, [{ role: 'user', content: raw }], 0, null, 6000, 'claude-haiku-4-5-20251001', {rejectTruncated:true});
+      const cleaned = raw2.replace(/```json|```/g, '').trim();
+      items = JSON.parse(cleaned);
+      if (Array.isArray(items) && items.length && items.every(it => it && typeof it.reason === 'string')) {
+        if (recoAnalysisCache.size >= 10) recoAnalysisCache.delete(recoAnalysisCache.keys().next().value);
+        recoAnalysisCache.set(key, items);
+      }
+    }
+    if (!Array.isArray(items) || !items.length || !items.every(it => it && typeof it.reason === 'string' && ['insurer','product_name','category'].every(k => typeof it[k] === 'string'))) throw new Error('이 텍스트 안에서 보험 상품 관련 내용을 찾지 못했어요. 관련 내용이 있는 부분인지 확인해주세요.');
     items.forEach(it => { it.raw_text = raw.slice(0, 3000); });
     await apiPost('/api/recommended', { items });
     document.getElementById('recoSource').value = '';
@@ -8929,6 +8926,7 @@ document.getElementById('recoExtractBtn').addEventListener('click', async () => 
   } finally {
     btn.disabled = false;
     btn.textContent = 'AI로 항목 정리해서 추가';
+    recoExtractBusy = false;
   }
 });
 
