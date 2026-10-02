@@ -9,6 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;600;700&family=Pretendard:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-dynamic-subset.css">
 <script src="/cardnews-engine.js"></script>
+<script src="/upload-engine.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -2144,10 +2145,10 @@
           <textarea id="recoSource" rows="8" placeholder="보험사 소식지, 이번 달 추천 상품 안내 등을 그대로 붙여넣어주세요."></textarea>
           <label style="display:flex; align-items:center; gap:6px; font-size:12.5px; margin-top:8px; cursor:pointer;">
             <input type="checkbox" id="recoSkipOcrCheckbox">
-            이미지/스캔 페이지는 건너뛰기 <span style="color:var(--paper-mute);">(체크하면 무료·빠름 — 대신 디자인 위주(이미지형) 소식지는 내용이 많이 빠질 수 있어요. 텍스트 기반 PDF는 체크 여부와 상관없이 항상 무료예요)</span>
+            무료 추출만 사용 · 이미지/스캔 및 깨진 페이지 건너뛰기 <span style="color:var(--paper-mute);">(체크 해제 시 읽을 수 있는 텍스트를 먼저 무료로 읽고, 텍스트가 없거나 심하게 깨진 페이지만 저비용 이미지 인식으로 보완해요. 체크하면 누락 페이지를 표시합니다)</span>
           </label>
           <div style="display:flex; align-items:center; gap:10px; margin-top:8px; flex-wrap:wrap;">
-            <span style="font-size:12px;color:var(--paper-mute);">이미지 인식·항목 정리는 저비용 모델을 사용합니다. 같은 화면에서 동일 자료를 재분석하면 결과를 재사용해요. 새로고침하면 캐시는 초기화됩니다.</span>
+            <span style="font-size:12px;color:var(--paper-mute);">이미지 인식·항목 정리는 저비용 모델을 사용합니다. 같은 화면에서 동일 자료를 재분석하면 결과를 재사용하고, 여러 파일은 파일·페이지별로 나누어 정리해요. 새로고침하면 캐시는 초기화됩니다.</span>
             <label for="recoFileInput" class="copy-btn" style="cursor:pointer; display:inline-block;">+ PPT / PDF 파일 첨부 (여러 개 선택 가능)</label>
             <input type="file" id="recoFileInput" accept=".pptx,.pdf" multiple style="display:none;">
             <button type="button" class="mini-btn danger" id="recoFileCancelBtn" style="display:none;">업로드 취소</button>
@@ -7218,7 +7219,7 @@ async function handleImagesUpload(fileList, statusId, sourceId, afterUpdate) {
   }
 
   const prefix = sourceEl.value.trim() ? sourceEl.value.trim() + '\n\n' : '';
-  sourceEl.value = prefix + `--- 첨부 이미지 ${toProcess.length}장 인식 결과 ---\n` + extracted.trim();
+  sourceEl.value = prefix + `--- 첨부 이미지 ${ocrImages}장 인식 결과 ---\n` + extracted.trim();
   statusEl.textContent = `이미지 ${toProcess.length}장 처리 완료`;
   afterUpdate();
 }
@@ -7531,48 +7532,39 @@ async function handlePptxUpload(file, statusId, sourceId, afterUpdate, opts = {}
     const parser = new DOMParser();
     let extracted = '';
 
+    let ocrImages = 0;
     for (let i = 0; i < slideFiles.length; i++) {
+      if (cancelFlag.cancelled) { extracted += '(※ 업로드 취소로 이후 슬라이드는 읽지 않았어요.)\n'; break; }
       const xmlText = await zip.files[slideFiles[i]].async('text');
       const xmlDoc = parser.parseFromString(xmlText, 'application/xml');
-      const textNodes = xmlDoc.getElementsByTagName('a:t');
-      const lines = [];
-      for (let j = 0; j < textNodes.length; j++) {
-        const t = textNodes[j].textContent.trim();
-        if (t) lines.push(t);
+      const lines = Array.from(xmlDoc.getElementsByTagName('a:t'), node => node.textContent.trim()).filter(Boolean);
+      const quality = UploadEngine.inspectText(lines.join('\n'));
+      if (!quality.needsOcr) {
+        extracted += `[슬라이드 ${i + 1} 텍스트]\n${quality.cleaned}${quality.bad ? '\n(※ [문자 깨짐] 부분은 원문 확인이 필요합니다.)' : ''}\n\n`;
+        continue;
       }
-      if (lines.length) extracted += `[슬라이드 ${i + 1} 텍스트]\n${lines.join(' ')}\n\n`;
-    }
-
-    let toProcess = [];
-    if (opts.skipOcr) {
-      extracted += `(※ "이미지 건너뛰기"가 켜져 있어서, 이미지 안의 텍스트는 읽지 않았어요. 슬라이드에 그림으로 된 내용이 있다면 빠졌을 수 있어요.)\n\n`;
-    } else {
-      const mediaFiles = Object.keys(zip.files)
-        .filter(name => /^ppt\/media\/image\d+\.(png|jpe?g)$/i.test(name));
-
-      const MAX_IMAGES = 20;
-      toProcess = mediaFiles.slice(0, MAX_IMAGES);
-
-      for (let i = 0; i < toProcess.length; i++) {
-        if (cancelFlag.cancelled) { extracted += `(※ 사용자가 업로드를 취소해서 여기까지만 처리했어요.)\n\n`; break; }
-        statusEl.textContent = `${statusPrefix}이미지에서 텍스트 읽는 중... (${i + 1}/${toProcess.length}, ${file.name})`;
-        const name = toProcess[i];
-        const rawBase64 = await zip.files[name].async('base64');
-        const mediaType = /\.png$/i.test(name) ? 'image/png' : 'image/jpeg';
+      if (opts.skipOcr) { extracted += `[슬라이드 ${i + 1}] (※ 텍스트가 없거나 깨져 무료 추출에서 제외됨)\n\n`; continue; }
+      // Read only images actually displayed on this unreadable slide, never all logos/media in the archive.
+      const relName = slideFiles[i].replace('ppt/slides/', 'ppt/slides/_rels/') + '.rels';
+      const relFile = zip.files[relName];
+      const relDoc = relFile ? parser.parseFromString(await relFile.async('text'), 'application/xml') : null;
+      const displayed = new Set(Array.from(xmlDoc.getElementsByTagName('a:blip'), n => n.getAttribute('r:embed')));
+      const imageRels = relDoc ? Array.from(relDoc.getElementsByTagName('Relationship')).filter(r => displayed.has(r.getAttribute('Id')) && /\/image$/.test(r.getAttribute('Type') || '') && r.getAttribute('TargetMode') !== 'External') : [];
+      let read = false;
+      for (const rel of imageRels) {
+        if (cancelFlag.cancelled) break;
+        const parts = ('ppt/slides/' + rel.getAttribute('Target')).split('/'), normalized = [];
+        for (const part of parts) { if (part === '..') normalized.pop(); else if (part && part !== '.') normalized.push(part); }
+        const name = normalized.join('/');
+        if (!zip.files[name] || !/\.(png|jpe?g)$/i.test(name)) continue;
+        statusEl.textContent = `${statusPrefix}텍스트 없는 슬라이드 이미지 읽는 중... (${i + 1}/${slideFiles.length}, ${file.name})`;
         try {
-          const resized = await resizeImageToBase64(rawBase64, mediaType);
-          const ocrText = await extractTextFromImageBase64(resized, 'image/jpeg');
-          if (ocrText && !/^텍스트\s*없음/.test(ocrText)) {
-            extracted += `[이미지 ${i + 1} 인식 텍스트]\n${ocrText}\n\n`;
-          }
-        } catch (imgErr) {
-          extracted += `[이미지 ${i + 1} 처리 실패: ${imgErr.message}]\n\n`;
-        }
+          const resized = await resizeImageToBase64(await zip.files[name].async('base64'), /\.png$/i.test(name) ? 'image/png' : 'image/jpeg');
+          const text = await extractTextFromImageBase64(resized, 'image/jpeg'); ocrImages++;
+          if (text && !/^텍스트\s*없음/.test(text)) { extracted += `[슬라이드 ${i + 1} - 이미지 인식]\n${text}\n\n`;read = true; }
+        } catch (err) { extracted += `[슬라이드 ${i + 1} 이미지 인식 실패: ${err.message}]\n\n`; }
       }
-
-      if (mediaFiles.length > MAX_IMAGES) {
-        extracted += `(※ 이미지가 ${mediaFiles.length}장이라 앞의 ${MAX_IMAGES}장만 처리했어요.)\n\n`;
-      }
+      if (!read) extracted += `[슬라이드 ${i + 1}] (※ 읽을 수 있는 텍스트/지원 이미지가 없어요. 원문 확인 필요)\n\n`;
     }
 
     if (!extracted.trim()) {
@@ -7582,7 +7574,7 @@ async function handlePptxUpload(file, statusId, sourceId, afterUpdate, opts = {}
 
     const existingText = sourceEl.value.trim() ? sourceEl.value.trim() + '\n\n' : '';
     sourceEl.value = existingText + `--- ${file.name} 추출 내용 ---\n` + extracted.trim();
-    statusEl.textContent = `"${file.name}" 처리 완료 (슬라이드 텍스트 + 이미지 ${toProcess.length}장 인식)`;
+    statusEl.textContent = `"${file.name}" 처리 완료 (슬라이드 텍스트 + 이미지 ${ocrImages}장 인식)`;
     afterUpdate();
   } catch (err) {
     statusEl.textContent = 'PPT 처리 중 오류: ' + err.message;
@@ -7594,14 +7586,13 @@ async function handlePdfUpload(file, statusId, sourceId, afterUpdate, opts = {})
   const sourceEl = document.getElementById(sourceId);
   const statusPrefix = opts.statusPrefix || '';
   const cancelFlag = opts.cancelFlag || { cancelled: false };
-  const MAX_PAGES = 30;
 
   statusEl.textContent = statusPrefix + 'PDF 여는 중... (' + file.name + ')';
   try {
     const buffer = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: buffer, cMapUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/', cMapPacked: true }).promise;
     const totalPages = pdf.numPages;
-    const pagesToRead = Math.min(totalPages, MAX_PAGES);
+    const pagesToRead = totalPages;
     let extracted = '';
     let ocrPageCount = 0;
 
@@ -7610,12 +7601,12 @@ async function handlePdfUpload(file, statusId, sourceId, afterUpdate, opts = {})
       statusEl.textContent = `${statusPrefix}PDF 페이지 처리 중... (${p}/${pagesToRead}, ${file.name})`;
       const page = await pdf.getPage(p);
       const textContent = await page.getTextContent();
-      const pageText = textContent.items.map(it => it.str).join(' ').trim();
-
-      if (pageText.length > 20) {
-        extracted += `[p.${p}]\n${pageText}\n\n`;
+      const pageText = textContent.items.map(it => it.str + (it.hasEOL ? '\n' : '')).join(' ').trim();
+      const quality = UploadEngine.inspectText(pageText);
+      if (!quality.needsOcr) {
+        extracted += `[p.${p}]\n${quality.cleaned}${quality.bad ? '\n(※ 일부 깨진 글자는 복원하지 않았어요. [문자 깨짐] 부분은 원문 확인이 필요합니다.)' : ''}\n\n`;
       } else if (opts.skipOcr) {
-        extracted += `[p.${p}] (※ 이미지 페이지라 "이미지 건너뛰기" 설정 때문에 안 읽었어요)\n\n`;
+        extracted += `[p.${p}] (※ 텍스트가 없거나 깨져서 무료 추출만으로 읽지 못했어요. 이 페이지는 분석에서 제외됩니다.)\n\n`;
       } else {
         ocrPageCount++;
         try {
@@ -7635,10 +7626,6 @@ async function handlePdfUpload(file, statusId, sourceId, afterUpdate, opts = {})
           extracted += `[p.${p} 처리 실패: ${pageErr.message}]\n\n`;
         }
       }
-    }
-
-    if (totalPages > MAX_PAGES) {
-      extracted += `(※ 전체 ${totalPages}페이지 중 앞의 ${MAX_PAGES}페이지만 처리했어요. 필요한 부분만 발췌해서 올리시는 걸 추천드려요.)\n\n`;
     }
 
     if (!extracted.trim()) {
@@ -8904,22 +8891,30 @@ document.getElementById('recoExtractBtn').addEventListener('click', async () => 
 - 결과는 오직 JSON 배열만 출력한다. 다른 설명, 마크다운, 코드블록 기호는 절대 붙이지 않는다.
 - 형식: [{"insurer": "보험사명", "product_name": "상품명 (없으면 빈 문자열)", "category": "보험 분야 (예: 암보험, 실손보험, 종신보험 등 텍스트에서 추론)", "reason": "추천 이유·특징을 2~3문장 이내로 간결하게 정리 (잡담 제외하고 상품 관련 내용만, 장황하게 늘어놓지 않는다)"}]
 - 항목을 구분할 수 없을 만큼 관련 텍스트가 짧거나 모호하면, 그 관련 부분만으로 하나의 항목을 정리해서 반환한다.`;
-    const key = await uploadContentKey(raw);
-    let items = recoAnalysisCache.get(key);
-    if (!items) {
-      const raw2 = await callClaude(system, [{ role: 'user', content: raw }], 0, null, 6000, 'claude-haiku-4-5-20251001', {rejectTruncated:true});
-      const cleaned = raw2.replace(/```json|```/g, '').trim();
-      items = JSON.parse(cleaned);
-      if (Array.isArray(items) && items.length && items.every(it => it && typeof it.reason === 'string')) {
-        if (recoAnalysisCache.size >= 10) recoAnalysisCache.delete(recoAnalysisCache.keys().next().value);
-        recoAnalysisCache.set(key, items);
+    const batches = UploadEngine.splitNewsletters(raw);
+    const items = [], seen = new Set();
+    let emptyBatches = 0;
+    await UploadEngine.runBatches(batches, async (batch, i) => {
+      btn.textContent = `항목 정리 ${i + 1}/${batches.length} · ${batch.name}`;
+      const key = await uploadContentKey(batch.name + '\n' + batch.text);
+      let parsed = recoAnalysisCache.get(key);
+      if (!parsed) {
+        const raw2 = await callClaude(system + '\n깨진 글자·처리 실패·누락 안내를 상품 정보로 해석하지 않는다. 다른 파일의 보험사나 조건을 섞지 않는다. 각 항목은 이 구간의 근거와 조건만 보존한다.', [{ role: 'user', content: `[자료: ${batch.name}]\n${batch.text}` }], 0, null, 6000, 'claude-haiku-4-5-20251001', {rejectTruncated:true});
+        parsed = UploadEngine.parseItems(raw2);
+        if (recoAnalysisCache.size >= 100) recoAnalysisCache.delete(recoAnalysisCache.keys().next().value);
+        recoAnalysisCache.set(key, parsed);
       }
-    }
-    if (!Array.isArray(items) || !items.length || !items.every(it => it && typeof it.reason === 'string' && ['insurer','product_name','category'].every(k => typeof it[k] === 'string'))) throw new Error('이 텍스트 안에서 보험 상품 관련 내용을 찾지 못했어요. 관련 내용이 있는 부분인지 확인해주세요.');
-    items.forEach(it => { it.raw_text = raw.slice(0, 3000); });
+      if (!parsed.length) emptyBatches++;
+      for (const it of parsed) {
+        const identity = JSON.stringify([it.insurer,it.product_name,it.category,it.reason]);
+        if (!seen.has(identity)) { seen.add(identity);items.push({...it,raw_text:`[자료: ${batch.name}]\n` + batch.text.slice(0, 3000)}); }
+      }
+    }, 2);
+    if (!items.length) throw new Error('읽힌 자료에서 상품 정보를 찾지 못했어요. 이미지 건너뛰기로 빠진 페이지가 있다면 체크를 해제하고 다시 첨부해주세요.');
+    // Save only after every batch has succeeded. A failure retains source and completed analyses.
     await apiPost('/api/recommended', { items });
     document.getElementById('recoSource').value = '';
-    document.getElementById('recoFileStatus').textContent = '';
+    document.getElementById('recoFileStatus').textContent = `${batches.length}개 구간 분석 · ${items.length}개 항목 저장${emptyBatches ? ` · 상품 정보 없는 구간 ${emptyBatches}개 제외` : ''}`;
     await refreshRecoList();
   } catch (e) {
     alert('정리 실패: ' + e.message);
