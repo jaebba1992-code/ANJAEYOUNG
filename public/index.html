@@ -4654,6 +4654,7 @@ async function prepareCnDeck(deck, theme, watermark) {
   staging.innerHTML = CardNews.renderDeck(deck, theme, watermark);
   document.body.appendChild(staging);
   try {
+    await Promise.all([...staging.querySelectorAll('img[data-cn-photo]')].map(img => img.decode()));
     await CardNews.fit(staging);
     return staging.innerHTML;
   } finally { staging.remove(); }
@@ -4696,7 +4697,7 @@ async function generateThemeCardNews() {
     document.getElementById('cnPreviewWrap').innerHTML = html;
     Object.assign(window, {__cnDeck:deck, __cnLastTheme:theme, __cnLastCardCount:count, __cnLastWatermark:watermark, __cnPhotoSlots:[], __cnLastHistoryId:Date.now(), __cnLastHistoryTopic:content.slice(0,30), __cnLastHistoryCategory:'카드뉴스'});
     document.getElementById('cnCopyPreview').style.display = 'none';
-    document.getElementById('cnPhotoControls').innerHTML = '';
+    if (window.__cnDeck) renderCnPhotoControls(); else document.getElementById('cnPhotoControls').innerHTML = '';
     document.getElementById('cnResultPanel').style.display = 'block';
     renderCnCardEditControls();
     setCnBusy(true);
@@ -4865,12 +4866,13 @@ async function editCnCards(indices, instruction, status) {
     for (const [n, index] of indices.entries()) {
       if (!Number.isInteger(index) || !next.cards[index]) throw new Error('수정할 카드를 찾을 수 없어요.');
       status.textContent = `문구 수정 중 (${n + 1}/${indices.length})...`;
-      const raw = await callClaude(CardNews.prompt('auto', '', window.__cnLastTheme) + '\n이번에는 cards 배열 대신 카드 객체 하나만 출력한다. 현재 카드 type은 유지한다. 사용자 수정 지시 이외의 수치·조건은 보존한다.', [{role:'user',content:JSON.stringify({card:original.cards[index],instruction})}], 1, null, 1800, 'claude-opus-5');
+      const raw = await callClaude(CardNews.prompt('auto', '', window.__cnLastTheme) + '\n이번에는 cards 배열 대신 카드 객체 하나만 출력한다. 현재 카드 type은 유지한다. 사용자 수정 지시 이외의 수치·조건은 보존한다.', [{role:'user',content:JSON.stringify({card:{...original.cards[index],photo:undefined},instruction})}], 1, null, 1800, 'claude-opus-5');
       const updated = CardNews.validateCard(parseJsonWithRepair(raw));
       if (updated.type !== original.cards[index].type) throw new Error('카드 유형이 변경되어 적용하지 않았어요. 문구 수정으로 다시 요청해주세요.');
+      if (original.cards[index].photo) updated.photo = {...original.cards[index].photo};
       next.cards[index] = updated;
     }
-    next = CardNews.prepareDeck(next, original.cards.length, JSON.stringify(original.cards));
+    next = CardNews.prepareDeck(next, original.cards.length, JSON.stringify(original.cards.map(({photo,...card})=>card)));
     const html = await prepareCnDeck(next, window.__cnLastTheme, window.__cnLastWatermark);
     document.getElementById('cnPreviewWrap').innerHTML = html;
     window.__cnDeck = next;
@@ -4911,61 +4913,79 @@ async function replaceAllWatermarks() {
   finally { setCnBusy(false); }
 }
 
+async function readCnPhoto(file) {
+  if (!file || !/^image\/(jpeg|png|webp)$/.test(file.type)) throw new Error('사진은 JPG, PNG, WEBP 파일로 올려주세요.');
+  if (file.size > 15 * 1024 * 1024) throw new Error('15MB 이하의 사진을 올려주세요.');
+  const url = URL.createObjectURL(file);
+  try {
+    const img = new Image(); img.src = url; await img.decode();
+    const scale = Math.min(1, 1080 / Math.max(img.naturalWidth,img.naturalHeight));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1,Math.round(img.naturalWidth*scale)); canvas.height = Math.max(1,Math.round(img.naturalHeight*scale));
+    canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);
+    let encoded = canvas.toDataURL('image/jpeg',.78);
+    // Ten photos appear in both deck data and saved HTML. Bound the total below the history request limit.
+    let quality = .7;
+    while (encoded.length > 160000) {
+      if (quality >= .5) { encoded = canvas.toDataURL('image/jpeg',quality); quality -= .1; }
+      else {
+        canvas.width = Math.max(1,Math.round(canvas.width*.8)); canvas.height = Math.max(1,Math.round(canvas.height*.8));
+        canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);
+        encoded = canvas.toDataURL('image/jpeg',.6);
+      }
+    }
+    return encoded;
+  } finally { URL.revokeObjectURL(url); }
+}
+async function updateCnPhoto(index, createPhoto, status) {
+  if (cnBusy || !window.__cnDeck) return;
+  setCnBusy(true); status.textContent = '사진 적용 중...';
+  try {
+    const photo = await createPhoto();
+    const next = JSON.parse(JSON.stringify(window.__cnDeck));
+    if (!next.cards[index]) throw new Error('카드를 찾을 수 없어요.');
+    if (photo) next.cards[index].photo = photo; else delete next.cards[index].photo;
+    const validated = CardNews.validateDeck(next);
+    const html = await prepareCnDeck(validated,window.__cnLastTheme,window.__cnLastWatermark);
+    document.getElementById('cnPreviewWrap').innerHTML = html;
+    window.__cnDeck = validated;
+    const saved = await saveCnHistorySnapshot();
+    status.textContent = saved ? '사진 변경을 저장했어요.' : '사진을 적용했어요. 기록 저장 재시도 버튼을 눌러주세요.';
+  } catch (error) { status.textContent = '사진 변경 실패: ' + error.message + ' 기존 사진은 유지했어요.'; }
+  finally { setCnBusy(false); }
+}
 function renderCnPhotoControls() {
   const el = document.getElementById('cnPhotoControls');
-  const slots = window.__cnPhotoSlots || [];
-  if (!slots.length) { el.innerHTML = ''; return; }
-  el.innerHTML = `<p style="font-size:12px; color:var(--paper-mute); margin:0 0 10px;">자동으로 찾은 사진이 마음에 안 들면, 검색어를 바꿔서 다시 찾거나 직접 파일을 올려서 바꿀 수 있어요.</p>
-    <div style="display:flex; flex-direction:column; gap:10px;">
-    ${slots.map((q, i) => `
-      <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:12.5px;">
-        <span style="color:var(--paper-mute); min-width:60px;">사진 ${i + 1}</span>
-        <input type="text" class="cn-photo-query-input" data-slot="${i}" value="${escapeHtml(q)}" style="flex:1; min-width:140px; padding:6px 10px; border:1px solid var(--line); border-radius:6px; font-size:12.5px;">
-        <button type="button" class="mini-btn cn-photo-search-btn" data-slot="${i}">이 검색어로 다시 찾기</button>
-        <label class="mini-btn" style="cursor:pointer; margin:0;">내 사진 업로드
-          <input type="file" accept="image/*" class="cn-photo-upload-input" data-slot="${i}" style="display:none;">
-        </label>
-      </div>
-    `).join('')}
-    </div>`;
-
-  el.querySelectorAll('.cn-photo-search-btn').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const idx = btn.dataset.slot;
-      const query = el.querySelector(`.cn-photo-query-input[data-slot="${idx}"]`).value.trim() || 'finance';
-      const oldText = btn.textContent;
-      btn.disabled = true;
-      btn.textContent = '찾는 중...';
+  const cards = window.__cnDeck?.cards || [];
+  if (!cards.length) { el.innerHTML = ''; return; }
+  el.innerHTML = `<details open><summary style="font-weight:700;cursor:pointer;">장별 사진 넣기 · 변경</summary><p style="font-size:12px;">사진은 디자인 뒤에 배경으로 들어갑니다. 글자가 잘 보이도록 진하기를 조절하세요. 사진에 보험사 로고나 영문이 있다면 가린 뒤 올려주세요.</p>${cards.map((card,i)=>`<div data-photo-row="${i}" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0;"><strong>${i+1}장</strong><input class="cn-photo-query-input" aria-label="${i+1}장 사진 검색어" value="${escapeHtml(card.photo?.query || '')}" placeholder="사진 검색어" style="width:150px;"><button type="button" class="mini-btn cn-photo-search-btn">스톡 사진 찾기</button><label class="mini-btn" style="cursor:pointer;">내 사진 업로드<input type="file" accept="image/jpeg,image/png,image/webp" class="cn-photo-upload-input" style="display:none;"></label><label>진하기 <input class="cn-photo-opacity" type="range" min="5" max="50" value="${Math.round((card.photo?.opacity ?? .22)*100)}" aria-label="${i+1}장 사진 진하기"></label><button type="button" class="mini-btn cn-photo-remove">사진 삭제</button><span class="cn-photo-status" role="status"></span></div>`).join('')}</details>`;
+  el.querySelectorAll('[data-photo-row]').forEach(row=>{
+    const index = Number(row.dataset.photoRow), status = row.querySelector('.cn-photo-status');
+    const opacity = ()=>Number(row.querySelector('.cn-photo-opacity').value)/100;
+    row.querySelector('.cn-photo-upload-input').addEventListener('change',event=>{
+      const file = event.target.files[0]; if (!file) return;
+      updateCnPhoto(index,async()=>({src:await readCnPhoto(file),opacity:opacity(),query:''}),status);
+      event.target.value = '';
+    });
+    row.querySelector('.cn-photo-search-btn').addEventListener('click',()=>updateCnPhoto(index,async()=>{
+      const query = row.querySelector('.cn-photo-query-input').value.trim();
+      if (!query) throw new Error('사진 검색어를 입력해주세요.');
+      const result = await apiGet('/api/unsplash?query='+encodeURIComponent(query));
+      if (!result.url) throw new Error('사진을 찾지 못했어요. 다른 검색어로 시도해주세요.');
+      const url = new URL(result.url);
+      if (url.protocol !== 'https:' || url.hostname !== 'images.unsplash.com') throw new Error('사진 주소를 확인해주세요.');
+      const controller = new AbortController(), timer = setTimeout(()=>controller.abort(),15000);
       try {
-        const result = await apiGet('/api/unsplash?query=' + encodeURIComponent(query));
-        const url = result.url || result.imageUrl || '';
-        if (!url) { alert('이 검색어로는 사진을 못 찾았어요. 다른 검색어로 시도해보세요.'); return; }
-        const slotEl = document.getElementById('cn-photo-' + idx);
-        if (slotEl) slotEl.style.cssText = `position:absolute;inset:0;background-image:url('${url}');background-size:cover;background-position:center`;
-        window.__cnPhotoSlots[idx] = query;
-        await saveCnHistorySnapshot();
-      } catch (e) {
-        alert('검색 실패: ' + e.message);
-      } finally {
-        btn.disabled = false;
-        btn.textContent = oldText;
-      }
+        const response = await fetch(url.href,{signal:controller.signal});
+        if (!response.ok) throw new Error('사진을 불러오지 못했어요.');
+        return {src:await readCnPhoto(await response.blob()),opacity:opacity(),query};
+      } finally { clearTimeout(timer); }
+    },status));
+    row.querySelector('.cn-photo-opacity').addEventListener('change',()=>{
+      const photo = window.__cnDeck.cards[index].photo;
+      if (photo) updateCnPhoto(index,async()=>({...photo,opacity:opacity()}),status);
     });
-  });
-
-  el.querySelectorAll('.cn-photo-upload-input').forEach(input => {
-    input.addEventListener('change', () => {
-      const idx = input.dataset.slot;
-      const file = input.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = async () => {
-        const slotEl = document.getElementById('cn-photo-' + idx);
-        if (slotEl) slotEl.style.cssText = `position:absolute;inset:0;background-image:url('${reader.result}');background-size:cover;background-position:center`;
-        await saveCnHistorySnapshot();
-      };
-      reader.readAsDataURL(file);
-    });
+    row.querySelector('.cn-photo-remove').addEventListener('click',()=>updateCnPhoto(index,async()=>null,status));
   });
 }
 
@@ -4983,6 +5003,7 @@ async function downloadCnZip(btn) {
     staging.style.cssText = 'position:absolute;left:-15000px;top:0;width:1080px;';
     sections.forEach(section => staging.appendChild(section.cloneNode(true)));
     document.body.appendChild(staging);
+    await Promise.all([...staging.querySelectorAll('img[data-cn-photo]')].map(img => img.decode()));
     await CardNews.fit(staging);
     const zip = new JSZip();
     const cards = Array.from(staging.querySelectorAll('section'));
@@ -5245,7 +5266,7 @@ async function renderCardHistory() {
           window.__cnLastWatermark = watermark;
           window.__cnLastTheme = parsed.theme;
           window.__cnPhotoSlots = [];
-          document.getElementById('cnPhotoControls').innerHTML = '';
+          if (window.__cnDeck) renderCnPhotoControls(); else document.getElementById('cnPhotoControls').innerHTML = '';
           document.getElementById('cnCopyPreview').style.display = 'none';
           document.getElementById('cnSaveStatus').textContent = '저장된 기록을 불러왔어요.';
           document.getElementById('cnRetrySaveBtn').hidden = true;

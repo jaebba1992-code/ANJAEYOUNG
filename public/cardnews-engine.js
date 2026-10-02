@@ -55,6 +55,13 @@
     if (c.type === 'stat' && (!c.value || !c.body)) throw new Error('숫자 카드에는 수치와 설명이 모두 필요해요.');
     if (['cover', 'text', 'cta'].includes(c.type) && !c.body) throw new Error('카드 본문이 비어 있어요.');
     if (c.type === 'cta' && !c.action) throw new Error('마지막 카드의 마무리 문구가 비어 있어요.');
+    if (input.photo) {
+      const src = input.photo.src;
+      if (typeof src !== 'string' || src.length > 1600000 || !/^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(src)) throw new Error('사진 파일을 다시 업로드해주세요.');
+      const opacity = Number(input.photo.opacity ?? .22);
+      if (!Number.isFinite(opacity) || opacity < .05 || opacity > .5) throw new Error('사진 진하기를 확인해주세요.');
+      c.photo = {src, opacity, query: String(input.photo.query || '').slice(0,100)};
+    }
     return c;
   }
   function validateDeck(input, count = 'auto') {
@@ -299,7 +306,16 @@ ${p(page, 24, `color:${muted};flex:none;`)}<span data-cn-watermark style="${font
       }
     }
     const renderer = deck.version === 2 ? renderLegacyCard : deck.version === 3 ? renderGreenCard : renderCard;
-    return `<div data-cn-deck style="display:flex;flex-wrap:wrap;gap:32px;align-items:flex-start;">${deck.cards.map((c,i) => renderer(c,i,deck.cards.length,theme,watermark)).join('')}</div>`;
+    return `<div data-cn-deck style="display:flex;flex-wrap:wrap;gap:32px;align-items:flex-start;">${deck.cards.map((c,i) => {
+      let html = renderer(c,i,deck.cards.length,theme,watermark);
+      const photo = validateCard(c).photo;
+      if (photo) {
+        html = html.replace('style="', 'style="position:relative;isolation:isolate;');
+        const end = html.indexOf('>');
+        html = html.slice(0,end+1) + `<img data-cn-photo alt="" src="${escape(photo.src)}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:${photo.opacity};z-index:-1;pointer-events:none;">` + html.slice(end+1);
+      }
+      return html;
+    }).join('')}</div>`;
   }
   async function fit(container) {
     if (typeof document !== 'undefined' && document.fonts) await Promise.race([document.fonts.ready, new Promise(r => setTimeout(r, 5000))]);
