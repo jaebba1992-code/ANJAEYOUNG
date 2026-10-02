@@ -3,13 +3,20 @@
 function inspectText(input){
  const text=String(input||'').trim();
  const foreign=c=>/[\p{L}\p{N}]/u.test(c)&&!/[\p{Script=Hangul}\p{Script=Latin}\p{Script=Han}0-9]/u.test(c);
- let bad=0;for(const c of text)if(c==='\ufffd'||/[\uE000-\uF8FF]/u.test(c)||foreign(c))bad++;
+ const control=c=>/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f]/u.test(c);
+ const extendedLatin=(text.match(/[\u00c0-\u024f]/gu)||[]).length;
+ const letters=(text.match(/\p{L}/gu)||[]).length;
+ // PDF font maps may decode Korean as Latin-1 plus C0/C1 controls.
+ // An isolated accent in a real name is valid; dense accented runs are suspect.
+ const suspectLatin=extendedLatin>=8&&extendedLatin/Math.max(letters,1)>.08;
+ const corrupt=c=>c==='\ufffd'||/[\uE000-\uF8FF]/u.test(c)||foreign(c)||control(c)||(suspectLatin&&/[\u00c0-\u024f]/u.test(c));
+ let bad=0,controls=0;for(const c of text){if(corrupt(c))bad++;if(control(c))controls++;}
  const body=text.replace(/상품 관련 자세한 사항은 반드시[^.]*?바랍니다\.?/g,'').replace(/본 자료는 모집인 교육[^.]*?없습니다\.?/g,'').replace(/[“"]AIA confidential[^”"]*[”"]/g,'').replace(/준법감시인 확인필[^)]+\)/g,'').replace(/판매인교육용|고객제시불가/g,'');
  const meaningful=(body.match(/[\p{Script=Hangul}\p{Script=Latin}\p{Script=Han}0-9]/gu)||[]).length;
- const needsOcr=meaningful<20||bad>=8||bad/Math.max(meaningful,1)>.1;
+ const needsOcr=meaningful<20||bad>=8||bad/Math.max(meaningful,1)>.1||controls>=2||suspectLatin;
  // Never invent replacements for corrupt glyphs; preserve an explicit gap.
- let cleaned='',gap=false;for(const c of text){if(c==='\ufffd'||/[\uE000-\uF8FF]/u.test(c)||foreign(c)){if(!gap)cleaned+='[문자 깨짐]';gap=true;}else{cleaned+=c;gap=false;}}
- return{cleaned,bad,needsOcr,partialReadable:meaningful>0&&bad<8&&bad/meaningful<=.1};
+ let cleaned='',gap=false;for(const c of text){if(corrupt(c)){if(!gap)cleaned+='[문자 깨짐]';gap=true;}else{cleaned+=c;gap=false;}}
+ return{cleaned,bad,needsOcr,partialReadable:meaningful>0&&bad<8&&bad/meaningful<=.1&&controls<2&&!suspectLatin};
 }
 function splitNewsletters(raw,limit=6000){
  const documents=String(raw||'').split(/(?=^--- .+ 추출 내용.*---\s*$)/m).filter(x=>x.trim());const batches=[];
