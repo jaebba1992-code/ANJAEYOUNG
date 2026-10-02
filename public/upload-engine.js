@@ -9,7 +9,7 @@ function inspectText(input){
  const needsOcr=meaningful<20||bad>=8||bad/Math.max(meaningful,1)>.1;
  // Never invent replacements for corrupt glyphs; preserve an explicit gap.
  let cleaned='',gap=false;for(const c of text){if(c==='\ufffd'||/[\uE000-\uF8FF]/u.test(c)||foreign(c)){if(!gap)cleaned+='[문자 깨짐]';gap=true;}else{cleaned+=c;gap=false;}}
- return{cleaned,bad,needsOcr};
+ return{cleaned,bad,needsOcr,partialReadable:meaningful>0&&bad<8&&bad/meaningful<=.1};
 }
 function splitNewsletters(raw,limit=6000){
  const documents=String(raw||'').split(/(?=^--- .+ 추출 내용.*---\s*$)/m).filter(x=>x.trim());const batches=[];

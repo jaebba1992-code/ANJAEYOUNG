@@ -7543,6 +7543,7 @@ async function handlePptxUpload(file, statusId, sourceId, afterUpdate, opts = {}
         extracted += `[슬라이드 ${i + 1} 텍스트]\n${quality.cleaned}${quality.bad ? '\n(※ [문자 깨짐] 부분은 원문 확인이 필요합니다.)' : ''}\n\n`;
         continue;
       }
+      if (quality.partialReadable) extracted += `[슬라이드 ${i + 1} - 짧은 텍스트]\n${quality.cleaned}\n\n`;
       if (opts.skipOcr) { extracted += `[슬라이드 ${i + 1}] (※ 텍스트가 없거나 깨져 무료 추출에서 제외됨)\n\n`; continue; }
       // Read only images actually displayed on this unreadable slide, never all logos/media in the archive.
       const relName = slideFiles[i].replace('ppt/slides/', 'ppt/slides/_rels/') + '.rels';
@@ -7603,6 +7604,7 @@ async function handlePdfUpload(file, statusId, sourceId, afterUpdate, opts = {})
       const textContent = await page.getTextContent();
       const pageText = textContent.items.map(it => it.str + (it.hasEOL ? '\n' : '')).join(' ').trim();
       const quality = UploadEngine.inspectText(pageText);
+      if (quality.needsOcr && quality.partialReadable) extracted += `[p.${p} - 짧은 텍스트]\n${quality.cleaned}\n\n`;
       if (!quality.needsOcr) {
         extracted += `[p.${p}]\n${quality.cleaned}${quality.bad ? '\n(※ 일부 깨진 글자는 복원하지 않았어요. [문자 깨짐] 부분은 원문 확인이 필요합니다.)' : ''}\n\n`;
       } else if (opts.skipOcr) {
