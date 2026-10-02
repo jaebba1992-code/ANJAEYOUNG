@@ -7966,7 +7966,7 @@ async function generateScript() {
       progressText.textContent=saved ? '숏폼 대본 완성 · 기록에 저장했어요.' : '숏폼 대본 완성 · 기록 저장에 실패했어요. 대본을 복사해 보관해주세요.';
       addBundleButton({fullScript:script,contextLine,category});
     } else {
-      resultLabel.textContent = '롱폼 상세 대본';
+      resultLabel.textContent = document.getElementById('scriptLength')?.value === 'detail' ? '롱폼 상세 대본' : '롱폼 완성 대본';
       progressWrap.style.display = 'block';
 
       let researchBlock = '';
@@ -8020,8 +8020,8 @@ async function runLongFormChunks(state) {
 
   while ((state.fullScript.length < state.TARGET_CHARS || !state.hasClosing) && state.chunkIndex < state.MAX_CHUNKS) {
     state.chunkIndex++;
-    progressText.textContent = `작성 중 (${state.fullScript.length.toLocaleString()} / ${state.TARGET_CHARS.toLocaleString()}자) · ${state.chunkIndex}번째 구간`;
-    progressBar.style.width = Math.min(100, Math.round((state.fullScript.length / state.TARGET_CHARS) * 100)) + '%';
+    progressText.textContent = state.singlePass ? '후킹부터 클로징까지 한 번에 작성 중...' : `작성 중 (${state.fullScript.length.toLocaleString()} / ${state.TARGET_CHARS.toLocaleString()}자) · ${state.chunkIndex}번째 구간`;
+    progressBar.style.width = state.singlePass ? '50%' : Math.min(100, Math.round((state.fullScript.length / state.TARGET_CHARS) * 100)) + '%';
 
     const topicsNote = state.coveredTopics.length
       ? `\n\n[이미 다룬 소제목 — 절대 반복 금지]\n${state.coveredTopics.map((t,i)=>`${i+1}. ${t}`).join('\n')}`
