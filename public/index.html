@@ -4923,7 +4923,18 @@ async function readCnPhoto(file) {
     const canvas = document.createElement('canvas');
     canvas.width = Math.max(1,Math.round(img.naturalWidth*scale)); canvas.height = Math.max(1,Math.round(img.naturalHeight*scale));
     canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);
-    return canvas.toDataURL('image/jpeg',.78);
+    let encoded = canvas.toDataURL('image/jpeg',.78);
+    // Ten photos appear in both deck data and saved HTML. Bound the total below the history request limit.
+    let quality = .7;
+    while (encoded.length > 160000) {
+      if (quality >= .5) { encoded = canvas.toDataURL('image/jpeg',quality); quality -= .1; }
+      else {
+        canvas.width = Math.max(1,Math.round(canvas.width*.8)); canvas.height = Math.max(1,Math.round(canvas.height*.8));
+        canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);
+        encoded = canvas.toDataURL('image/jpeg',.6);
+      }
+    }
+    return encoded;
   } finally { URL.revokeObjectURL(url); }
 }
 async function updateCnPhoto(index, createPhoto, status) {
