@@ -141,6 +141,7 @@ function historyContext(apiPost, renderHistory = async () => {}) {
   return { app, node, buttons };
 }
 const completedState = () => ({
+  hasClosing: true,
   fullScript: 'The completed longform script must remain recoverable.',
   TARGET_CHARS: 1, chunkIndex: 1, MAX_CHUNKS: 1, coveredTopics: [],
   citeOn: false, historyId: 123, topic: 'Test topic', category: 'Test category'
