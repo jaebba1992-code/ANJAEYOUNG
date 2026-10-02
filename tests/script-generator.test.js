@@ -43,3 +43,13 @@ test('search toggle off and economical mode are honored by the actual generation
 test('registered product context is limited to four related entries instead of all sixty',async()=>{
  const{c}=setup();c.normalizeForSearch=s=>String(s).replace(/\s/g,'').toLowerCase();c.apiGet=async()=>({items:[{category:'어린이보험',product_name:'성조숙증 담보',reason:'조건 확인'},...Array.from({length:60},(_,i)=>({category:'자동차보험',product_name:'자동차'+i,reason:'x'.repeat(10000)}))]});vm.runInContext(slice('async function buildRecommendationBlock','function findSalonScript'),c);const block=await c.buildRecommendationBlock('성조숙증','어린이보험');assert.ok(block.includes('성조숙증'));assert.ok(!block.includes('자동차'));assert.ok(block.length<3000);
 });
+
+test('default long form completes hook through closing in exactly one paid writing request',async()=>{
+ const {c,node,calls,saved}=setup({format:'long'});await c.generateScript();assert.equal(calls.length,1);assert.match(calls[0][1][0].content,/후킹부터 클로징까지/);assert.equal(calls[0][4],6500);assert.equal(calls[0][2],0);assert.equal(saved.length,1);assert.equal(saved[0].format,'long');assert.match(node('progressText').textContent,/완료/);
+});
+test('failed single pass keeps old result and does not save an unfinished script',async()=>{
+ const {c,node,calls,saved}=setup({format:'long',callClaude:async()=>{throw Error('truncated');}});await c.generateScript();assert.equal(saved.length,0);assert.equal(node('resultBody').innerHTML,'old result');assert.match(node('progressText').textContent,/truncated/);assert.equal(node('genBtn').disabled,false);
+});
+test('concise shared conversion policy prohibits invented services and preserves factual closing',()=>{
+ const c=vm.createContext({intensityGuide:()=> '보통'});vm.runInContext(slice('function salesSystemBlock','function baseSystem'),c);const policy=c.salesSystemBlock();assert.ok(policy.length<1400);assert.match(policy,/기:.*고객 상황/);assert.match(policy,/결:.*한 가지 행동/);assert.match(policy,/서비스.*강점만/);assert.match(policy,/지어내지 않는다/);
+});

@@ -101,7 +101,7 @@ function workflow(options = {}) {
       if (system.includes('JSON만 출력')) return JSON.stringify({ sources: [{ id: '자료1', use: !options.unrelated, reason: '가입 조건 검토', evidence_ids: ['문단1'] }], outline: ['가입 조건', '확인 사항'] });
       return '완성된 글';
     },
-    searchLibrary: () => [], searchCorpus: async () => [], complianceSystemBlock: () => '',
+    searchLibrary: () => [], searchCorpus: async () => [], complianceSystemBlock: () => '', salesSystemBlock: () => '[문의로 이어지는 구성]',
     renderComplianceCheck: () => {}, addToHistory: async () => !options.saveFailure,
     addBlogContinueButton: () => {}, Date, setInterval: () => 1, clearInterval: () => {}
   });
