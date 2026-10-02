@@ -52,9 +52,48 @@ function app(overrides={}) {
   vm.runInContext(source.slice(a,b)+'\n'+source.slice(c,d),context);
   context.prepareCnDeck=async()=>'<section>validated</section>';
   context.renderCnCardEditControls=()=>{};
+  context.renderCnPhotoControls=()=>{};
   context.addToHistory=async()=>true;
   return {context,node};
 }
+test('photos survive history serialization, every theme and text edits without entering AI input',async()=>{
+  const photo={src:'data:image/jpeg;base64,YWJj',opacity:.22,query:'가족'};
+  for(const theme of Object.keys(engine.themes)) {
+    const input=cards();input[1].photo=photo;
+    const deck=engine.prepareDeck(JSON.parse(JSON.stringify({version:4,cards:input})),6);
+    assert.deepEqual(deck.cards[1].photo,photo);
+    assert.equal((engine.renderDeck(deck,theme,'보험즈').match(/data-cn-photo/g)||[]).length,1);
+  }
+  let request;
+  const {context:c,node}=app({callClaude:async(_prompt,messages)=>{request=messages[0].content;return JSON.stringify({...cards()[1],title:'자료 확인하기'});}});
+  c.window.__cnDeck.cards[1].photo=photo;
+  await c.editCnCards([1],'문구 수정',node('status'));
+  assert.deepEqual(c.window.__cnDeck.cards[1].photo,photo);
+  assert.ok(!request.includes('data:image'));
+});
+test('untrusted or oversized image metadata cannot enter saved card markup',()=>{
+  for(const src of ['javascript:alert(1)','https://example.com/a.jpg','data:image/svg+xml;base64,YWJj','data:image/png;base64," onerror="x']) {
+    assert.throws(()=>engine.validateCard({...cards()[0],photo:{src}}),/사진/);
+  }
+  assert.throws(()=>engine.validateCard({...cards()[0],photo:{src:'data:image/png;base64,YWJj',opacity:2}}),/진하기/);
+});
+test('failed photo loading and layout checks preserve the existing deck; removal saves without AI',async()=>{
+  let calls=0;
+  const {context:c,node}=app({callClaude:async()=>{calls++;throw Error('must not call AI');}});
+  const original=c.window.__cnDeck;
+  original.cards[0].photo={src:'data:image/png;base64,YWJj',opacity:.22,query:''};
+  await c.updateCnPhoto(0,async()=>{throw Error('offline');},node('photo-status'));
+  assert.equal(c.window.__cnDeck,original);
+  assert.equal(node('cnPreviewWrap').innerHTML,'original');
+  assert.match(node('photo-status').textContent,/기존 사진은 유지/);
+  const prepare=c.prepareCnDeck;c.prepareCnDeck=async()=>{throw Error('overflow');};
+  await c.updateCnPhoto(0,async()=>null,node('photo-status'));
+  assert.equal(c.window.__cnDeck,original);
+  c.prepareCnDeck=prepare;
+  await c.updateCnPhoto(0,async()=>null,node('photo-status'));
+  assert.equal(c.window.__cnDeck.cards[0].photo,undefined);
+  assert.equal(calls,0);assert.equal(node('cnGenBtn').disabled,false);
+});
 test('invalid generation preserves old preview and unlocks all controls',async()=>{
   const {context:c,node}=app({callClaude:async()=>'{"cards":[]}'});
   await c.generateThemeCardNews();
