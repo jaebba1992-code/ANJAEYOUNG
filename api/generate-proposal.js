@@ -417,33 +417,36 @@ function renderMergedProposal({ title, clientName, agentName, theme, carriers, d
     return {
       ...row,
       __labelLines: labelLines.length ? labelLines : [''],
+      __amountLines: designLabels.map((_,i)=>String(row.amounts?.[i]||'').split('\n')),
       __noteLines: row.__note ? wrapPlainText(row.__note, NOTE_W - 24, 14, 400, 100) : []
     };
   });
   const groups = groupRowsByCategory(cleanRows);
   const resolvedPremiums = premiums.map(resolvePremiumSum);
 
-  const CARRIER_BAND_H = carriers ? 44 : 0;
+  const summaryLines=(premiumBreakdown||[]).flatMap((text,i)=>text?wrapPlainText((designCount>1?designLabels[i]+' · ':'')+text, tableW-48, 16, 700, 100):[]);
+  const CARRIER_BAND_H = summaryLines.length ? 24 + summaryLines.length*24 : carriers ? 44 : 0;
   const CATEGORY_BAND_H = 40;
   let contentHeight = CARRIER_BAND_H + 36;
   groups.forEach(g => {
     contentHeight += CATEGORY_BAND_H;
     g.rows.forEach(row => {
-      contentHeight += Math.max(ROW_H, 24 + Math.max(row.__labelLines.length, row.__noteLines.length) * 21);
+      contentHeight += Math.max(ROW_H, 24 + Math.max(row.__labelLines.length, row.__noteLines.length, ...row.__amountLines.map(x=>x.length)) * 21);
     });
   });
   const totalH = HEADER_H + 20 + contentHeight + FOOTER_H + 40;
 
   const breakdownList = Array.isArray(premiumBreakdown) ? premiumBreakdown : [];
-  const boxes = designLabels.map((label, i) => ({ label, premium: resolvedPremiums[i] || '', breakdown: (breakdownList[i] || '').trim() }));
+  const boxes = designLabels.map((label, i) => ({ label, premium: resolvedPremiums[i] || '', breakdown: '' }));
   let body = headerBannerSvg(theme, agentName, title, clientName, boxes);
 
   let cy = HEADER_H + 20;
 
-  if (carriers) {
+  if (CARRIER_BAND_H) {
     body += `<rect x="${MARGIN}" y="${cy}" width="${tableW}" height="${CARRIER_BAND_H}" rx="6" fill="#${theme.grad[1]}" fill-opacity="0.08"/>`;
     body += `<rect x="${MARGIN}" y="${cy}" width="6" height="${CARRIER_BAND_H}" fill="#${theme.grad[1]}"/>`;
-    body += drawText(carriers, MARGIN + 24, cy + CARRIER_BAND_H / 2 + 6, 20, 800, theme.grad[0]);
+    if(summaryLines.length)summaryLines.forEach((line,i)=>{body += drawText(line, MARGIN+24, cy+28+i*24,16,700,theme.grad[0]);});
+    else body += drawText(carriers, MARGIN + 24, cy + CARRIER_BAND_H / 2 + 6, 20, 800, theme.grad[0]);
     cy += CARRIER_BAND_H + 8;
   }
 
@@ -469,7 +472,7 @@ function renderMergedProposal({ title, clientName, agentName, theme, carriers, d
     cy += CATEGORY_BAND_H;
 
     group.rows.forEach((row, rIdx) => {
-      const lineCount = Math.max(row.__labelLines.length, row.__noteLines.length);
+      const lineCount = Math.max(row.__labelLines.length, row.__noteLines.length, ...row.__amountLines.map(x=>x.length));
       const rowH = Math.max(ROW_H, 24 + lineCount * 21);
       const rowBg = rIdx % 2 === 0 ? 'FFFFFF' : 'FAFAFA';
       body += `<rect x="${MARGIN}" y="${cy}" width="${tableW}" height="${rowH}" fill="#${rowBg}"/>`;
@@ -490,7 +493,8 @@ function renderMergedProposal({ title, clientName, agentName, theme, carriers, d
       designLabels.forEach((label, i) => {
         const cx = amountsStartX + amountColW * i + amountColW / 2;
         const val = amounts[i] || '';
-        body += drawText(val || '-', cx, cy + rowH / 2 + 6, 17, val ? 700 : 400, val ? color.text : 'CCCCCC', { align: 'middle' });
+        const lines=String(val||'-').split('\n');
+        lines.forEach((line,j)=>{body += drawText(line,cx,cy+rowH/2+6-(lines.length-1)*10.5+j*21,17,val?700:400,val?color.text:'CCCCCC',{align:'middle'});});
       });
       if (hasNotes && row.__noteLines.length) {
         const noteY = cy + rowH / 2 - (row.__noteLines.length - 1) * 8.5 + 5;
