@@ -1,4 +1,5 @@
 const { checkAppPassword } = require('./_auth');
+const ProposalEngine = require('../public/proposal-engine');
 const sharp = require('sharp');
 const opentype = require('opentype.js');
 
@@ -216,13 +217,7 @@ function resolvePremiumSum(str) {
 }
 
 // 담보명이 없거나, 모든 안(案)에서 가입금액이 비어있는 행(서비스성 특약 등 비교 의미가 없는 항목)은 제외한다.
-function filterMeaningfulRows(rows) {
-  return rows.filter(row => {
-    if (!row || !row.label) return false;
-    const amounts = Array.isArray(row.amounts) ? row.amounts : [row.amount || ''];
-    return amounts.some(a => a && String(a).trim() && String(a).trim() !== '-');
-  });
-}
+function filterMeaningfulRows(rows) { return rows.filter(row => row && row.label); }
 
 // AI가 프롬프트를 놓쳐도 항상 걸러지도록, 가입방식/심사 관련 필러 토큰을 서버에서 결정론적으로 제거한다.
 const FILLER_TOKENS = ['plus', 'Plus', 'PLUS', '건강고지', '간편가입', '간편', '건강가입', '일반심사형', '일반가입', '무해지'];
@@ -393,7 +388,7 @@ function renderMergedProposal({ title, clientName, agentName, theme, carriers, d
   // AI가 직접 태깅한 row.highlightStar/highlightNote를 우선 사용하고(의미 기반 매칭이라 더 정확),
   // 혹시 없으면 문자열 부분일치로 한 번 더 시도한다 (안전망).
   const cleanRowsRaw = filterMeaningfulRows(rows).map(row => {
-    const cleanLabel = stripFillerTokens(row.label); // AI가 놓친 (plus)/건강고지 등을 여기서 무조건 한 번 더 제거
+    const cleanLabel = String(row.label); // AI가 놓친 (plus)/건강고지 등을 여기서 무조건 한 번 더 제거
     let star = !!row.highlightStar;
     let note = (row.highlightNote || '').trim();
     let isHl = star || !!note;
@@ -401,7 +396,7 @@ function renderMergedProposal({ title, clientName, agentName, theme, carriers, d
       const fallback = matchHighlight(cleanLabel, hlList);
       if (fallback) { star = !!fallback.star; note = (fallback.description || '').trim(); isHl = true; }
     }
-    return { ...row, label: cleanLabel, __isHl: isHl, __star: star, __note: note };
+    return { ...row, label: cleanLabel, __isHl: isHl, __star: star, __note: [row.note,note].filter(Boolean).join(' · ') };
   });
   const hasNotes = cleanRowsRaw.some(r => r.__note);
   const NOTE_W = hasNotes ? 260 : 0;
@@ -418,11 +413,11 @@ function renderMergedProposal({ title, clientName, agentName, theme, carriers, d
   const cleanRows = cleanRowsRaw.map(row => {
     const labelFontSize = 18, labelWeight = 700; // 볼드 요청 반영: 강조 여부와 무관하게 기본도 굵게
     const prefix = row.__isHl && row.__star ? '★ ' : '';
-    const labelLines = wrapPlainText(prefix + (row.label || ''), LABEL_W - 32, labelFontSize, labelWeight, 2);
+    const labelLines = wrapPlainText(prefix + (row.label || ''), LABEL_W - 32, labelFontSize, labelWeight, 100);
     return {
       ...row,
       __labelLines: labelLines.length ? labelLines : [''],
-      __noteLines: row.__note ? wrapPlainText(row.__note, NOTE_W - 24, 14, 400, 2) : []
+      __noteLines: row.__note ? wrapPlainText(row.__note, NOTE_W - 24, 14, 400, 100) : []
     };
   });
   const groups = groupRowsByCategory(cleanRows);
@@ -661,12 +656,13 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: '지원하지 않는 메서드입니다.' });
   }
   try {
-    const { title, clientName, agentName, colorKey, carriers, designLabels, premiums, rows, designs, plans, sections } = req.body || {};
+    const input = ProposalEngine.normalizeData(req.body || {});
+    const { title, clientName, agentName, colorKey, carriers, designLabels, premiums, rows, designs, plans, sections } = input;
     const theme = getColorTheme(colorKey);
 
     let svg;
     if (Array.isArray(rows) && rows.length && Array.isArray(designLabels) && designLabels.length) {
-      svg = renderMergedProposal({ title, clientName, agentName, theme, carriers, designLabels, premiums: premiums || [], premiumBreakdown: req.body.premiumBreakdown, rows, highlights: req.body.highlights });
+      svg = renderMergedProposal({ title, clientName, agentName, theme, carriers, designLabels, premiums: premiums || [], premiumBreakdown: input.premiumBreakdown, rows, highlights: input.highlights });
     } else if (Array.isArray(designs) && designs.length) {
       svg = renderCombinationProposal({ title, clientName, agentName, theme, designs: normalizeDesigns(designs) });
     } else if (Array.isArray(sections) && sections.length) {
