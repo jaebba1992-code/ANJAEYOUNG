@@ -137,6 +137,7 @@ test('reported cost accounts for cache read discounts and both cache write durat
 
 const proposalModule = loadHandler('generate-proposal.js', {
   require(name) {
+    if (name === '../public/proposal-engine') return require('../public/proposal-engine');
     if (name === './_auth') return { checkAppPassword: () => true };
     if (name === 'sharp') return () => { throw new Error('Unexpected image render in premium unit test'); };
     if (name === 'opentype.js') return { parse: () => ({}) };
