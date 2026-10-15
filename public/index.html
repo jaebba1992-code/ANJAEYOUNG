@@ -5758,8 +5758,9 @@ document.getElementById('proposalOutputSelect').addEventListener('change', () =>
 function updateProposalContractTotals(block) {
   for(const total of block.querySelectorAll('.pe-premium')) {
     const i=Number(total.dataset.idx),entries=Array.from(block.querySelectorAll('.pe-contract')).filter(el=>Number(el.dataset.plan)===i);
+    const hadContracts=total.readOnly;
     total.readOnly=entries.length>0;
-    if(!entries.length)continue;
+    if(!entries.length){if(hadContracts){total.value='';const oldDetail=Array.from(block.querySelectorAll('.pe-breakdown')).find(el=>Number(el.dataset.idx)===i);if(oldDetail)oldDetail.value='';}continue;}
     const values=entries.map(el=>({insurer:el.querySelector('.pe-contract-insurer').value.trim(),premiumWon:ProposalEngine.parseWon(el.querySelector('.pe-contract-premium').value,'원'),planIndex:i}));
     const detail=Array.from(block.querySelectorAll('.pe-breakdown')).find(el=>Number(el.dataset.idx)===i);
     if(values.some(c=>c.premiumWon===null)){total.value='보험료 확인 필요';continue;}
