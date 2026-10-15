@@ -5519,23 +5519,23 @@ async function extractMergedProposalData(designInputs, mode, highlights) {
 - 가입금액 열 머리글의 단위를 반드시 읽는다. '가입금액(만원)' 열의 5,000은 5,000만원, 500은 500만원이다. 보험료 열을 가입금액으로 옮기지 않는다.
 - amount에는 원본 금액을 그대로 쓰고 amountUnit은 머리글에 따른 '만원' 또는 '원'을 쓴다. 숫자에 천·백·억이 있으면 그대로 전사한다. 금액을 알 수 없으면 빈 문자열로 남긴다. 추측 금지.
 - 각 행 sourcePage는 이미지 순서(1부터)다. sourceCounts는 각 이미지에서 읽은 가입 담보 행 수다. 출력 rows 수와 대조하고 누락한 행을 보완한다. 같은 상품의 다음 페이지는 별도 계약이 아니다.
-- contracts에는 계약별 월 보험료를 한 번씩만 넣는다. 할인후 초회보험료와 1회 보험료가 같은 계약이면 중복 합산하지 않는다. key는 '계약1' 같은 내부 구분자다. 개인정보와 보험사명은 출력하지 않는다.
-- category는 기본계약/진단비/치료비/수술비/상해관련/간병/기타 중 선택한다. 보험사명과 영어 제목은 쓰지 않는다.
+- contracts에는 계약별 월 보험료를 한 번씩만 넣는다. 할인후 초회보험료와 1회 보험료가 같은 계약이면 중복 합산하지 않는다. key는 '계약1' 같은 내부 구분자다. 개인정보는 출력하지 않는다. contracts.insurer에는 원본에 확인된 보험사명을 정확히 쓰고, 확인되지 않으면 빈 문자열로 둔다. 임의 추측하지 않는다.
+- category는 기본계약/진단비/치료비/수술비/상해관련/간병/기타 중 선택한다. 담보명에는 보험사명을 붙이지 않는다. 보험사명은 contracts.insurer에서만 기록한다. 영어 제목은 쓰지 않는다.
 - 사용자 강조 항목과 실제 같은 담보에만 highlightStar를 붙인다. highlightNote 설명은 원본에 근거가 확인된 경우만 쓰고, 주어진 문구의 보장 조건도 원본과 대조한다. 없는 담보나 약관 조건을 생성하지 않는다.
-JSON 형식: {"sourceCounts":[{"page":1,"count":7}],"contracts":[{"key":"계약1","premium":"30,435원"}],"rows":[{"sourcePage":1,"label":"원본 담보명","category":"기본계약","term":"20년납 / 90세만기","amount":"5천만원","amountUnit":"만원","highlightStar":false,"highlightNote":""}]}`;
-  const rows=[],premiums=[];
+JSON 형식: {"sourceCounts":[{"page":1,"count":7}],"contracts":[{"key":"계약1","insurer":"원본에서 확인된 보험사명","premium":"30,435원"}],"rows":[{"sourcePage":1,"label":"원본 담보명","category":"기본계약","term":"20년납 / 90세만기","amount":"5천만원","amountUnit":"만원","highlightStar":false,"highlightNote":""}]}`;
+  const rows=[],premiums=[],contracts=[];
   for(let i=0;i<designInputs.length;i++) {
     const d=designInputs[i];
     const content=[];
     d.images.forEach((b64,j)=>{content.push({type:'text',text:`[원본 이미지 ${j+1}]`});content.push({type:'image',source:{type:'base64',media_type:'image/jpeg',data:b64}});});
-    content.push({type:'text',text:'강조 요청: '+JSON.stringify(highlights||[])});
+    content.push({type:'text',text:'사용자가 확인한 보험사 목록(이미지별 연결을 추측하지 말 것): '+(d.carriersHint||'없음')+'\n강조 요청: '+JSON.stringify(highlights||[])});
     const raw=await callClaude(system,[{role:'user',content}],0,null,10000,'claude-sonnet-4-6',{rejectTruncated:true});
     const parsed=JSON.parse(raw.replace(/```json|```/g,'').trim());
     if(parsed.sourceCounts?.length!==d.images.length)throw new Error('일부 이미지의 담보 수 확인이 빠졌어요. 원본을 확인해주세요.');
     const plan=ProposalEngine.extractedPlan(parsed,i,designInputs.length);
-    rows.push(...plan.rows);premiums.push(plan.premium);
+    rows.push(...plan.rows);premiums.push(plan.premium);contracts.push(...plan.contracts);
   }
-  return {rows,premiums,carriers:'',premiumBreakdown:designInputs.map(()=> '')};
+  return {rows,premiums,contracts,carriers:[...new Set(contracts.map(c=>c.insurer).filter(Boolean))].join(' + '),premiumBreakdown:designInputs.map((_,i)=>ProposalEngine.premiumSummary({contracts},i))};
 }
 
 document.getElementById('proposalGenBtn').addEventListener('click', async () => {
@@ -5604,7 +5604,7 @@ document.getElementById('proposalGenBtn').addEventListener('click', async () => 
     const data = {
       title: (clientName ? clientName + '님 ' : '') + '맞춤 설계 제안서',
       clientName, agentName, colorKey,
-      carriers, designLabels, premiums, premiumBreakdown, rows: parsed.rows || [], highlights
+      carriers, designLabels, premiums, premiumBreakdown, contracts:parsed.contracts||[], rows: parsed.rows || [], highlights
     };
 
     btn.textContent = outputMode === 'doc' ? '제안서 표 구성 중...' : '제안서 이미지 만드는 중...';
@@ -5638,7 +5638,7 @@ document.getElementById('proposalGenBtn').addEventListener('click', async () => 
       id: Date.now(), topic: data.title, category: clientName || '', format: 'proposal',
       // AI 문서 디자인은 완성된 HTML(docHtml)까지 같이 저장해서, 나중에 "다시 보기"할 때
       // AI를 또 호출하지 않고 저장된 결과를 그대로 보여줄 수 있게 한다(비용 절감).
-      script: JSON.stringify({ data, outputMode, accentKey, docHtml: savedDocHtml, rendererVersion:2 })
+      script: JSON.stringify({ data, outputMode, accentKey, docHtml: savedDocHtml, rendererVersion:3 })
     });
   } catch (err) {
     statusEl.textContent = '';
@@ -5755,7 +5755,27 @@ document.getElementById('proposalOutputSelect').addEventListener('change', () =>
   document.getElementById('proposalDocOnlyFields').style.display = isDoc ? 'block' : 'none';
 });
 
+function updateProposalContractTotals(block) {
+  for(const total of block.querySelectorAll('.pe-premium')) {
+    const i=Number(total.dataset.idx),entries=Array.from(block.querySelectorAll('.pe-contract')).filter(el=>Number(el.dataset.plan)===i);
+    total.readOnly=entries.length>0;
+    if(!entries.length)continue;
+    const values=entries.map(el=>({insurer:el.querySelector('.pe-contract-insurer').value.trim(),premiumWon:ProposalEngine.parseWon(el.querySelector('.pe-contract-premium').value,'원'),planIndex:i}));
+    const detail=Array.from(block.querySelectorAll('.pe-breakdown')).find(el=>Number(el.dataset.idx)===i);
+    if(values.some(c=>c.premiumWon===null)){total.value='보험료 확인 필요';continue;}
+    total.value=values.reduce((n,c)=>n+c.premiumWon,0).toLocaleString('ko-KR')+'원';
+    if(detail)detail.value=ProposalEngine.premiumSummary({contracts:values},i);
+  }
+}
+function proposalContractEditorRow(c, planIndex) {
+  return `<div class="pe-contract" data-plan="${planIndex}" style="display:flex;gap:8px;margin:8px 0;align-items:center;">
+    <input class="pe-contract-insurer" aria-label="보험사명" placeholder="보험사명" value="${escapeHtml(c.insurer||'')}">
+    <input class="pe-contract-premium" aria-label="월 보험료" placeholder="월 보험료(원)" value="${escapeHtml(c.premiumWon != null ? c.premiumWon.toLocaleString('ko-KR')+'원' : c.premium||'')}">
+    <button type="button" class="mini-btn pe-remove-contract">삭제</button></div>`;
+}
 function populateProposalEditor(data) {
+  const normalized=ProposalEngine.normalizeData(data);
+  data={...data,premiums:normalized.premiums,premiumBreakdown:normalized.premiumBreakdown};
   document.getElementById('peTitle').value = data.title || '';
   document.getElementById('peClientName').value = data.clientName || '';
   document.getElementById('peAgentName').value = data.agentName || '';
@@ -5770,6 +5790,13 @@ function populateProposalEditor(data) {
     </div>
   `).join('');
 
+  designsBlock.innerHTML += '<p style="font-size:12px;">보험사별 보험료를 입력하면 합계가 자동 계산됩니다. 확인되지 않은 보험사명은 직접 확인해 주세요.</p>' + designLabels.map((label,i)=>`<div class="pe-contract-group"><b>${escapeHtml(label)} 보험사별 내역</b>${(data.contracts||[]).filter(c=>(c.planIndex??0)===i).map(c=>proposalContractEditorRow(c,i)).join('')}<button type="button" class="mini-btn pe-add-contract" data-plan="${i}">보험사 보험료 추가</button></div>`).join('');
+  designsBlock.onclick = event => {
+    const remove=event.target.closest('.pe-remove-contract');if(remove){remove.closest('.pe-contract').remove();updateProposalContractTotals(designsBlock);return;}
+    const add=event.target.closest('.pe-add-contract');if(add){add.insertAdjacentHTML('beforebegin',proposalContractEditorRow({},Number(add.dataset.plan)));updateProposalContractTotals(designsBlock);}
+  };
+  designsBlock.oninput=()=>updateProposalContractTotals(designsBlock);
+  updateProposalContractTotals(designsBlock);
   window.__peDesignCount = designLabels.length;
   window.__peDesignLabels = designLabels;
 
@@ -5826,13 +5853,15 @@ document.getElementById('peRerenderBtn').addEventListener('click', async () => {
     highlightNote: wrap.querySelector('.pe-note').value.trim()
   })).filter(r => r.label);
 
+  const contracts=Array.from(document.querySelectorAll('.pe-contract')).map((el,i)=>({key:'수정계약'+i,planIndex:Number(el.dataset.plan),insurer:el.querySelector('.pe-contract-insurer').value.trim(),premium:el.querySelector('.pe-contract-premium').value.trim()}));
+  if(contracts.some(c=>ProposalEngine.parseWon(c.premium,'원')===null)){alert('보험사별 월 보험료를 원 단위 숫자로 확인해주세요.');return;}
   const data = {
     ...base,
     title: document.getElementById('peTitle').value.trim() || base.title,
     clientName: document.getElementById('peClientName').value.trim(),
     agentName: document.getElementById('peAgentName').value.trim(),
     carriers: document.getElementById('peCarriers').value.trim(),
-    premiums, premiumBreakdown, rows
+    premiums, premiumBreakdown, contracts, rows
   };
 
   btn.disabled = true;
@@ -5859,7 +5888,7 @@ document.getElementById('peRerenderBtn').addEventListener('click', async () => {
     statusEl.textContent = '수정 완료!';
     await addToHistory({
       id: Date.now(), topic: data.title, category: data.clientName || '', format: 'proposal',
-      script: JSON.stringify({ data, outputMode: window.__proposalOutputMode, accentKey: window.__proposalAccentKey, docHtml: savedDocHtml, rendererVersion:2 })
+      script: JSON.stringify({ data, outputMode: window.__proposalOutputMode, accentKey: window.__proposalAccentKey, docHtml: savedDocHtml, rendererVersion:3 })
     });
   } catch (e) {
     statusEl.textContent = '';
@@ -5915,7 +5944,7 @@ async function renderProposalHistory() {
           document.getElementById('proposalImageResultWrap').style.display = 'none';
           document.getElementById('proposalDownloadBtn').style.display = 'none';
           document.getElementById('pdPreviewWrap').style.display = 'none';
-          if (parsed.docHtml && parsed.rendererVersion === 2) {
+          if (parsed.docHtml && parsed.rendererVersion === 3) {
             // 이미 완성된 문서가 저장돼 있으면 AI를 다시 부르지 않고 그대로 보여준다 (비용 없음)
             showSavedProposalDoc(parsed.docHtml);
           } else {
